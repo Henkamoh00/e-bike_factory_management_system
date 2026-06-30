@@ -1,25 +1,50 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .. import crud, models, schemas
+from typing import List
+
 from ..database import get_db
+from .. import crud, schemas
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"]
+)
 
-@router.get("/dashboard/")
-def get_dashboard(db: Session = Depends(get_db)):
+
+# ====================== الإحصائيات ======================
+@router.get("/stats", response_model=schemas.DashboardStats)
+def get_dashboard_stats(db: Session = Depends(get_db)):
     return crud.get_dashboard_stats(db)
 
-@router.get("/chassis/{chassis_number}")
-def get_chassis_history(chassis_number: str, db: Session = Depends(get_db)):
-    records = db.query(models.AssemblyRecord).filter(models.AssemblyRecord.chassis_number == chassis_number).all()
-    sale = db.query(models.Sale).filter(models.Sale.chassis_number == chassis_number).first()
-    faults = db.query(models.Fault).filter(models.Fault.chassis_number == chassis_number).all()
-    return {"assembly_records": records, "sale": sale, "faults": faults}
 
-@router.post("/sales/")
+# ====================== المبيعات ======================
+@router.post("/sales/", response_model=schemas.SaleResponse)
 def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
-    # Check if already sold
-    existing = db.query(models.Sale).filter(models.Sale.chassis_number == sale.chassis_number).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="هذه الدراجة مباعة مسبقاً")
-    return crud.create_sale(db, sale)
+    try:
+        return crud.create_sale(db, sale)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/sales/", response_model=List[schemas.SaleResponse])
+def get_all_sales(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+    """عرض كل المبيعات"""
+    return crud.get_sales(db, skip=skip, limit=limit)
+
+
+# ====================== الأعطال ======================
+@router.post("/faults/", response_model=schemas.FaultResponse)
+def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db)):
+    return crud.create_fault(db, fault)
+
+
+@router.get("/faults/", response_model=List[schemas.FaultResponse])
+def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """عرض كل الأعطال"""
+    return crud.get_all_faults(db, skip=skip, limit=limit)
+
+
+# ====================== بحث كامل ======================
+@router.get("/chassis/{chassis_number}")
+def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db)):
+    return crud.get_full_chassis_history(db, chassis_number)

@@ -47,6 +47,17 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     pass
 
+class SaleResponse(BaseModel):
+    id: int
+    chassis_number: str
+    customer_id: int
+    customer_name: Optional[str] = None
+    sale_date: datetime
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 class Customer(CustomerBase):
     id: int
     created_at: datetime
@@ -85,6 +96,7 @@ class FaultResponse(BaseModel):
     id: int
     chassis_number: str
     description: str
+    worker_name: str | None = None
     reported_date: datetime
     status: str
 

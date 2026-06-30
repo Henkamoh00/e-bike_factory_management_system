@@ -1,14 +1,14 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
+import router from './router'
 
-createApp(App).mount('#app')
 
+const app = createApp(App)
 
-// import { createApp } from 'vue'
-// import App from './App.vue'
-// import router from './router'
+app.use(router)
 
-// const app = createApp(App)
-// app.use(router)
-// app.mount('#app')
+// يمكن إضافة global properties لاحقاً
+// app.config.globalProperties.$API = 'http://localhost:8000'
+
+app.mount('#app')
