@@ -8,8 +8,18 @@ from .models import AssemblyStage
 class WorkerBase(BaseModel):
     name: str
 
-class WorkerCreate(WorkerBase):
-    pass
+class WorkerCreate(BaseModel):
+    name: str
+    phone: str | None = None
+ 
+class WorkerResponse(BaseModel):
+    id: int
+    name: str
+    phone: str | None = None
+ 
+    class Config:
+        from_attributes = True
+ 
 
 class Worker(WorkerBase):
     id: int

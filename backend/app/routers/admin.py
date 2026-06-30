@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from ..database import get_db
-from .. import crud, schemas
+from .. import crud, schemas, models
 
 router = APIRouter(
     prefix="/admin",
@@ -48,3 +48,79 @@ def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
 @router.get("/chassis/{chassis_number}")
 def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db)):
     return crud.get_full_chassis_history(db, chassis_number)
+
+
+
+# ── العمال ──────────────────────────────────────────────────────────────────
+@router.get("/workers/")
+def get_workers(db: Session = Depends(get_db)):
+    workers = db.query(models.Worker).all()
+    result = []
+    for w in workers:
+        records = db.query(models.AssemblyRecord).filter(
+            models.AssemblyRecord.worker_id == w.id
+        ).all()
+        stages_summary = {}
+        for r in records:
+            stage_val = r.stage.value if hasattr(r.stage, 'value') else r.stage
+            stages_summary[stage_val] = stages_summary.get(stage_val, 0) + 1
+        result.append({
+            "id":             w.id,
+            "name":           w.name,
+            "phone":          getattr(w, 'phone', None),
+            "total_records":  len(records),
+            "stages_summary": stages_summary,
+            "records": [
+                {
+                    "id":             r.id,
+                    "chassis_number": r.chassis_number,
+                    "stage":          r.stage.value if hasattr(r.stage, 'value') else r.stage,
+                    "timestamp":      r.timestamp,
+                }
+                for r in records
+            ],
+        })
+    return result
+ 
+ 
+@router.post("/workers/")
+def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Worker).filter(models.Worker.name == worker.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="العامل موجود مسبقاً")
+    return crud.get_or_create_worker(db, worker.name)
+ 
+ 
+# ── العملاء ──────────────────────────────────────────────────────────────────
+@router.get("/customers/")
+def get_customers(db: Session = Depends(get_db)):
+    customers = db.query(models.Customer).all()
+    result = []
+    for c in customers:
+        sales = db.query(models.Sale).filter(models.Sale.customer_id == c.id).all() \
+                if hasattr(models.Sale, 'customer_id') else \
+                db.query(models.Sale).filter(models.Sale.customer_name == c.name).all()
+        result.append({
+            "id":               c.id,
+            "name":             c.name,
+            "phone":            c.phone,
+            "address":          c.address,
+            "total_purchases":  len(sales),
+            "sales": [
+                {
+                    "id":             s.id,
+                    "chassis_number": s.chassis_number,
+                    "sale_date":      s.sale_date,
+                }
+                for s in sales
+            ],
+        })
+    return result
+ 
+ 
+@router.post("/customers/")
+def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Customer).filter(models.Customer.name == customer.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="العميل موجود مسبقاً")
+    return crud.create_customer(db, customer)

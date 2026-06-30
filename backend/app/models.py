@@ -14,6 +14,7 @@ class Worker(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
+    phone = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     assemblies = relationship("AssemblyRecord", back_populates="worker")
