@@ -13,7 +13,7 @@
 
         <div class="flex items-center gap-3 flex-wrap text-lg font-medium">
           <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'active-tab' : ''" class="tab-btn">الإحصائيات</button>
-          <!-- <button @click="switchTab('search')"    :class="activeTab === 'search'    ? 'active-tab' : ''" class="tab-btn">بحث عن دراجة</button> -->
+          <button @click="switchTab('search')"    :class="activeTab === 'search'    ? 'active-tab' : ''" class="tab-btn">بحث عن دراجة</button>
           <button @click="switchTab('sales')"     :class="activeTab === 'sales'     ? 'active-tab' : ''" class="tab-btn">المبيعات</button>
           <button @click="switchTab('faults')"    :class="activeTab === 'faults'    ? 'active-tab' : ''" class="tab-btn">الأعطال</button>
           <button @click="switchTab('workers')"   :class="activeTab === 'workers'   ? 'active-tab' : ''" class="tab-btn">العمال</button>
@@ -98,18 +98,19 @@
       <!-- 3. المبيعات -->
       <div v-else-if="activeTab === 'sales'">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-3xl font-bold">المبيعات</h2>
+          <h2 class="text-3xl font-bold">الملغعلبيعات</h2>
           <button @click="showSaleModal = true" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl font-medium">+ تسجيل بيع جديد</button>
         </div>
 
         <!-- فلاتر المبيعات -->
         <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
           <div>
-            <label class="block text-sm text-gray-500 mb-1">تصفية بالعميل</label>
-            <select v-model="salesFilter.customer_name" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none">
-              <option value="">كل العملاء</option>
-              <option v-for="c in customersList" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <SearchableSelect
+              v-model="salesFilter.customer_name"
+              :options="customerOptions"
+              label="تصفية بالعميل"
+              empty-label="كل العملاء"
+            />
           </div>
           <div>
             <label class="block text-sm text-gray-500 mb-1">من تاريخ</label>
@@ -149,19 +150,20 @@
         <!-- فلاتر الأعطال -->
         <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
           <div>
-            <label class="block text-sm text-gray-500 mb-1">تصفية بالحالة</label>
-            <select v-model="faultsFilter.status" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none">
-              <option value="">كل الحالات</option>
-              <option value="pending">معلق</option>
-              <option value="resolved">تم إصلاحه</option>
-            </select>
+            <SearchableSelect
+              v-model="faultsFilter.status"
+              :options="statusOptions"
+              label="تصفية بالحالة"
+              empty-label="كل الحالات"
+            />
           </div>
           <div>
-            <label class="block text-sm text-gray-500 mb-1">تصفية بالعامل</label>
-            <select v-model="faultsFilter.worker_id" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none">
-              <option value="">كل العمال</option>
-              <option v-for="w in workersList" :key="w.id" :value="w.id">{{ w.name }}</option>
-            </select>
+            <SearchableSelect
+              v-model="faultsFilter.worker_name"
+              :options="workerOptions"
+              label="تصفية بالعامل"
+              empty-label="كل العمال"
+            />
           </div>
           <button @click="resetFilter('faults')" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
         </div>
@@ -196,13 +198,12 @@
         <!-- فلاتر العمال -->
         <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
           <div>
-            <label class="block text-sm text-gray-500 mb-1">تصفية بنوع المرحلة</label>
-            <select v-model="workersFilter.stage" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none">
-              <option value="">كل المراحل</option>
-              <option value="تجميع_الهيكل">تجميع الهيكل</option>
-              <option value="توصيل_الكهرباء_والغلاف">توصيل الكهرباء والغلاف</option>
-              <option value="تجميع_كامل">تجميع كامل</option>
-            </select>
+            <SearchableSelect
+              v-model="workersFilter.stage"
+              :options="stageOptions"
+              label="تصفية بنوع المرحلة"
+              empty-label="كل المراحل"
+            />
           </div>
           <button @click="resetFilter('workers')" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
         </div>
@@ -248,9 +249,12 @@
         <!-- فلاتر العملاء -->
         <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
           <div>
-            <label class="block text-sm text-gray-500 mb-1">بحث باسم العميل</label>
-            <input v-model="customersFilter.name" type="text" placeholder="اسم العميل..."
-              class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+            <SearchableSelect
+              v-model="customersFilter.name"
+              :options="customerOptions"
+              label="بحث باسم العميل"
+              empty-label="كل العملاء"
+            />
           </div>
           <button @click="resetFilter('customers')" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
         </div>
@@ -335,8 +339,20 @@
       </div>
     </div>
 
-    <SaleModal   v-if="showSaleModal"   @close="showSaleModal = false"   @success="handleSaleSuccess" />
-    <FaultModal  v-if="showFaultModal"  @close="showFaultModal = false"  @success="handleFaultSuccess" />
+    <SaleModal
+    v-if="showSaleModal"
+    :customers-list="customersList"
+    :chassis-list="availableChassisList"
+    @close="showSaleModal = false"
+    @success="handleSaleSuccess"
+    />
+
+    <FaultModal
+      v-if="showFaultModal"
+      :chassis-list="allChassisList"
+      @close="showFaultModal = false"
+      @success="handleFaultSuccess"
+    />
   </div>
 </template>
 
@@ -345,6 +361,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import SaleModal  from '../components/SaleModal.vue'
 import FaultModal from '../components/FaultModal.vue'
+import SearchableSelect from '../components/SearchableSelect.vue'
 
 const router    = useRouter()
 const activeTab = ref('dashboard')
@@ -358,15 +375,37 @@ const stats          = ref({ total_chassis: 0, completed: 0, in_progress: 0, sol
 const searchQuery    = ref('')
 const chassisHistory = ref(null)
 const salesList      = ref([])
+const availableChassisList = ref([])
 const faultsList     = ref([])
+const allChassisList = ref([])
 const workersList    = ref([])
 const customersList  = ref([])
 
 // ── فلاتر ──────────────────────────────────────────────────────────────────
 const salesFilter     = ref({ customer_name: '', date_from: '', date_to: '' })
-const faultsFilter    = ref({ status: '', worker_id: '' })
+const faultsFilter    = ref({ status: '', worker_name: '' })
 const workersFilter   = ref({ stage: '' })
 const customersFilter = ref({ name: '' })
+
+// ── تحويل القوائم لصيغة SearchableSelect ────────────────────────────────────
+const customerOptions = computed(() =>
+  customersList.value.map(c => ({ label: c.name, value: c.name }))
+)
+
+const workerOptions = computed(() =>
+  workersList.value.map(w => ({ label: w.name, value: w.name }))
+)
+
+const statusOptions = [
+  { label: 'معلق', value: 'pending' },
+  { label: 'تم إصلاحه', value: 'resolved' },
+]
+
+const stageOptions = [
+  { label: 'تجميع الهيكل', value: 'تجميع_الهيكل' },
+  { label: 'توصيل الكهرباء والغلاف', value: 'توصيل_الكهرباء_والغلاف' },
+  { label: 'تجميع كامل', value: 'تجميع_كامل' },
+]
 
 // ── نماذج الإضافة ───────────────────────────────────────────────────────────
 const workerForm   = ref({ name: '', phone: '' })
@@ -385,7 +424,7 @@ const filteredSales = computed(() => {
 const filteredFaults = computed(() => {
   return faultsList.value.filter(f => {
     if (faultsFilter.value.status    && f.status    !== faultsFilter.value.status)    return false
-    if (faultsFilter.value.worker_id && f.worker_id !== faultsFilter.value.worker_id) return false
+    if (faultsFilter.value.worker_name && f.worker_name !== faultsFilter.value.worker_name) return false
     return true
   })
 })
@@ -401,9 +440,9 @@ const filteredWorkers = computed(() => {
 })
 
 const filteredCustomers = computed(() => {
-  const q = customersFilter.value.name.trim().toLowerCase()
-  if (!q) return customersList.value
-  return customersList.value.filter(c => c.name.toLowerCase().includes(q))
+  const name = customersFilter.value.name
+  if (!name) return customersList.value
+  return customersList.value.filter(c => c.name === name)
 })
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -421,7 +460,7 @@ const goToWorkshop = () => router.push('/')
 
 const resetFilter = (type) => {
   if (type === 'sales')     salesFilter.value     = { customer_name: '', date_from: '', date_to: '' }
-  if (type === 'faults')    faultsFilter.value    = { status: '', worker_id: '' }
+  if (type === 'faults')    faultsFilter.value    = { status: '', worker_name: '' }
   if (type === 'workers')   workersFilter.value   = { stage: '' }
   if (type === 'customers') customersFilter.value = { name: '' }
 }
@@ -431,7 +470,7 @@ const API = 'http://localhost:8000'
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/dashboard/`)
+    const res = await fetch(`${API}/api/admin/stats/`)
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
 }
@@ -447,16 +486,30 @@ const searchChassis = async () => {
 
 const loadSales = async () => {
   try {
-    const res = await fetch(`${API}/admin/sales/`)
+    const res = await fetch(`${API}/api/admin/sales/`)
     if (res.ok) salesList.value = await res.json()
   } catch (e) { console.error('مبيعات', e) }
 }
 
+const loadAvailableChassis = async () => {
+  try {
+    const res = await fetch(`${API}/api/admin/chassis/available`)
+    if (res.ok) availableChassisList.value = await res.json()
+  } catch (e) { console.error('هياكل متاحة', e) }
+}
+
 const loadFaults = async () => {
   try {
-    const res = await fetch(`${API}/admin/faults/`)
+    const res = await fetch(`${API}/api/admin/faults/`)
     if (res.ok) faultsList.value = await res.json()
   } catch (e) { console.error('أعطال', e) }
+}
+
+const loadAllChassis = async () => {
+  try {
+    const res = await fetch(`${API}/api/admin/chassis/all`)
+    if (res.ok) allChassisList.value = await res.json()
+  } catch (e) { console.error('كل الهياكل', e) }
 }
 
 const loadWorkers = async () => {
@@ -517,7 +570,9 @@ const handleFaultSuccess = () => { showFaultModal.value = false; loadFaults() }
 onMounted(() => {
   loadStats()
   loadSales()
+  loadAvailableChassis()
   loadFaults()
+  loadAllChassis()
   loadWorkers()
   loadCustomers()
 })

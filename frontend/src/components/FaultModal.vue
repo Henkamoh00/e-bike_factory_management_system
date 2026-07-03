@@ -3,8 +3,17 @@
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4">
       <div class="p-8">
         <h2 class="text-2xl font-bold mb-6 text-red-600">تسجيل عطل جديد</h2>
-        
-        <input v-model="form.chassis_number" placeholder="رقم الهيكل" class="w-full p-4 border rounded-2xl mb-4" />
+
+        <div class="mb-4">
+          <SearchableSelect
+            v-model="form.chassis_number"
+            :options="chassisOptions"
+            label="رقم الهيكل"
+            placeholder="اختر رقم الهيكل"
+            :allow-empty="false"
+          />
+        </div>
+
         <textarea v-model="form.description" placeholder="وصف العطل بالتفصيل" class="w-full p-4 border rounded-2xl h-32"></textarea>
       </div>
 
@@ -19,10 +28,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import SearchableSelect from './SearchableSelect.vue'
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
+
+const props = defineProps({
+  chassisList: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const chassisOptions = computed(() =>
+  props.chassisList.map(cn => ({ label: cn, value: cn }))
+)
 
 const form = ref({
   chassis_number: '',
@@ -38,7 +59,7 @@ const submit = async () => {
   loading.value = true
 
   try {
-    const res = await fetch('http://localhost:8000/admin/faults/', {
+    const res = await fetch('http://localhost:8000/api/admin/faults/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)

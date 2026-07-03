@@ -24,8 +24,8 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(workshop.router)
-app.include_router(admin.router)
+app.include_router(workshop.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/")

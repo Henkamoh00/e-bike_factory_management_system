@@ -55,6 +55,7 @@ class Fault(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     chassis_number = Column(String, index=True, nullable=False)
+    worker_id = Column(Integer, ForeignKey("workers.id"))
     description = Column(String, nullable=False)
     reported_date = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String, default="pending")  # pending, fixed

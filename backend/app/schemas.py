@@ -57,17 +57,6 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     pass
 
-class SaleResponse(BaseModel):
-    id: int
-    chassis_number: str
-    customer_id: int
-    customer_name: Optional[str] = None
-    sale_date: datetime
-    notes: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
 class Customer(CustomerBase):
     id: int
     created_at: datetime
@@ -83,6 +72,7 @@ class SaleCreate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    sale_date: Optional[datetime] = None
 
 class SaleResponse(BaseModel):
     id: int

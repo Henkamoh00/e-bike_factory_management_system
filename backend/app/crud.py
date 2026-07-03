@@ -172,7 +172,8 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
     db_sale = models.Sale(
         chassis_number=sale.chassis_number,
         customer_id=customer.id,
-        notes=sale.notes
+        notes=sale.notes,
+        **({"sale_date": sale.sale_date} if sale.sale_date else {})
     )
     db.add(db_sale)
     db.commit()
@@ -191,6 +192,40 @@ def get_sales(db: Session, skip: int = 0, limit: int = 50):
         sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
 
     return sales
+
+
+# ====================== CHASSIS (متاح للبيع) ======================
+def get_available_chassis(db: Session):
+    """
+    يرجع أرقام الهياكل المكتملة التجميع (لها مرحلة 'تجميع_كامل')
+    ولم تُباع بعد.
+    """
+    sold_subquery = db.query(models.Sale.chassis_number).subquery()
+
+    chassis_numbers = (
+        db.query(models.AssemblyRecord.chassis_number)
+        .filter(models.AssemblyRecord.stage == models.AssemblyStage.FINAL_ASSEMBLY)
+        .filter(models.AssemblyRecord.chassis_number.notin_(sold_subquery))
+        .distinct()
+        .order_by(models.AssemblyRecord.chassis_number)
+        .all()
+    )
+    return [c[0] for c in chassis_numbers]
+
+
+# ====================== CHASSIS (كل الهياكل) ======================
+def get_all_chassis_numbers(db: Session):
+    """
+    يرجع كل أرقام الهياكل التي دخلت النظام (لها سجل تجميع واحد على الأقل)
+    بغض النظر عن حالة البيع أو اكتمال التجميع.
+    """
+    chassis_numbers = (
+        db.query(models.AssemblyRecord.chassis_number)
+        .distinct()
+        .order_by(models.AssemblyRecord.chassis_number)
+        .all()
+    )
+    return [c[0] for c in chassis_numbers]
 
 
 # ====================== FAULTS ======================

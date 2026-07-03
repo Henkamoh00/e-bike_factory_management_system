@@ -44,11 +44,19 @@ def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
     return crud.get_all_faults(db, skip=skip, limit=limit)
 
 
-# ====================== بحث كامل ======================
+# ====================== بحث عن الهيكل ======================
+@router.get("/chassis/all")
+def get_all_chassis_list(db: Session = Depends(get_db)):
+    return crud.get_all_chassis_numbers(db)
+
+@router.get("/chassis/available")
+def get_available_chassis_list(db: Session = Depends(get_db)):
+    return crud.get_available_chassis(db)
+
+
 @router.get("/chassis/{chassis_number}")
 def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db)):
     return crud.get_full_chassis_history(db, chassis_number)
-
 
 
 # ── العمال ──────────────────────────────────────────────────────────────────
