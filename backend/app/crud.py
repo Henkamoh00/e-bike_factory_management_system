@@ -5,134 +5,41 @@ from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 from . import workshop_crud
 
-# ====================== WORKERS ======================
-def get_or_create_worker(db: Session, name: str):
-    worker = db.query(models.Worker).filter(models.Worker.name == name).first()
-    if not worker:
-        worker = models.Worker(name=name)
-        db.add(worker)
-        db.commit()
-        db.refresh(worker)
-    return worker
+# ====================== WORKERS (تقرير للوحة الإدارة) ======================
+def get_workers_with_records(db: Session):
+    """
+    يرجع كل العمال (الأحدث أولاً) مع ملخص سجلات التجميع الخاصة بكل عامل.
+    """
+    workers = db.query(models.Worker)\
+                .order_by(desc(models.Worker.id))\
+                .all()
 
-
-def get_workers(db: Session):
-    return db.query(models.Worker).order_by(models.Worker.name).all()
-
-
-# ====================== ASSEMBLY RECORDS ======================
-
-STAGE_LABELS = {
-    "تجميع_الهيكل": "تجميع الهيكل",
-    "توصيل_الكهرباء_والغلاف": "توصيل الكهرباء والغلاف",
-    "تجميع_كامل": "تجميع كامل",
-}
-
-STAGE_ASSEMBLY = "تجميع_الهيكل"
-STAGE_COVER    = "توصيل_الكهرباء_والغلاف"
-STAGE_COMPLETE = "تجميع_كامل"
-
-def _label(stage: str) -> str:
-    return STAGE_LABELS.get(stage, stage)
-
-def _is_chassis_complete(records: list) -> bool:
-    stages = {r.stage for r in records}
-    return (
-        STAGE_COMPLETE in stages
-        or (STAGE_ASSEMBLY in stages and STAGE_COVER in stages)
-    )
-
-
-def create_assembly_record(
-    db: Session,
-    assembly: schemas.AssemblyCreate,
-    force: bool = False,
-):
-    stage = assembly.stage.value if hasattr(assembly.stage, 'value') else assembly.stage
-    worker = get_or_create_worker(db, assembly.worker_name)
-
-    all_records = db.query(models.AssemblyRecord)\
-        .filter(models.AssemblyRecord.chassis_number == assembly.chassis_number)\
-        .all()
-
-    existing_stages = {r.stage for r in all_records}
-
-    # ... (الكود الأصلي الخاص بك كاملاً دون تغيير) ...
-    if STAGE_COMPLETE in existing_stages and stage != STAGE_COMPLETE:
-        raise HTTPException(
-            status_code=409,
-            detail=f"🚫 الهيكل ({assembly.chassis_number}) مسجَّل بمرحلة '{_label(STAGE_COMPLETE)}' — لا يمكن إضافة أي مرحلة أخرى."
-        )
-
-    if stage == STAGE_COMPLETE and STAGE_ASSEMBLY in existing_stages:
-        raise HTTPException(
-            status_code=409,
-            detail=f"🚫 الهيكل ({assembly.chassis_number}) يمتلك سجل '{_label(STAGE_ASSEMBLY)}' مسبقاً."
-        )
-
-    if _is_chassis_complete(all_records):
-        raise HTTPException(
-            status_code=409,
-            detail=f"🚫 الهيكل رقم ({assembly.chassis_number}) مكتمل مسبقاً. لا يمكن إضافة أي سجل جديد."
-        )
-
-    if stage == STAGE_COVER and STAGE_ASSEMBLY not in existing_stages:
-        raise HTTPException(
-            status_code=422,
-            detail=f"⛔ لا يمكن تسجيل '{_label(STAGE_COVER)}' قبل '{_label(STAGE_ASSEMBLY)}'."
-        )
-
-    # باقي المنطق الأصلي الخاص بك...
-    same_stage_records = [r for r in all_records if r.stage == stage]
-
-    if same_stage_records:
-        same_stage_same_worker = [r for r in same_stage_records if r.worker_id == worker.id]
-        if same_stage_same_worker:
-            rec = same_stage_same_worker[0]
-            rec.timestamp = func.now()
-            db.commit()
-            db.refresh(rec)
-            return rec
-
-        if not force:
-            existing_worker_name = same_stage_records[0].worker.name if same_stage_records[0].worker else "غير معروف"
-            raise HTTPException(
-                status_code=409,
-                detail=f"⚠️ مرحلة '{_label(stage)}' للهيكل ({assembly.chassis_number}) سبق أن قام بها '{existing_worker_name}'. هل أنت متأكد من تسجيلها باسم '{assembly.worker_name}'؟",
-                headers={"X-Confirm-Required": "true"},
-            )
-
-        # Force update
-        rec = same_stage_records[0]
-        rec.worker_id = worker.id
-        rec.timestamp = func.now()
-        db.commit()
-        db.refresh(rec)
-        return rec
-
-    # سجل جديد
-    record = models.AssemblyRecord(
-        chassis_number=assembly.chassis_number,
-        worker_id=worker.id,
-        stage=stage,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return record
-
-
-def get_assembly_records(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.AssemblyRecord)\
-              .order_by(desc(models.AssemblyRecord.timestamp))\
-              .offset(skip).limit(limit).all()
-
-
-def get_assembly_by_chassis(db: Session, chassis_number: str):
-    return db.query(models.AssemblyRecord)\
-              .filter(models.AssemblyRecord.chassis_number == chassis_number)\
-              .order_by(models.AssemblyRecord.timestamp).all()
-
+    result = []
+    for w in workers:
+        records = db.query(models.AssemblyRecord).filter(
+            models.AssemblyRecord.worker_id == w.id
+        ).all()
+        stages_summary = {}
+        for r in records:
+            stage_val = r.stage.value if hasattr(r.stage, 'value') else r.stage
+            stages_summary[stage_val] = stages_summary.get(stage_val, 0) + 1
+        result.append({
+            "id":             w.id,
+            "name":           w.name,
+            "phone":          getattr(w, 'phone', None),
+            "total_records":  len(records),
+            "stages_summary": stages_summary,
+            "records": [
+                {
+                    "id":             r.id,
+                    "chassis_number": r.chassis_number,
+                    "stage":          r.stage.value if hasattr(r.stage, 'value') else r.stage,
+                    "timestamp":      r.timestamp,
+                }
+                for r in records
+            ],
+        })
+    return result
 
 # ====================== CUSTOMERS ======================
 def create_customer(db: Session, customer: schemas.CustomerCreate):
@@ -239,7 +146,7 @@ def get_available_chassis(db: Session):
     available = [
         chassis_number
         for chassis_number, records in records_by_chassis.items()
-        if _is_chassis_complete(records) and chassis_number not in sold_numbers
+        if workshop_crud.is_chassis_complete(records) and chassis_number not in sold_numbers
     ]
 
     return sorted(available)
@@ -330,7 +237,7 @@ def get_dashboard_stats(db: Session):
 
     completed = sum(
         1 for records in records_by_chassis.values()
-        if _is_chassis_complete(records)
+        if workshop_crud.is_chassis_complete(records)
     )
 
     # عدد المبيعات
@@ -352,7 +259,7 @@ def get_dashboard_stats(db: Session):
 
 def get_full_chassis_history(db: Session, chassis_number: str):
 
-    assembly_records = get_assembly_by_chassis(
+    assembly_records = workshop_crud.get_assembly_by_chassis(
         db,
         chassis_number
     )

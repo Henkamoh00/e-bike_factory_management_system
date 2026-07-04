@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from ..database import get_db
-from .. import schemas, crud
+from .. import schemas, crud, workshop_crud
 
 router = APIRouter(
     prefix="/workshop",
@@ -13,12 +13,12 @@ router = APIRouter(
 
 @router.post("/record", response_model=schemas.AssemblyResponse)
 def create_assembly_record(
-    assembly: schemas.AssemblyCreate, 
+    assembly: schemas.AssemblyCreate,
     force: bool = Query(default=False, description="تجاوز تحذير العامل المختلف بعد تأكيد المسؤول"),
     db: Session = Depends(get_db)
 ):
     try:
-        record = crud.create_assembly_record(db=db, assembly=assembly, force=force)
+        record = workshop_crud.create_assembly_record(db=db, assembly=assembly, force=force)
         return record
     except HTTPException as e:
         raise e
@@ -28,12 +28,17 @@ def create_assembly_record(
 
 @router.get("/records", response_model=List[schemas.AssemblyResponse])
 def get_records(db: Session = Depends(get_db)):
-    records = crud.get_assembly_records(db)
-    # إضافة اسم العامل لكل سجل
+    records = workshop_crud.get_assembly_records(db)
     for record in records:
         if record.worker:
             record.worker_name = record.worker.name
     return records
+
+
+@router.get("/workers")
+def get_workers(db: Session = Depends(get_db)):
+    workers = workshop_crud.get_workers(db)
+    return [{"id": w.id, "name": w.name} for w in workers]
 
 
 @router.get("/history/{chassis_number}", response_model=schemas.ChassisHistoryResponse)

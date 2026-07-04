@@ -33,7 +33,7 @@ STAGE_COMPLETE = "تجميع_كامل"
 def _label(stage: str) -> str:
     return STAGE_LABELS.get(stage, stage)
 
-def _is_chassis_complete(records: list) -> bool:
+def is_chassis_complete(records: list) -> bool:
     stages = {r.stage for r in records}
     return (
         STAGE_COMPLETE in stages
@@ -68,7 +68,7 @@ def create_assembly_record(
             detail=f"🚫 الهيكل ({assembly.chassis_number}) يمتلك سجل '{_label(STAGE_ASSEMBLY)}' مسبقاً."
         )
 
-    if _is_chassis_complete(all_records):
+    if is_chassis_complete(all_records):
         raise HTTPException(
             status_code=409,
             detail=f"🚫 الهيكل رقم ({assembly.chassis_number}) مكتمل مسبقاً. لا يمكن إضافة أي سجل جديد."

@@ -285,31 +285,13 @@
           </div>
         </div>
       </div>
-
     </div>
 
-    <!-- Modal إضافة عامل -->
-    <div v-if="showWorkerModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
-        <h3 class="text-xl font-bold mb-6">إضافة عامل جديد</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">اسم العامل</label>
-            <input v-model="workerForm.name" type="text" placeholder="الاسم الكامل"
-              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">رقم الهاتف (اختياري)</label>
-            <input v-model="workerForm.phone" type="text" placeholder="05xxxxxxxx"
-              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-          </div>
-        </div>
-        <div class="flex gap-3 mt-6">
-          <button @click="submitWorker" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold">حفظ</button>
-          <button @click="showWorkerModal = false" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-xl font-bold">إلغاء</button>
-        </div>
-      </div>
-    </div>
+    <WorkerFormModal
+      v-if="showWorkerModal"
+      @close="showWorkerModal = false"
+      @success="handleWorkerFormSuccess"
+    />
 
     <CustomerFormModal
       v-if="showCustomerModal"
@@ -341,6 +323,7 @@ import { useRouter } from 'vue-router'
 import SaleModal  from '../components/SaleModal.vue'
 import FaultModal from '../components/FaultModal.vue'
 import CustomerFormModal from '../components/CustomerFormModal.vue'
+import WorkerFormModal from '../components/WorkerFormModal.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
 const router    = useRouter()
@@ -386,9 +369,6 @@ const stageOptions = [
   { label: 'توصيل الكهرباء والغلاف', value: 'توصيل_الكهرباء_والغلاف' },
   { label: 'تجميع كامل', value: 'تجميع_كامل' },
 ]
-
-// ── نماذج الإضافة ───────────────────────────────────────────────────────────
-const workerForm   = ref({ name: '', phone: '' })
 
 
 // ── Computed مع الفلاتر ─────────────────────────────────────────────────────
@@ -506,29 +486,11 @@ const loadCustomers = async () => {
   } catch (e) { console.error('عملاء', e) }
 }
 
-const submitWorker = async () => {
-  if (!workerForm.value.name.trim()) { alert('يرجى إدخال اسم العامل'); return }
-  try {
-    const res = await fetch(`${API}/api/admin/workers/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(workerForm.value)
-    })
-    if (res.ok) {
-      showWorkerModal.value = false
-      workerForm.value = { name: '', phone: '' }
-      await loadWorkers()
-    } else {
-      const d = await res.json()
-      alert('❌ ' + (d.detail || 'حدث خطأ'))
-    }
-  } catch (e) { alert('خطأ في الاتصال') }
-}
-
 
 const handleSaleSuccess  = () => { showSaleModal.value  = false; loadSales() }
 const handleFaultSuccess = () => { showFaultModal.value = false; loadFaults() }
 const handleCustomerFormSuccess = () => { showCustomerModal.value = false; loadCustomers() }
+const handleWorkerFormSuccess = () => { showWorkerModal.value = false; loadWorkers() }
 
 onMounted(() => {
   loadStats()
