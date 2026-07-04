@@ -1,9 +1,5 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-800">بحث عن دراجة</h2>
-    </div>
-
     <!-- فلاتر -->
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
@@ -15,6 +11,7 @@
           class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none font-mono"
         />
       </div>
+
       <div>
         <SearchableSelect
           v-model="filters.status"
@@ -23,6 +20,16 @@
           empty-label="الكل"
         />
       </div>
+
+      <div v-if="props.showWorkerFilter">
+        <SearchableSelect
+          v-model="filters.worker_name"
+          :options="workerOptions"
+          label="تصفية بالعامل"
+          empty-label="كل العمال"
+        />
+      </div>
+
       <button @click="resetFilters" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
@@ -123,12 +130,29 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import SearchableSelect from '../../shared/SearchableSelect.vue'
+import SearchableSelect from './SearchableSelect.vue'
 
-const API = 'http://localhost:8000'
+const props = defineProps({
+  summaryEndpoint: { type: String, required: true },   // مسار جلب الملخص (يختلف بين admin/workshop)
+  historyEndpoint: { type: String, required: true },    // مسار جلب التفاصيل (نفس المسار بالطرفين فعليًا)
+
+  workersList: {
+    type: Array,
+    default: () => []
+  },
+
+  showWorkerFilter: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const chassisList = ref([])
-const filters = ref({ chassis_number: '', status: '' })
+const filters = ref({
+  chassis_number: '',
+  status: '',
+  worker_name: ''
+})
 
 const selectedChassis = ref(null)
 const loadingDetails = ref(false)
@@ -140,6 +164,13 @@ const statusOptions = [
   { label: 'به عطل معلق', value: 'has_fault' },
 ]
 
+const workerOptions = computed(() =>
+  props.workersList.map(w => ({
+    label: w.name,
+    value: w.name
+  }))
+)
+
 const filteredChassis = computed(() => {
   return chassisList.value.filter(c => {
     if (filters.value.chassis_number && !c.chassis_number.toLowerCase().includes(filters.value.chassis_number.toLowerCase())) return false
@@ -147,11 +178,18 @@ const filteredChassis = computed(() => {
     if (filters.value.status === 'sold' && !c.is_sold) return false
     if (filters.value.status === 'in_progress' && c.is_complete) return false
     if (filters.value.status === 'has_fault' && c.pending_faults_count === 0) return false
+    if (filters.value.worker_name && !(c.workers || []).includes(filters.value.worker_name)) return false
     return true
   })
 })
 
-const resetFilters = () => { filters.value = { chassis_number: '', status: '' } }
+const resetFilters = () => {
+  filters.value = {
+    chassis_number: '',
+    status: '',
+    worker_name: ''
+  }
+}
 
 const getStageName = (stage) => {
   const names = {
@@ -164,7 +202,7 @@ const getStageName = (stage) => {
 
 const loadChassisSummary = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/chassis/summary`)
+    const res = await fetch(props.summaryEndpoint)
     if (res.ok) chassisList.value = await res.json()
   } catch (e) { console.error('ملخص الهياكل', e) }
 }
@@ -173,7 +211,7 @@ const openDetails = async (chassisNumber) => {
   loadingDetails.value = true
   selectedChassis.value = { chassis_number: chassisNumber }
   try {
-    const res = await fetch(`${API}/api/workshop/history/${chassisNumber}`)
+    const res = await fetch(`${props.historyEndpoint}/${chassisNumber}`)
     if (res.ok) {
       selectedChassis.value = await res.json()
     } else {
@@ -187,6 +225,8 @@ const openDetails = async (chassisNumber) => {
     loadingDetails.value = false
   }
 }
+
+defineExpose({ loadChassisSummary })
 
 onMounted(() => {
   loadChassisSummary()

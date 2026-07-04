@@ -27,7 +27,7 @@
     <div class="max-w-7xl mx-auto px-6 py-10">
       <DashboardStatsTab v-if="activeTab === 'dashboard'" :stats="stats" />
 
-      <SearchTab v-else-if="activeTab === 'search'" />
+      <Review v-else-if="activeTab === 'search'" />
 
       <SalesTab
         v-else-if="activeTab === 'sales'"
@@ -96,7 +96,7 @@ import CustomerFormModal from '../components/admin/modals/CustomerFormModal.vue'
 import WorkerFormModal from '../components/admin/modals/WorkerFormModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
-import SearchTab from '../components/admin/tabs/SearchTab.vue'
+import Review from '../components/admin/tabs/Review.vue'
 import SalesTab from '../components/admin/tabs/SalesTab.vue'
 import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'

@@ -172,7 +172,11 @@ def get_chassis_summary(db: Session):
     يرجع ملخصًا لكل هيكل دخل النظام: حالة الاكتمال، حالة البيع،
     وعدد الأعطال المعلقة.
     """
-    all_records = db.query(models.AssemblyRecord).all()
+    all_records = (
+        db.query(models.AssemblyRecord)
+        .options(joinedload(models.AssemblyRecord.worker))
+        .all()
+    )
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
@@ -193,6 +197,11 @@ def get_chassis_summary(db: Session):
         sale = sold_map.get(chassis_number)
         faults = faults_by_chassis.get(chassis_number, [])
         pending_faults = [f for f in faults if f.status == "pending"]
+        workers = sorted({
+            r.worker.name
+            for r in records
+            if r.worker
+        })
 
         summary.append({
             "chassis_number": chassis_number,
@@ -202,6 +211,7 @@ def get_chassis_summary(db: Session):
             "pending_faults_count": len(pending_faults),
             "total_faults_count": len(faults),
             "last_updated": max(r.timestamp for r in records),
+            "workers": workers,
         })
 
     return sorted(summary, key=lambda x: x["chassis_number"])

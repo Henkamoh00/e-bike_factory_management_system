@@ -47,3 +47,7 @@ def get_chassis_history(chassis_number: str, db: Session = Depends(get_db)):
     if not history["assembly_history"] and not history["sale"] and not history["faults"]:
         raise HTTPException(status_code=404, detail="لم يتم العثور على هذا الهيكل")
     return history
+
+@router.get("/chassis/summary")
+def get_chassis_summary_list(db: Session = Depends(get_db)):
+    return crud.get_chassis_summary(db)
