@@ -102,28 +102,7 @@ def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db)):
 # ── العملاء ──────────────────────────────────────────────────────────────────
 @router.get("/customers/")
 def get_customers(db: Session = Depends(get_db)):
-    customers = db.query(models.Customer).all()
-    result = []
-    for c in customers:
-        sales = db.query(models.Sale).filter(models.Sale.customer_id == c.id).all() \
-                if hasattr(models.Sale, 'customer_id') else \
-                db.query(models.Sale).filter(models.Sale.customer_name == c.name).all()
-        result.append({
-            "id":               c.id,
-            "name":             c.name,
-            "phone":            c.phone,
-            "address":          c.address,
-            "total_purchases":  len(sales),
-            "sales": [
-                {
-                    "id":             s.id,
-                    "chassis_number": s.chassis_number,
-                    "sale_date":      s.sale_date,
-                }
-                for s in sales
-            ],
-        })
-    return result
+    return crud.get_customers_with_sales(db)
  
  
 @router.post("/customers/")

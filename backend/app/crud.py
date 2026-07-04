@@ -3,7 +3,7 @@ from sqlalchemy import func, desc
 from . import models, schemas
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
-
+from . import workshop_crud
 
 # ====================== WORKERS ======================
 def get_or_create_worker(db: Session, name: str):
@@ -147,8 +147,35 @@ def create_customer(db: Session, customer: schemas.CustomerCreate):
     return db_customer
 
 
-def get_customers(db: Session, skip: int = 0, limit: int = 50):
-    return db.query(models.Customer).offset(skip).limit(limit).all()
+def get_customers_with_sales(db: Session):
+    """
+    يرجع كل العملاء (الأحدث أولاً) مع تفاصيل مشترياتهم.
+    """
+    customers = db.query(models.Customer)\
+                  .order_by(models.Customer.id.desc())\
+                  .all()
+
+    result = []
+    for c in customers:
+        sales = db.query(models.Sale).filter(models.Sale.customer_id == c.id).all() \
+                if hasattr(models.Sale, 'customer_id') else \
+                db.query(models.Sale).filter(models.Sale.customer_name == c.name).all()
+        result.append({
+            "id":               c.id,
+            "name":             c.name,
+            "phone":            c.phone,
+            "address":          c.address,
+            "total_purchases":  len(sales),
+            "sales": [
+                {
+                    "id":             s.id,
+                    "chassis_number": s.chassis_number,
+                    "sale_date":      s.sale_date,
+                }
+                for s in sales
+            ],
+        })
+    return result
 
 
 # ====================== SALES ======================
@@ -196,20 +223,26 @@ def get_sales(db: Session, skip: int = 0, limit: int = 50):
 # ====================== CHASSIS (متاح للبيع) ======================
 def get_available_chassis(db: Session):
     """
-    يرجع أرقام الهياكل المكتملة التجميع (لها مرحلة 'تجميع_كامل')
+    يرجع أرقام الهياكل المكتملة التجميع (سواء عبر 'تجميع_كامل'
+    أو عبر 'تجميع_الهيكل' + 'توصيل_الكهرباء_والغلاف' معًا)
     ولم تُباع بعد.
     """
-    sold_subquery = db.query(models.Sale.chassis_number).subquery()
+    sold_numbers = {s[0] for s in db.query(models.Sale.chassis_number).all()}
 
-    chassis_numbers = (
-        db.query(models.AssemblyRecord.chassis_number)
-        .filter(models.AssemblyRecord.stage == models.AssemblyStage.FINAL_ASSEMBLY)
-        .filter(models.AssemblyRecord.chassis_number.notin_(sold_subquery))
-        .distinct()
-        .order_by(models.AssemblyRecord.chassis_number)
-        .all()
-    )
-    return [c[0] for c in chassis_numbers]
+    all_records = db.query(models.AssemblyRecord).all()
+
+    # تجميع السجلات حسب رقم الهيكل
+    records_by_chassis = {}
+    for r in all_records:
+        records_by_chassis.setdefault(r.chassis_number, []).append(r)
+
+    available = [
+        chassis_number
+        for chassis_number, records in records_by_chassis.items()
+        if _is_chassis_complete(records) and chassis_number not in sold_numbers
+    ]
+
+    return sorted(available)
 
 
 # ====================== CHASSIS (كل الهياكل) ======================
@@ -285,18 +318,24 @@ def get_all_faults(db: Session, skip: int = 0, limit: int = 100):
 # ====================== DASHBOARD ======================
 def get_dashboard_stats(db: Session):
     """إحصائيات لوحة الإدارة - نسخة محسنة وأكثر دقة"""
-    
-    # إجمالي الهياكل الفريدة
-    total_chassis = db.query(func.count(models.AssemblyRecord.chassis_number.distinct())).scalar() or 0
-    
-    # الدراجات المكتملة (لها مرحلة التجميع الكامل)
-    completed = db.query(func.count(models.AssemblyRecord.chassis_number.distinct())).filter(
-        models.AssemblyRecord.stage == models.AssemblyStage.FINAL_ASSEMBLY
-    ).scalar() or 0
-    
+
+    all_records = db.query(models.AssemblyRecord).all()
+
+    # تجميع السجلات حسب رقم الهيكل
+    records_by_chassis = {}
+    for r in all_records:
+        records_by_chassis.setdefault(r.chassis_number, []).append(r)
+
+    total_chassis = len(records_by_chassis)
+
+    completed = sum(
+        1 for records in records_by_chassis.values()
+        if _is_chassis_complete(records)
+    )
+
     # عدد المبيعات
     sold = db.query(func.count(models.Sale.id)).scalar() or 0
-    
+
     # الأعطال المعلقة
     pending_faults = db.query(func.count(models.Fault.id)).filter(
         models.Fault.status == "pending"
@@ -357,30 +396,3 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         "sale": sale,
         "faults": faults
     }
-
-
-# ====================== إضافات جديدة للإدارة ======================
-def get_all_assemblies(db: Session, skip: int = 0, limit: int = 100):
-    """عرض كل عمليات التجميع (للوحة الإدارة)"""
-    return get_assembly_records(db, skip, limit)
-
-
-# ====================== دوال إضافية للوحة الإدارة ======================
-
-def get_total_assemblies(db: Session):
-    """عدد كل عمليات التجميع"""
-    return db.query(models.AssemblyRecord).count()
-
-
-def get_completed_chassis(db: Session):
-    """عدد الدراجات المكتملة"""
-    return db.query(models.AssemblyRecord).filter(
-        models.AssemblyRecord.stage == models.AssemblyStage.FINAL_ASSEMBLY
-    ).distinct(models.AssemblyRecord.chassis_number).count()
-
-
-def get_pending_faults(db: Session):
-    """عدد الأعطال المعلقة"""
-    return db.query(models.Fault).filter(
-        models.Fault.status == "pending"
-    ).count()
