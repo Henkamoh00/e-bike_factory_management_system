@@ -62,7 +62,7 @@
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
-  modelValue: { type: String, default: '' },
+  modelValue: { type: [String, Number], default: '' },
   options: { type: Array, default: () => [] },
   label: { type: String, default: '' },
   placeholder: { type: String, default: 'اختر...' },

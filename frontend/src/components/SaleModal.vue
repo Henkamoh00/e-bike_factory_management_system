@@ -14,15 +14,22 @@
           />
         </div>
 
-        <div class="mb-4">
+        <div class="mb-2">
           <SearchableSelect
-            v-model="form.customer_name"
+            v-model="form.customer_id"
             :options="customerOptions"
             label="العميل"
             placeholder="اختر العميل"
             :allow-empty="false"
           />
         </div>
+        <button
+          type="button"
+          @click="showCustomerForm = true"
+          class="text-sm text-indigo-600 hover:text-indigo-800 underline mb-4"
+        >
+          + إضافة عميل جديد
+        </button>
 
         <div class="mb-4">
           <label class="block text-sm text-gray-500 mb-1">تاريخ البيع (اختياري)</label>
@@ -45,15 +52,24 @@
         </button>
       </div>
     </div>
+
+    <!-- مودال إضافة عميل متداخل -->
+    <CustomerFormModal
+      v-if="showCustomerForm"
+      @close="showCustomerForm = false"
+      @success="handleCustomerAdded"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import SearchableSelect from './SearchableSelect.vue'
+import CustomerFormModal from './CustomerFormModal.vue'
 
-const emit = defineEmits(['close', 'success'])
+const emit = defineEmits(['close', 'success', 'customer-added'])
 const loading = ref(false)
+const showCustomerForm = ref(false)
 
 const props = defineProps({
   customersList: { type: Array, default: () => [] },
@@ -61,31 +77,36 @@ const props = defineProps({
 })
 
 const customerOptions = computed(() =>
-  props.customersList.map(c => ({ label: c.name, value: c.name }))
+  props.customersList.map(c => ({ label: c.name, value: c.id }))
 )
 
 const chassisOptions = computed(() =>
   props.chassisList.map(cn => ({ label: cn, value: cn }))
 )
 
-const today = new Date().toISOString().split('T')[0] // يمنع اختيار تاريخ مستقبلي
+const today = new Date().toISOString().split('T')[0]
 
 const form = ref({
   chassis_number: '',
-  customer_name: '',
-  sale_date: '',   // ← جديد، فارغ افتراضيًا
+  customer_id: '',
+  sale_date: '',
   notes: ''
 })
 
+const handleCustomerAdded = (newCustomer) => {
+  showCustomerForm.value = false
+  form.value.customer_id = newCustomer.id   // يُختار تلقائيًا
+  emit('customer-added')                    // يبلّغ الأب يحدّث customersList
+}
+
 const submit = async () => {
-  if (!form.value.chassis_number || !form.value.customer_name) {
-    alert('رقم الهيكل واسم العميل مطلوبان')
+  if (!form.value.chassis_number || !form.value.customer_id) {
+    alert('رقم الهيكل والعميل مطلوبان')
     return
   }
 
   loading.value = true
 
-  // نبني الـ payload ونحذف sale_date إذا فارغ، حتى الباك اند يستخدم القيمة الافتراضية (الآن)
   const payload = { ...form.value }
   if (!payload.sale_date) delete payload.sale_date
 

@@ -98,7 +98,7 @@
       <!-- 3. المبيعات -->
       <div v-else-if="activeTab === 'sales'">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-3xl font-bold">الملغعلبيعات</h2>
+          <h2 class="text-3xl font-bold">المبيعات</h2>
           <button @click="showSaleModal = true" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl font-medium">+ تسجيل بيع جديد</button>
         </div>
 
@@ -311,40 +311,19 @@
       </div>
     </div>
 
-    <!-- Modal إضافة عميل -->
-    <div v-if="showCustomerModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl">
-        <h3 class="text-xl font-bold mb-6">إضافة عميل جديد</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">اسم العميل</label>
-            <input v-model="customerForm.name" type="text" placeholder="الاسم الكامل"
-              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">رقم الهاتف</label>
-            <input v-model="customerForm.phone" type="text" placeholder="05xxxxxxxx"
-              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">العنوان (اختياري)</label>
-            <input v-model="customerForm.address" type="text" placeholder="المدينة / الحي"
-              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-          </div>
-        </div>
-        <div class="flex gap-3 mt-6">
-          <button @click="submitCustomer" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold">حفظ</button>
-          <button @click="showCustomerModal = false" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-xl font-bold">إلغاء</button>
-        </div>
-      </div>
-    </div>
+    <CustomerFormModal
+      v-if="showCustomerModal"
+      @close="showCustomerModal = false"
+      @success="handleCustomerFormSuccess"
+    />
 
     <SaleModal
-    v-if="showSaleModal"
-    :customers-list="customersList"
-    :chassis-list="availableChassisList"
-    @close="showSaleModal = false"
-    @success="handleSaleSuccess"
+      v-if="showSaleModal"
+      :customers-list="customersList"
+      :chassis-list="availableChassisList"
+      @close="showSaleModal = false"
+      @success="handleSaleSuccess"
+      @customer-added="loadCustomers"
     />
 
     <FaultModal
@@ -361,6 +340,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import SaleModal  from '../components/SaleModal.vue'
 import FaultModal from '../components/FaultModal.vue'
+import CustomerFormModal from '../components/CustomerFormModal.vue'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
 const router    = useRouter()
@@ -409,7 +389,7 @@ const stageOptions = [
 
 // ── نماذج الإضافة ───────────────────────────────────────────────────────────
 const workerForm   = ref({ name: '', phone: '' })
-const customerForm = ref({ name: '', phone: '', address: '' })
+
 
 // ── Computed مع الفلاتر ─────────────────────────────────────────────────────
 const filteredSales = computed(() => {
@@ -545,27 +525,10 @@ const submitWorker = async () => {
   } catch (e) { alert('خطأ في الاتصال') }
 }
 
-const submitCustomer = async () => {
-  if (!customerForm.value.name.trim()) { alert('يرجى إدخال اسم العميل'); return }
-  try {
-    const res = await fetch(`${API}/api/admin/customers/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(customerForm.value)
-    })
-    if (res.ok) {
-      showCustomerModal.value = false
-      customerForm.value = { name: '', phone: '', address: '' }
-      await loadCustomers()
-    } else {
-      const d = await res.json()
-      alert('❌ ' + (d.detail || 'حدث خطأ'))
-    }
-  } catch (e) { alert('خطأ في الاتصال') }
-}
 
 const handleSaleSuccess  = () => { showSaleModal.value  = false; loadSales() }
 const handleFaultSuccess = () => { showFaultModal.value = false; loadFaults() }
+const handleCustomerFormSuccess = () => { showCustomerModal.value = false; loadCustomers() }
 
 onMounted(() => {
   loadStats()
