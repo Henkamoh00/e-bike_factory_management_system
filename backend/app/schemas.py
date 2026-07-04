@@ -68,9 +68,7 @@ class Customer(CustomerBase):
 # ====================== SALE ======================
 class SaleCreate(BaseModel):
     chassis_number: str
-    customer_name: str
-    phone: Optional[str] = None
-    address: Optional[str] = None
+    customer_id: int
     notes: Optional[str] = None
     sale_date: Optional[datetime] = None
 

@@ -153,8 +153,7 @@ def get_customers(db: Session, skip: int = 0, limit: int = 50):
 
 # ====================== SALES ======================
 def create_sale(db: Session, sale: schemas.SaleCreate):
-    """تسجيل بيع جديد"""
-    # التحقق من وجود الدراجة
+    """تسجيل بيع جديد لعميل موجود مسبقاً (يُحدَّد عبر customer_id)"""
     existing_sale = db.query(models.Sale).filter(
         models.Sale.chassis_number == sale.chassis_number
     ).first()
@@ -162,16 +161,16 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
     if existing_sale:
         raise ValueError("هذه الدراجة تم بيعها مسبقاً")
 
-    # إنشاء العميل أو الحصول عليه
-    customer = create_customer(db, schemas.CustomerCreate(
-        name=sale.customer_name,
-        phone=sale.phone,
-        address=sale.address
-    ))
+    customer = db.query(models.Customer).filter(
+        models.Customer.id == sale.customer_id
+    ).first()
+
+    if not customer:
+        raise ValueError("العميل المحدد غير موجود")
 
     db_sale = models.Sale(
         chassis_number=sale.chassis_number,
-        customer_id=customer.id,
+        customer_id=sale.customer_id,
         notes=sale.notes,
         **({"sale_date": sale.sale_date} if sale.sale_date else {})
     )
