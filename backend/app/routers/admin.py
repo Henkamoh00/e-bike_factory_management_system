@@ -53,6 +53,9 @@ def get_all_chassis_list(db: Session = Depends(get_db)):
 def get_available_chassis_list(db: Session = Depends(get_db)):
     return crud.get_available_chassis(db)
 
+@router.get("/chassis/summary")
+def get_chassis_summary_list(db: Session = Depends(get_db)):
+    return crud.get_chassis_summary(db)
 
 @router.get("/chassis/{chassis_number}")
 def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db)):

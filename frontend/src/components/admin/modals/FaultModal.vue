@@ -29,7 +29,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import SearchableSelect from './SearchableSelect.vue'
+import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)

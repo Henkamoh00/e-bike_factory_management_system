@@ -101,8 +101,8 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import SearchableSelect from './SearchableSelect.vue'
-import WorkerFormModal from './WorkerFormModal.vue'
+import SearchableSelect from '../../shared/SearchableSelect.vue'
+import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
 
 const emit = defineEmits(['close', 'success', 'worker-added'])
 const loading = ref(false)

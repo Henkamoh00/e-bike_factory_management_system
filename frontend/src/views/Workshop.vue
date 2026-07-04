@@ -92,8 +92,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AssemblyFormModal from '../components/AssemblyFormModal.vue'
-import SearchableSelect from '../components/SearchableSelect.vue'
+import AssemblyFormModal from '../components/workshop/modals/AssemblyFormModal.vue'
+import SearchableSelect from '../components/shared/SearchableSelect.vue'
 
 const router = useRouter()
 

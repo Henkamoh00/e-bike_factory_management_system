@@ -166,6 +166,46 @@ def get_all_chassis_numbers(db: Session):
     )
     return [c[0] for c in chassis_numbers]
 
+# ====================== CHASSIS (ملخص شامل للوحة الإدارة) ======================
+def get_chassis_summary(db: Session):
+    """
+    يرجع ملخصًا لكل هيكل دخل النظام: حالة الاكتمال، حالة البيع،
+    وعدد الأعطال المعلقة.
+    """
+    all_records = db.query(models.AssemblyRecord).all()
+    records_by_chassis = {}
+    for r in all_records:
+        records_by_chassis.setdefault(r.chassis_number, []).append(r)
+
+    sold_map = {
+        s.chassis_number: s
+        for s in db.query(models.Sale).options(joinedload(models.Sale.customer)).all()
+    }
+
+    all_faults = db.query(models.Fault).all()
+    faults_by_chassis = {}
+    for f in all_faults:
+        faults_by_chassis.setdefault(f.chassis_number, []).append(f)
+
+    summary = []
+    for chassis_number, records in records_by_chassis.items():
+        is_complete = workshop_crud.is_chassis_complete(records)
+        sale = sold_map.get(chassis_number)
+        faults = faults_by_chassis.get(chassis_number, [])
+        pending_faults = [f for f in faults if f.status == "pending"]
+
+        summary.append({
+            "chassis_number": chassis_number,
+            "is_complete": is_complete,
+            "is_sold": sale is not None,
+            "customer_name": sale.customer.name if sale and sale.customer else None,
+            "pending_faults_count": len(pending_faults),
+            "total_faults_count": len(faults),
+            "last_updated": max(r.timestamp for r in records),
+        })
+
+    return sorted(summary, key=lambda x: x["chassis_number"])
+
 
 # ====================== FAULTS ======================
 def create_fault(db: Session, fault: schemas.FaultCreate):

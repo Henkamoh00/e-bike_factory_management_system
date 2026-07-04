@@ -64,8 +64,8 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import SearchableSelect from './SearchableSelect.vue'
-import CustomerFormModal from './CustomerFormModal.vue'
+import SearchableSelect from '../../shared/SearchableSelect.vue'
+import CustomerFormModal from '../../admin/modals/CustomerFormModal.vue'
 
 const emit = defineEmits(['close', 'success', 'customer-added'])
 const loading = ref(false)
