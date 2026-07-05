@@ -64,7 +64,7 @@ const submit = async () => {
 
   loading.value = true
   try {
-    const res = await fetch('http://localhost:8000/api/admin/workers/', {
+    const res = await fetch('http://localhost:8000/api/workers/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)

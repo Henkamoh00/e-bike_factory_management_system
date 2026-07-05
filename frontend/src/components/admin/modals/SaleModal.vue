@@ -111,7 +111,7 @@ const submit = async () => {
   if (!payload.sale_date) delete payload.sale_date
 
   try {
-    const res = await fetch('http://localhost:8000/api/admin/sales/', {
+    const res = await fetch('http://localhost:8000/api/sales/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

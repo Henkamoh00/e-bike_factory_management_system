@@ -21,7 +21,7 @@
         />
       </div>
 
-      <div v-if="props.showWorkerFilter">
+      <div>
         <SearchableSelect
           v-model="filters.worker_name"
           :options="workerOptions"
@@ -130,21 +130,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import SearchableSelect from './SearchableSelect.vue'
+import SearchableSelect from '../../shared/SearchableSelect.vue'
+
+const API = 'http://localhost:8000'
 
 const props = defineProps({
-  summaryEndpoint: { type: String, required: true },   // مسار جلب الملخص (يختلف بين admin/workshop)
-  historyEndpoint: { type: String, required: true },    // مسار جلب التفاصيل (نفس المسار بالطرفين فعليًا)
-
-  workersList: {
-    type: Array,
-    default: () => []
-  },
-
-  showWorkerFilter: {
-    type: Boolean,
-    default: false
-  }
+  workersList: { type: Array, default: () => [] }
 })
 
 const chassisList = ref([])
@@ -165,10 +156,7 @@ const statusOptions = [
 ]
 
 const workerOptions = computed(() =>
-  props.workersList.map(w => ({
-    label: w.name,
-    value: w.name
-  }))
+  props.workersList.map(w => ({ label: w.name, value: w.name }))
 )
 
 const filteredChassis = computed(() => {
@@ -184,11 +172,7 @@ const filteredChassis = computed(() => {
 })
 
 const resetFilters = () => {
-  filters.value = {
-    chassis_number: '',
-    status: '',
-    worker_name: ''
-  }
+  filters.value = { chassis_number: '', status: '', worker_name: '' }
 }
 
 const getStageName = (stage) => {
@@ -202,7 +186,7 @@ const getStageName = (stage) => {
 
 const loadChassisSummary = async () => {
   try {
-    const res = await fetch(props.summaryEndpoint)
+    const res = await fetch(`${API}/api/chassis/summary`)
     if (res.ok) chassisList.value = await res.json()
   } catch (e) { console.error('ملخص الهياكل', e) }
 }
@@ -211,7 +195,7 @@ const openDetails = async (chassisNumber) => {
   loadingDetails.value = true
   selectedChassis.value = { chassis_number: chassisNumber }
   try {
-    const res = await fetch(`${props.historyEndpoint}/${chassisNumber}`)
+    const res = await fetch(`${API}/api/chassis/${chassisNumber}`)
     if (res.ok) {
       selectedChassis.value = await res.json()
     } else {

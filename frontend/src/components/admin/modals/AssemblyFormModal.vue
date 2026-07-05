@@ -138,8 +138,8 @@ const submit = async (force = false) => {
   loading.value = true
   try {
     const url = force
-      ? 'http://localhost:8000/api/workshop/record?force=true'
-      : 'http://localhost:8000/api/workshop/record'
+      ? 'http://localhost:8000/api/assembly/record?force=true'
+      : 'http://localhost:8000/api/assembly/record'
 
     const res = await fetch(url, {
       method: 'POST',

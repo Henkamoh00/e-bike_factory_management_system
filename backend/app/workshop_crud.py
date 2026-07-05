@@ -117,12 +117,6 @@ def create_assembly_record(
     return record
 
 
-def get_assembly_records(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.AssemblyRecord)\
-              .order_by(desc(models.AssemblyRecord.timestamp))\
-              .offset(skip).limit(limit).all()
-
-
 def get_assembly_by_chassis(db: Session, chassis_number: str):
     return db.query(models.AssemblyRecord)\
               .filter(models.AssemblyRecord.chassis_number == chassis_number)\

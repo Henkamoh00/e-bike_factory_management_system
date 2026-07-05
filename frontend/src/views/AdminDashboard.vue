@@ -13,21 +13,25 @@
 
         <div class="flex items-center gap-3 flex-wrap text-lg font-medium">
           <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'active-tab' : ''" class="tab-btn">الإحصائيات</button>
-          <button @click="switchTab('search')"    :class="activeTab === 'search'    ? 'active-tab' : ''" class="tab-btn">بحث عن دراجة</button>
+          <button @click="switchTab('assembly')" :class="activeTab === 'assembly' ? 'active-tab' : ''" class="tab-btn">الورشة</button>
           <button @click="switchTab('sales')"     :class="activeTab === 'sales'     ? 'active-tab' : ''" class="tab-btn">المبيعات</button>
           <button @click="switchTab('faults')"    :class="activeTab === 'faults'    ? 'active-tab' : ''" class="tab-btn">الأعطال</button>
           <button @click="switchTab('workers')"   :class="activeTab === 'workers'   ? 'active-tab' : ''" class="tab-btn">العمال</button>
           <button @click="switchTab('customers')" :class="activeTab === 'customers' ? 'active-tab' : ''" class="tab-btn">العملاء</button>
         </div>
 
-        <button @click="goToWorkshop" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-2xl transition">← العودة للورشة</button>
       </div>
     </header>
 
     <div class="max-w-7xl mx-auto px-6 py-10">
       <DashboardStatsTab v-if="activeTab === 'dashboard'" :stats="stats" />
 
-      <Review v-else-if="activeTab === 'search'" />
+      <AssemblyTab
+        v-else-if="activeTab === 'assembly'"
+        ref="assemblyTabRef"
+        :workers-list="workersList"
+        @open-assembly-modal="showAssemblyModal = true"
+      />
 
       <SalesTab
         v-else-if="activeTab === 'sales'"
@@ -55,6 +59,14 @@
         @open-customer-modal="showCustomerModal = true"
       />
     </div>
+
+    <AssemblyFormModal
+      v-if="showAssemblyModal"
+      :workers-list="workersList"
+      @close="showAssemblyModal = false"
+      @success="handleAssemblySuccess"
+      @worker-added="loadWorkers"
+    />
 
     <WorkerFormModal
       v-if="showWorkerModal"
@@ -88,29 +100,30 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 
+import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
 import SaleModal from '../components/admin/modals/SaleModal.vue'
 import FaultModal from '../components/admin/modals/FaultModal.vue'
 import CustomerFormModal from '../components/admin/modals/CustomerFormModal.vue'
 import WorkerFormModal from '../components/admin/modals/WorkerFormModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
-import Review from '../components/admin/tabs/Review.vue'
+import AssemblyTab from '../components/admin/tabs/AssemblyTab.vue'
 import SalesTab from '../components/admin/tabs/SalesTab.vue'
 import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 
-const router    = useRouter()
 const activeTab = ref('dashboard')
 
+const showAssemblyModal = ref(false)
 const showSaleModal     = ref(false)
 const showFaultModal    = ref(false)
 const showWorkerModal   = ref(false)
 const showCustomerModal = ref(false)
 
 const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
+const assemblyTabRef = ref(null)
 const salesList             = ref([])
 const availableChassisList  = ref([])
 const faultsList             = ref([])
@@ -119,60 +132,60 @@ const workersList            = ref([])
 const customersList          = ref([])
 
 const switchTab = (tab) => { activeTab.value = tab }
-const goToWorkshop = () => router.push('/')
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = 'http://localhost:8000'
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/stats/`)
+    const res = await fetch(`${API}/api/stats/`)
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
 }
 
 const loadSales = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/sales/`)
+    const res = await fetch(`${API}/api/sales/`)
     if (res.ok) salesList.value = await res.json()
   } catch (e) { console.error('مبيعات', e) }
 }
 
 const loadAvailableChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/chassis/available`)
+    const res = await fetch(`${API}/api/chassis/available`)
     if (res.ok) availableChassisList.value = await res.json()
   } catch (e) { console.error('هياكل متاحة', e) }
 }
 
 const loadFaults = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/faults/`)
+    const res = await fetch(`${API}/api/faults/`)
     if (res.ok) faultsList.value = await res.json()
   } catch (e) { console.error('أعطال', e) }
 }
 
 const loadAllChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/chassis/all`)
+    const res = await fetch(`${API}/api/chassis/all`)
     if (res.ok) allChassisList.value = await res.json()
   } catch (e) { console.error('كل الهياكل', e) }
 }
 
 const loadWorkers = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/workers/`)
+    const res = await fetch(`${API}/api/workers/`)
     if (res.ok) workersList.value = await res.json()
   } catch (e) { console.error('عمال', e) }
 }
 
 const loadCustomers = async () => {
   try {
-    const res = await fetch(`${API}/api/admin/customers/`)
+    const res = await fetch(`${API}/api/customers/`)
     if (res.ok) customersList.value = await res.json()
   } catch (e) { console.error('عملاء', e) }
 }
 
+const handleAssemblySuccess = () => { showAssemblyModal.value = false; assemblyTabRef.value?.refresh() }
 const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis() }
 const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults() }
 const handleCustomerFormSuccess = () => { showCustomerModal.value = false; loadCustomers() }
