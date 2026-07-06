@@ -1,63 +1,140 @@
 <template>
-  <div class="min-h-screen bg-gray-100 font-sans">
-    <!-- Header -->
-    <header class="bg-white shadow border-b sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl">📊</div>
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">لوحة الإدارة</h1>
-            <p class="text-gray-500">نظام التتبع والإدارة الشامل</p>
+  <div class="min-h-screen bg-slate-50 font-sans flex" dir="rtl">
+
+    <!-- Overlay للموبايل/التابلت عند فتح السايدبار -->
+    <div
+      v-if="isSidebarOpen"
+      @click="isSidebarOpen = false"
+      class="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
+    ></div>
+
+    <!-- Sidebar -->
+    <aside
+      :class="asideClasses"
+      class="fixed lg:sticky top-0 right-0 h-screen w-72 max-w-[85vw] overflow-hidden bg-white border-slate-200 flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out"
+    >
+      <div class="px-5 sm:px-6 py-6 sm:py-7 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-indigo-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-lg sm:text-xl shadow-lg shadow-indigo-200 shrink-0">
+            📊
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">لوحة الإدارة</h1>
+            <p class="text-xs text-slate-400 truncate">نظام التتبع الشامل</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-3 flex-wrap text-lg font-medium">
-          <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'active-tab' : ''" class="tab-btn">الإحصائيات</button>
-          <button @click="switchTab('assembly')" :class="activeTab === 'assembly' ? 'active-tab' : ''" class="tab-btn">الورشة</button>
-          <button @click="switchTab('sales')"     :class="activeTab === 'sales'     ? 'active-tab' : ''" class="tab-btn">المبيعات</button>
-          <button @click="switchTab('faults')"    :class="activeTab === 'faults'    ? 'active-tab' : ''" class="tab-btn">الأعطال</button>
-          <button @click="switchTab('workers')"   :class="activeTab === 'workers'   ? 'active-tab' : ''" class="tab-btn">العمال</button>
-          <button @click="switchTab('customers')" :class="activeTab === 'customers' ? 'active-tab' : ''" class="tab-btn">العملاء</button>
-        </div>
-
+        <!-- زر إغلاق السايدبار (يظهر فقط على الموبايل/التابلت) -->
+        <button
+          @click="isSidebarOpen = false"
+          class="lg:hidden shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          aria-label="إغلاق القائمة"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-    </header>
 
-    <div class="max-w-7xl mx-auto px-6 py-10">
-      <DashboardStatsTab v-if="activeTab === 'dashboard'" :stats="stats" />
+      <nav class="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 overflow-y-auto">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          @click="switchTab(tab.id)"
+          :class="activeTab === tab.id
+            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'"
+          class="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 text-sm"
+        >
+          <span class="text-base sm:text-lg">{{ tab.icon }}</span>
+          <span class="truncate">{{ tab.label }}</span>
+          <span
+            v-if="activeTab === tab.id"
+            class="mr-auto w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"
+          ></span>
+        </button>
+      </nav>
 
-      <AssemblyTab
-        v-else-if="activeTab === 'assembly'"
-        ref="assemblyTabRef"
-        :workers-list="workersList"
-        @open-assembly-modal="showAssemblyModal = true"
-      />
+      <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
+        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 1.0 · نظام التجميع الكهربائي</p>
+      </div>
+    </aside>
 
-      <SalesTab
-        v-else-if="activeTab === 'sales'"
-        :sales-list="salesList"
-        :customers-list="customersList"
-        @open-sale-modal="showSaleModal = true"
-      />
+    <!-- Main content -->
+    <div class="flex-1 min-w-0 w-full">
+      <header class="bg-white/80 backdrop-blur border-b border-slate-200 sticky top-0 z-30">
+        <div class="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <!-- زر فتح/إغلاق السايدبار على الشاشات الكبيرة (بدون Overlay) -->
+            <button
+              @click="isDesktopSidebarOpen = !isDesktopSidebarOpen"
+              class="hidden lg:flex shrink-0 w-10 h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors duration-200"
+              :aria-label="isDesktopSidebarOpen ? 'إغلاق القائمة الجانبية' : 'فتح القائمة الجانبية'"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                <line x1="15" y1="4" x2="15" y2="20" />
+                <rect v-if="isDesktopSidebarOpen" x="15" y="4" width="6" height="16" rx="0" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
 
-      <FaultsTab
-        v-else-if="activeTab === 'faults'"
-        :faults-list="faultsList"
-        :workers-list="workersList"
-        @open-fault-modal="showFaultModal = true"
-      />
+            <!-- زر ☰ لفتح السايدبار على الموبايل/التابلت -->
+            <button
+              @click="isSidebarOpen = true"
+              class="lg:hidden shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors duration-200"
+              aria-label="فتح القائمة"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
 
-      <WorkersTab
-        v-else-if="activeTab === 'workers'"
-        :workers-list="workersList"
-        @open-worker-modal="showWorkerModal = true"
-      />
+            <div class="min-w-0">
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900 truncate">{{ currentTabLabel }}</h2>
+              <p class="text-xs sm:text-sm text-slate-400 truncate">{{ currentTabIcon }} إدارة ومتابعة البيانات</p>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <CustomersTab
-        v-else-if="activeTab === 'customers'"
-        :customers-list="customersList"
-        @open-customer-modal="showCustomerModal = true"
-      />
+      <main class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+        <div class="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8 transition-all duration-300">
+          <DashboardStatsTab v-if="activeTab === 'dashboard'" :stats="stats" />
+
+          <AssemblyTab
+            v-else-if="activeTab === 'assembly'"
+            ref="assemblyTabRef"
+            :workers-list="workersList"
+            @open-assembly-modal="showAssemblyModal = true"
+          />
+
+          <SalesTab
+            v-else-if="activeTab === 'sales'"
+            :sales-list="salesList"
+            :customers-list="customersList"
+            @open-sale-modal="showSaleModal = true"
+          />
+
+          <FaultsTab
+            v-else-if="activeTab === 'faults'"
+            :faults-list="faultsList"
+            :workers-list="workersList"
+            @open-fault-modal="showFaultModal = true"
+          />
+
+          <WorkersTab
+            v-else-if="activeTab === 'workers'"
+            :workers-list="workersList"
+            @open-worker-modal="showWorkerModal = true"
+          />
+
+          <CustomersTab
+            v-else-if="activeTab === 'customers'"
+            :customers-list="customersList"
+            @open-customer-modal="showCustomerModal = true"
+          />
+        </div>
+      </main>
     </div>
 
     <AssemblyFormModal
@@ -99,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
 import SaleModal from '../components/admin/modals/SaleModal.vue'
@@ -115,6 +192,16 @@ import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 
 const activeTab = ref('dashboard')
+const isSidebarOpen = ref(false)        // فتح/إغلاق السايدبار على الموبايل (مع Overlay)
+const isDesktopSidebarOpen = ref(true)  // فتح/إغلاق السايدبار على الشاشات الكبيرة (بدون Overlay)
+
+const asideClasses = computed(() => {
+  const mobile = isSidebarOpen.value ? 'translate-x-0' : 'translate-x-full'
+  const desktop = isDesktopSidebarOpen.value
+    ? 'lg:translate-x-0 lg:w-72 lg:opacity-100 lg:pointer-events-auto lg:border-l'
+    : 'lg:-translate-x-full lg:w-0 lg:opacity-0 lg:pointer-events-none lg:border-l-0'
+  return `${mobile} ${desktop}`
+})
 
 const showAssemblyModal = ref(false)
 const showSaleModal     = ref(false)
@@ -131,7 +218,23 @@ const allChassisList         = ref([])
 const workersList            = ref([])
 const customersList          = ref([])
 
-const switchTab = (tab) => { activeTab.value = tab }
+// ── تبويبات (بيانات عرض فقط، لا تغيير على المنطق) ─────────────────────────
+const tabs = [
+  { id: 'dashboard', label: 'الإحصائيات', icon: '📈' },
+  { id: 'assembly',  label: 'الورشة',      icon: '⚙️' },
+  { id: 'sales',     label: 'المبيعات',    icon: '💰' },
+  { id: 'faults',    label: 'الأعطال',     icon: '⚠️' },
+  { id: 'workers',   label: 'العمال',      icon: '👷' },
+  { id: 'customers', label: 'العملاء',     icon: '🧑‍🤝‍🧑' },
+]
+
+const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
+const currentTabIcon  = computed(() => tabs.find(t => t.id === activeTab.value)?.icon || '')
+
+const switchTab = (tab) => {
+  activeTab.value = tab
+  isSidebarOpen.value = false // إغلاق السايدبار تلقائيًا بعد اختيار تبويب على الموبايل
+}
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = 'http://localhost:8000'
@@ -201,8 +304,3 @@ onMounted(() => {
   loadCustomers()
 })
 </script>
-
-<style scoped>
-.tab-btn { padding: 8px 20px; border-radius: 9999px; transition: all 0.3s; }
-.active-tab { background-color: #4f46e5; color: white !important; }
-</style>
