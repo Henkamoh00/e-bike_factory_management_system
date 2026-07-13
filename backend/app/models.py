@@ -19,6 +19,26 @@ class Worker(Base):
 
     assemblies = relationship("AssemblyRecord", back_populates="worker")
 
+class BikeType(Base):
+    __tablename__ = "bike_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    assemblies = relationship("AssemblyRecord", back_populates="bike_type")
+
+
+class BikeColor(Base):
+    __tablename__ = "bike_colors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    assemblies = relationship("AssemblyRecord", back_populates="bike_color")
+
+
 class AssemblyRecord(Base):
     __tablename__ = "assembly_records"
 
@@ -26,9 +46,13 @@ class AssemblyRecord(Base):
     chassis_number = Column(String, index=True, nullable=False)
     worker_id = Column(Integer, ForeignKey("workers.id"))
     stage = Column(SQLEnum(AssemblyStage), nullable=False)
+    bike_type_id = Column(Integer, ForeignKey("bike_types.id"), nullable=True)
+    bike_color_id = Column(Integer, ForeignKey("bike_colors.id"), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     worker = relationship("Worker", back_populates="assemblies")
+    bike_type = relationship("BikeType", back_populates="assemblies")
+    bike_color = relationship("BikeColor", back_populates="assemblies")
 
 class Customer(Base):
     __tablename__ = "customers"

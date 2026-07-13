@@ -140,9 +140,13 @@
     <AssemblyFormModal
       v-if="showAssemblyModal"
       :workers-list="workersList"
+      :bike-types-list="bikeTypesList"
+      :bike-colors-list="bikeColorsList"
       @close="showAssemblyModal = false"
       @success="handleAssemblySuccess"
       @worker-added="loadWorkers"
+      @type-added="loadBikeTypes"
+      @color-added="loadBikeColors"
     />
 
     <WorkerFormModal
@@ -211,6 +215,8 @@ const showCustomerModal = ref(false)
 
 const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const assemblyTabRef = ref(null)
+const bikeTypesList = ref([])
+const bikeColorsList = ref([])
 const salesList             = ref([])
 const availableChassisList  = ref([])
 const faultsList             = ref([])
@@ -244,6 +250,20 @@ const loadStats = async () => {
     const res = await fetch(`${API}/api/stats/`)
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
+}
+
+const loadBikeTypes = async () => {
+  try {
+    const res = await fetch(`${API}/api/bike-types`)
+    if (res.ok) bikeTypesList.value = await res.json()
+  } catch (e) { console.error('أنواع الدراجات', e) }
+}
+
+const loadBikeColors = async () => {
+  try {
+    const res = await fetch(`${API}/api/bike-colors`)
+    if (res.ok) bikeColorsList.value = await res.json()
+  } catch (e) { console.error('ألوان الدراجات', e) }
 }
 
 const loadSales = async () => {
@@ -296,6 +316,8 @@ const handleWorkerFormSuccess   = () => { showWorkerModal.value   = false; loadW
 
 onMounted(() => {
   loadStats()
+  loadBikeTypes()
+  loadBikeColors()
   loadSales()
   loadAvailableChassis()
   loadFaults()

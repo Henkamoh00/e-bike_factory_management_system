@@ -168,15 +168,7 @@ def get_all_chassis_numbers(db: Session):
 
 # ====================== CHASSIS (ملخص شامل للوحة الإدارة) ======================
 def get_chassis_summary(db: Session):
-    """
-    يرجع ملخصًا لكل هيكل دخل النظام: حالة الاكتمال، حالة البيع،
-    وعدد الأعطال المعلقة.
-    """
-    all_records = (
-        db.query(models.AssemblyRecord)
-        .options(joinedload(models.AssemblyRecord.worker))
-        .all()
-    )
+    all_records = db.query(models.AssemblyRecord).all()
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
@@ -197,21 +189,24 @@ def get_chassis_summary(db: Session):
         sale = sold_map.get(chassis_number)
         faults = faults_by_chassis.get(chassis_number, [])
         pending_faults = [f for f in faults if f.status == "pending"]
-        workers = sorted({
-            r.worker.name
-            for r in records
-            if r.worker
-        })
+
+        worker_names = list({r.worker.name for r in records if r.worker})
+        stage_values = list({r.stage.value if hasattr(r.stage, 'value') else r.stage for r in records})
+        bike_type_name = next((r.bike_type.name for r in records if r.bike_type), None)
+        bike_color_name = next((r.bike_color.name for r in records if r.bike_color), None)
 
         summary.append({
             "chassis_number": chassis_number,
             "is_complete": is_complete,
             "is_sold": sale is not None,
+            "workers": worker_names,
+            "stages": stage_values,
+            "bike_type": bike_type_name,
+            "bike_color": bike_color_name,
             "customer_name": sale.customer.name if sale and sale.customer else None,
             "pending_faults_count": len(pending_faults),
             "total_faults_count": len(faults),
             "last_updated": max(r.timestamp for r in records),
-            "workers": workers,
         })
 
     return sorted(summary, key=lambda x: x["chassis_number"])

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import workers, customers, sales, faults, chassis, assembly, stats
+from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats
 from .database import engine
 from . import models
 
@@ -25,6 +25,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(workers.router)
+app.include_router(bike_options.router)
 app.include_router(customers.router)
 app.include_router(sales.router)
 app.include_router(faults.router)

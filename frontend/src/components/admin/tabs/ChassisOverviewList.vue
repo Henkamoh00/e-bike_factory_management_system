@@ -30,6 +30,33 @@
         />
       </div>
 
+      <div>
+        <SearchableSelect
+          v-model="filters.stage"
+          :options="stageOptions"
+          label="تصفية بمرحلة التجميع"
+          empty-label="كل المراحل"
+        />
+      </div>
+
+      <div>
+        <SearchableSelect
+          v-model="filters.bike_type"
+          :options="bikeTypeOptions"
+          label="تصفية بنوع الدراجة"
+          empty-label="كل الأنواع"
+        />
+      </div>
+
+      <div>
+        <SearchableSelect
+          v-model="filters.bike_color"
+          :options="bikeColorOptions"
+          label="تصفية بلون الدراجة"
+          empty-label="كل الألوان"
+        />
+      </div>
+
       <button @click="resetFilters" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
@@ -142,7 +169,10 @@ const chassisList = ref([])
 const filters = ref({
   chassis_number: '',
   status: '',
-  worker_name: ''
+  worker_name: '',
+  stage: '',
+  bike_type: '',
+  bike_color: ''
 })
 
 const selectedChassis = ref(null)
@@ -155,9 +185,25 @@ const statusOptions = [
   { label: 'به عطل معلق', value: 'has_fault' },
 ]
 
+const stageOptions = [
+  { label: 'تجميع الهيكل', value: 'تجميع_الهيكل' },
+  { label: 'توصيل الكهرباء والغلاف', value: 'توصيل_الكهرباء_والغلاف' },
+  { label: 'تجميع كامل', value: 'تجميع_كامل' },
+]
+
 const workerOptions = computed(() =>
   props.workersList.map(w => ({ label: w.name, value: w.name }))
 )
+
+const bikeTypeOptions = computed(() => {
+  const names = [...new Set(chassisList.value.map(c => c.bike_type).filter(Boolean))]
+  return names.map(n => ({ label: n, value: n }))
+})
+
+const bikeColorOptions = computed(() => {
+  const names = [...new Set(chassisList.value.map(c => c.bike_color).filter(Boolean))]
+  return names.map(n => ({ label: n, value: n }))
+})
 
 const filteredChassis = computed(() => {
   return chassisList.value.filter(c => {
@@ -167,12 +213,15 @@ const filteredChassis = computed(() => {
     if (filters.value.status === 'in_progress' && c.is_complete) return false
     if (filters.value.status === 'has_fault' && c.pending_faults_count === 0) return false
     if (filters.value.worker_name && !(c.workers || []).includes(filters.value.worker_name)) return false
+    if (filters.value.stage && !(c.stages || []).includes(filters.value.stage)) return false
+    if (filters.value.bike_type && c.bike_type !== filters.value.bike_type) return false
+    if (filters.value.bike_color && c.bike_color !== filters.value.bike_color) return false
     return true
   })
 })
 
 const resetFilters = () => {
-  filters.value = { chassis_number: '', status: '', worker_name: '' }
+  filters.value = { chassis_number: '', status: '', worker_name: '', stage: '', bike_type: '', bike_color: '' }
 }
 
 const getStageName = (stage) => {

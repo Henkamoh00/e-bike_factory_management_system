@@ -56,6 +56,27 @@ def create_assembly_record(
 
     existing_stages = {r.stage for r in all_records}
 
+    # ── تحديد النوع واللون المعروفين مسبقًا لهذا الهيكل (إن وجدا) ────────
+    existing_type_id = next((r.bike_type_id for r in all_records if r.bike_type_id), None)
+    existing_color_id = next((r.bike_color_id for r in all_records if r.bike_color_id), None)
+
+    type_id = existing_type_id
+    color_id = existing_color_id
+
+    needs_type = stage in (STAGE_ASSEMBLY, STAGE_COMPLETE) and not existing_type_id
+    needs_color = stage in (STAGE_COVER, STAGE_COMPLETE) and not existing_color_id
+
+    if needs_type and not assembly.bike_type_name:
+        raise HTTPException(status_code=422, detail="⛔ نوع الدراجة مطلوب لهذه المرحلة.")
+    if needs_color and not assembly.bike_color_name:
+        raise HTTPException(status_code=422, detail="⛔ لون الدراجة مطلوب لهذه المرحلة.")
+
+    if needs_type:
+        type_id = get_or_create_bike_type(db, assembly.bike_type_name).id
+    if needs_color:
+        color_id = get_or_create_bike_color(db, assembly.bike_color_name).id
+
+    # ── باقي الفحوصات المنطقية (بدون أي تغيير) ───────────────────────────
     if STAGE_COMPLETE in existing_stages and stage != STAGE_COMPLETE:
         raise HTTPException(
             status_code=409,
@@ -106,10 +127,13 @@ def create_assembly_record(
         db.refresh(rec)
         return rec
 
+    # سجل جديد
     record = models.AssemblyRecord(
         chassis_number=assembly.chassis_number,
         worker_id=worker.id,
         stage=stage,
+        bike_type_id=type_id,
+        bike_color_id=color_id,
     )
     db.add(record)
     db.commit()
@@ -121,3 +145,31 @@ def get_assembly_by_chassis(db: Session, chassis_number: str):
     return db.query(models.AssemblyRecord)\
               .filter(models.AssemblyRecord.chassis_number == chassis_number)\
               .order_by(models.AssemblyRecord.timestamp).all()
+
+# ====================== BIKE TYPE / COLOR ======================
+def get_or_create_bike_type(db: Session, name: str):
+    bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
+    if not bike_type:
+        bike_type = models.BikeType(name=name)
+        db.add(bike_type)
+        db.commit()
+        db.refresh(bike_type)
+    return bike_type
+
+
+def get_bike_types(db: Session):
+    return db.query(models.BikeType).order_by(models.BikeType.name).all()
+
+
+def get_or_create_bike_color(db: Session, name: str):
+    bike_color = db.query(models.BikeColor).filter(models.BikeColor.name == name).first()
+    if not bike_color:
+        bike_color = models.BikeColor(name=name)
+        db.add(bike_color)
+        db.commit()
+        db.refresh(bike_color)
+    return bike_color
+
+
+def get_bike_colors(db: Session):
+    return db.query(models.BikeColor).order_by(models.BikeColor.name).all()

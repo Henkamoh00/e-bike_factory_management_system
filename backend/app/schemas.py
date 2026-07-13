@@ -28,12 +28,36 @@ class Worker(WorkerBase):
     class Config:
         from_attributes = True
 
+# ====================== BIKE TYPE / COLOR ======================
+class BikeTypeCreate(BaseModel):
+    name: str
+
+class BikeTypeResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class BikeColorCreate(BaseModel):
+    name: str
+
+class BikeColorResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
 
 # ====================== ASSEMBLY ======================
 class AssemblyCreate(BaseModel):
     chassis_number: str
     worker_name: str
     stage: AssemblyStage
+    bike_type_name: Optional[str] = None
+    bike_color_name: Optional[str] = None
     force: bool = False
 
 class AssemblyResponse(BaseModel):
@@ -42,6 +66,8 @@ class AssemblyResponse(BaseModel):
     worker_id: int
     worker_name: Optional[str] = None
     stage: str
+    bike_type_name: Optional[str] = None
+    bike_color_name: Optional[str] = None
     timestamp: datetime
 
     class Config:

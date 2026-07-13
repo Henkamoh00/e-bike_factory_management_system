@@ -68,6 +68,44 @@
             </button>
           </div>
         </div>
+
+        <!-- حقل النوع: يظهر فقط عند تجميع_الهيكل أو تجميع_كامل -->
+        <div v-if="showTypeField" class="mb-2 mt-4">
+          <SearchableSelect
+            v-model="form.bike_type_name"
+            :options="typeOptions"
+            label="نوع الدراجة"
+            placeholder="اختر النوع"
+            :allow-empty="false"
+          />
+        </div>
+        <button
+          v-if="showTypeField"
+          type="button"
+          @click="showTypeForm = true"
+          class="text-sm text-indigo-600 hover:text-indigo-800 underline mb-4"
+        >
+          + إضافة نوع جديد
+        </button>
+
+        <!-- حقل اللون: يظهر فقط عند توصيل_الكهرباء_والغلاف أو تجميع_كامل -->
+        <div v-if="showColorField" class="mb-2 mt-2">
+          <SearchableSelect
+            v-model="form.bike_color_name"
+            :options="colorOptions"
+            label="لون الدراجة"
+            placeholder="اختر اللون"
+            :allow-empty="false"
+          />
+        </div>
+        <button
+          v-if="showColorField"
+          type="button"
+          @click="showColorForm = true"
+          class="text-sm text-indigo-600 hover:text-indigo-800 underline mb-2"
+        >
+          + إضافة لون جديد
+        </button>
       </div>
 
       <div class="border-t p-4 flex gap-3">
@@ -90,11 +128,21 @@
       </div>
     </div>
 
-    <!-- مودال إضافة عامل متداخل -->
+    <!-- مودالات متداخلة -->
     <WorkerFormModal
       v-if="showWorkerForm"
       @close="showWorkerForm = false"
       @success="handleWorkerAdded"
+    />
+    <BikeTypeFormModal
+      v-if="showTypeForm"
+      @close="showTypeForm = false"
+      @success="handleTypeAdded"
+    />
+    <BikeColorFormModal
+      v-if="showColorForm"
+      @close="showColorForm = false"
+      @success="handleColorAdded"
     />
   </div>
 </template>
@@ -103,35 +151,74 @@
 import { ref, computed } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
+import BikeTypeFormModal from '../../admin/modals/BikeTypeFormModal.vue'
+import BikeColorFormModal from '../../admin/modals/BikeColorFormModal.vue'
 
-const emit = defineEmits(['close', 'success', 'worker-added'])
+const emit = defineEmits(['close', 'success', 'worker-added', 'type-added', 'color-added'])
 const loading = ref(false)
 const pendingConfirm = ref(null)
 const showWorkerForm = ref(false)
+const showTypeForm = ref(false)
+const showColorForm = ref(false)
 
 const props = defineProps({
-  workersList: { type: Array, default: () => [] }
+  workersList: { type: Array, default: () => [] },
+  bikeTypesList: { type: Array, default: () => [] },
+  bikeColorsList: { type: Array, default: () => [] }
 })
 
 const workerOptions = computed(() =>
   props.workersList.map(w => ({ label: w.name, value: w.name }))
 )
+const typeOptions = computed(() =>
+  props.bikeTypesList.map(t => ({ label: t.name, value: t.name }))
+)
+const colorOptions = computed(() =>
+  props.bikeColorsList.map(c => ({ label: c.name, value: c.name }))
+)
 
 const form = ref({
   chassis_number: '',
   worker_name: '',
-  stage: ''
+  stage: '',
+  bike_type_name: '',
+  bike_color_name: ''
 })
+
+const showTypeField = computed(() =>
+  form.value.stage === 'تجميع_الهيكل' || form.value.stage === 'تجميع_كامل'
+)
+const showColorField = computed(() =>
+  form.value.stage === 'توصيل_الكهرباء_والغلاف' || form.value.stage === 'تجميع_كامل'
+)
 
 const handleWorkerAdded = (newWorker) => {
   showWorkerForm.value = false
   form.value.worker_name = newWorker.name
   emit('worker-added')
 }
+const handleTypeAdded = (newType) => {
+  showTypeForm.value = false
+  form.value.bike_type_name = newType.name
+  emit('type-added')
+}
+const handleColorAdded = (newColor) => {
+  showColorForm.value = false
+  form.value.bike_color_name = newColor.name
+  emit('color-added')
+}
 
 const submit = async (force = false) => {
   if (!form.value.chassis_number || !form.value.worker_name || !form.value.stage) {
     alert('يرجى ملء جميع الحقول')
+    return
+  }
+  if (showTypeField.value && !form.value.bike_type_name) {
+    alert('يرجى اختيار نوع الدراجة')
+    return
+  }
+  if (showColorField.value && !form.value.bike_color_name) {
+    alert('يرجى اختيار لون الدراجة')
     return
   }
 
