@@ -132,9 +132,16 @@ def get_available_chassis(db: Session):
     """
     يرجع أرقام الهياكل المكتملة التجميع (سواء عبر 'تجميع_كامل'
     أو عبر 'تجميع_الهيكل' + 'توصيل_الكهرباء_والغلاف' معًا)
-    ولم تُباع بعد.
+    ولم تُباع بعد ولا يوجد عليها أي عطل معلّق.
     """
     sold_numbers = {s[0] for s in db.query(models.Sale.chassis_number).all()}
+
+    faulty_numbers = {
+        f[0] for f in db.query(models.Fault.chassis_number)
+        .filter(models.Fault.status == "pending")
+        .distinct()
+        .all()
+    }
 
     all_records = db.query(models.AssemblyRecord).all()
 
@@ -146,7 +153,9 @@ def get_available_chassis(db: Session):
     available = [
         chassis_number
         for chassis_number, records in records_by_chassis.items()
-        if workshop_crud.is_chassis_complete(records) and chassis_number not in sold_numbers
+        if workshop_crud.is_chassis_complete(records)
+        and chassis_number not in sold_numbers
+        and chassis_number not in faulty_numbers
     ]
 
     return sorted(available)
@@ -217,6 +226,7 @@ def create_fault(db: Session, fault: schemas.FaultCreate):
     db_fault = models.Fault(
         chassis_number=fault.chassis_number,
         description=fault.description,
+        related_stage=fault.related_stage,
         status=fault.status or "pending"
     )
     db.add(db_fault)
@@ -224,47 +234,97 @@ def create_fault(db: Session, fault: schemas.FaultCreate):
     db.refresh(db_fault)
     return db_fault
 
+def _attach_fault_extras(db: Session, faults):
+    for fault in faults:
+        for repair in fault.repairs:
+            repair.worker_name = repair.worker.name if repair.worker else "غير معروف"
+
+        fault.responsible_worker_name = None
+        if fault.related_stage:
+            record = (
+                db.query(models.AssemblyRecord)
+                .filter(
+                    models.AssemblyRecord.chassis_number == fault.chassis_number,
+                    models.AssemblyRecord.stage == fault.related_stage
+                )
+                .first()
+            )
+            if not record:
+                # لم يُسجَّل للمرحلة المحددة سجل منفصل — تحقق إن كان العامل قد سجّل "تجميع كامل"
+                # يشمل هذه المرحلة ضمنيًا (تجميع الهيكل + توصيل الكهرباء والغلاف معًا)
+                record = (
+                    db.query(models.AssemblyRecord)
+                    .filter(
+                        models.AssemblyRecord.chassis_number == fault.chassis_number,
+                        models.AssemblyRecord.stage == workshop_crud.STAGE_COMPLETE
+                    )
+                    .first()
+                )
+            if record and record.worker:
+                fault.responsible_worker_name = record.worker.name
+    return faults
 
 def get_faults_by_chassis(db: Session, chassis_number: str):
-
     faults = (
         db.query(models.Fault)
-        .filter(
-            models.Fault.chassis_number == chassis_number
-        )
-        .order_by(
-            desc(models.Fault.reported_date)
-        )
+        .filter(models.Fault.chassis_number == chassis_number)
+        .order_by(desc(models.Fault.reported_date))
         .all()
     )
-
-    latest_assembly = (
-        db.query(models.AssemblyRecord)
-        .filter(
-            models.AssemblyRecord.chassis_number == chassis_number
-        )
-        .order_by(
-            desc(models.AssemblyRecord.timestamp)
-        )
-        .first()
-    )
-
-    worker_name = (
-        latest_assembly.worker.name
-        if latest_assembly and latest_assembly.worker
-        else "غير معروف"
-    )
-
-    for fault in faults:
-        fault.worker_name = worker_name
-
-    return faults
+    return _attach_fault_extras(db, faults)
 
 
 def get_all_faults(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Fault)\
-              .order_by(desc(models.Fault.reported_date))\
-              .offset(skip).limit(limit).all()
+    faults = (
+        db.query(models.Fault)
+        .order_by(desc(models.Fault.reported_date))
+        .offset(skip).limit(limit).all()
+    )
+    return _attach_fault_extras(db, faults)
+
+
+def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairCreate):
+    db_fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
+    if not db_fault:
+        raise ValueError("العطل غير موجود")
+    if db_fault.status == "fixed":
+        raise ValueError("هذا العطل مسجل مسبقاً كمُصلَح")
+
+    worker = workshop_crud.get_or_create_worker(db, repair.worker_name)
+
+    db_repair = models.FaultRepair(
+        fault_id=fault_id,
+        worker_id=worker.id,
+        notes=repair.notes
+    )
+    db.add(db_repair)
+
+    db_fault.status = "fixed"
+    db_fault.resolved_at = func.now()
+
+    db.commit()
+    db.refresh(db_repair)
+    db_repair.worker_name = worker.name
+    return db_repair
+
+
+def get_suggested_worker_for_fault(db: Session, fault_id: int):
+    """يقترح عامل التصليح بناءً على من قام بمرحلة التجميع المرتبطة بالعطل"""
+    db_fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
+    if not db_fault or not db_fault.related_stage:
+        return None
+
+    record = (
+        db.query(models.AssemblyRecord)
+        .filter(
+            models.AssemblyRecord.chassis_number == db_fault.chassis_number,
+            models.AssemblyRecord.stage == db_fault.related_stage
+        )
+        .first()
+    )
+    if record and record.worker:
+        return {"worker_id": record.worker.id, "worker_name": record.worker.name}
+    return None
 
 
 # ====================== DASHBOARD ======================
@@ -342,9 +402,14 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         chassis_number
     )
 
+    bike_type_name = next((r.bike_type.name for r in assembly_records if r.bike_type), None)
+    bike_color_name = next((r.bike_color.name for r in assembly_records if r.bike_color), None)
+
     return {
         "chassis_number": chassis_number,
         "assembly_history": assembly_records,
         "sale": sale,
-        "faults": faults
+        "faults": faults,
+        "bike_type": bike_type_name,
+        "bike_color": bike_color_name,
     }

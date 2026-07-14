@@ -14,6 +14,42 @@
           />
         </div>
 
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-3">المرحلة المرتبطة بالعطل (اختياري)</label>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              type="button"
+              @click="toggleStage('تجميع_الهيكل')"
+              :class="form.related_stage === 'تجميع_الهيكل' ? 'ring-2 ring-red-500 bg-red-50' : 'border-2 border-gray-200'"
+              class="p-3 rounded-2xl hover:border-red-300 transition-all flex flex-col items-start"
+            >
+              <div class="text-xl mb-1">🔧</div>
+              <div class="font-bold text-sm">تجميع الهيكل</div>
+            </button>
+
+            <button
+              type="button"
+              @click="toggleStage('توصيل_الكهرباء_والغلاف')"
+              :class="form.related_stage === 'توصيل_الكهرباء_والغلاف' ? 'ring-2 ring-red-500 bg-red-50' : 'border-2 border-gray-200'"
+              class="p-3 rounded-2xl hover:border-red-300 transition-all flex flex-col items-start"
+            >
+              <div class="text-xl mb-1">⚡</div>
+              <div class="font-bold text-sm">الكهرباء والغلاف</div>
+            </button>
+
+            <button
+              type="button"
+              @click="toggleStage('تجميع_كامل')"
+              :class="form.related_stage === 'تجميع_كامل' ? 'ring-2 ring-red-500 bg-red-50' : 'border-2 border-gray-200'"
+              class="p-3 rounded-2xl hover:border-red-300 transition-all flex flex-col items-start"
+            >
+              <div class="text-xl mb-1">🏁</div>
+              <div class="font-bold text-sm">التجميع الكامل</div>
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">يساعد باقتراح العامل المناسب عند التصليح لاحقًا</p>
+        </div>
+
         <textarea v-model="form.description" placeholder="وصف العطل بالتفصيل" class="w-full p-4 border rounded-2xl h-32"></textarea>
       </div>
 
@@ -47,8 +83,13 @@ const chassisOptions = computed(() =>
 
 const form = ref({
   chassis_number: '',
-  description: ''
+  description: '',
+  related_stage: ''
 })
+
+const toggleStage = (stage) => {
+  form.value.related_stage = form.value.related_stage === stage ? '' : stage
+}
 
 const submit = async () => {
   if (!form.value.chassis_number || !form.value.description) {
@@ -58,11 +99,14 @@ const submit = async () => {
 
   loading.value = true
 
+  const payload = { ...form.value }
+  if (!payload.related_stage) delete payload.related_stage
+
   try {
     const res = await fetch('http://localhost:8000/api/faults/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form.value)
+      body: JSON.stringify(payload)
     })
 
     if (res.ok) {

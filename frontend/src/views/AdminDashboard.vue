@@ -105,6 +105,8 @@
             v-else-if="activeTab === 'assembly'"
             ref="assemblyTabRef"
             :workers-list="workersList"
+            :bike-types-list="bikeTypesList"
+            :bike-colors-list="bikeColorsList"
             @open-assembly-modal="showAssemblyModal = true"
           />
 
@@ -120,6 +122,7 @@
             :faults-list="faultsList"
             :workers-list="workersList"
             @open-fault-modal="showFaultModal = true"
+            @refresh-faults="loadFaults"
           />
 
           <WorkersTab

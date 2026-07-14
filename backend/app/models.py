@@ -79,7 +79,23 @@ class Fault(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     chassis_number = Column(String, index=True, nullable=False)
-    worker_id = Column(Integer, ForeignKey("workers.id"))
     description = Column(String, nullable=False)
+    related_stage = Column(SQLEnum(AssemblyStage), nullable=True)
     reported_date = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String, default="pending")  # pending, fixed
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    repairs = relationship("FaultRepair", back_populates="fault", order_by="FaultRepair.repair_date")
+
+
+class FaultRepair(Base):
+    __tablename__ = "fault_repairs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fault_id = Column(Integer, ForeignKey("faults.id"), nullable=False)
+    worker_id = Column(Integer, ForeignKey("workers.id"), nullable=False)
+    repair_date = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(String, nullable=True)
+
+    fault = relationship("Fault", back_populates="repairs")
+    worker = relationship("Worker")

@@ -79,10 +79,21 @@
         >
           <div>
             <div class="font-mono font-bold">{{ chassis.chassis_number }}</div>
-            <div class="text-sm text-gray-500">
+            <div class="text-sm text-gray-500 mt-1">
               {{ chassis.is_complete ? '✅ مكتمل' : '⚙️ قيد التجميع' }}
               <span v-if="chassis.is_sold" class="text-emerald-600"> • مباع لـ {{ chassis.customer_name }}</span>
               <span v-else class="text-amber-600"> • غير مباع</span>
+            </div>
+            <div class="text-xs text-gray-400 mt-1">
+              المرحلة الحالية: <span class="font-medium text-gray-600">{{ currentStageLabel(chassis) }}</span>
+            </div>
+            <div class="flex gap-2 mt-2">
+              <span v-if="chassis.bike_type" class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-3 py-1">
+                🚲 {{ chassis.bike_type }}
+              </span>
+              <span v-if="chassis.bike_color" class="text-xs bg-purple-100 text-purple-700 rounded-full px-3 py-1">
+                🎨 {{ chassis.bike_color }}
+              </span>
             </div>
           </div>
           <div class="text-left">
@@ -102,6 +113,16 @@
           <h3 class="text-2xl font-bold">
             تاريخ الدراجة <span class="font-mono text-indigo-600">{{ selectedChassis.chassis_number }}</span>
           </h3>
+
+          <div v-if="!loadingDetails && (selectedChassis.bike_type || selectedChassis.bike_color)" class="flex gap-2 mb-6 -mt-2">
+            <span v-if="selectedChassis.bike_type" class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-3 py-1.5">
+              🚲 النوع: {{ selectedChassis.bike_type }}
+            </span>
+            <span v-if="selectedChassis.bike_color" class="text-xs bg-purple-100 text-purple-700 rounded-full px-3 py-1.5">
+              🎨 اللون: {{ selectedChassis.bike_color }}
+            </span>
+          </div>
+
           <button @click="selectedChassis = null" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
 
@@ -135,16 +156,31 @@
         <div v-if="!loadingDetails" class="mt-8">
           <h4 class="font-semibold text-sm text-gray-500 mb-3">⚠️ الأعطال</h4>
           <div v-if="selectedChassis.faults?.length" class="space-y-3">
-            <div v-for="fault in selectedChassis.faults" :key="fault.id" class="flex justify-between items-center p-4 bg-gray-50 rounded-2xl">
-              <div>
-                <div class="text-sm">{{ fault.description }}</div>
-                <div class="text-xs text-gray-500 mt-1">العامل: {{ fault.worker_name || 'غير معروف' }}</div>
+            <div v-for="fault in selectedChassis.faults" :key="fault.id" class="p-4 bg-gray-50 rounded-2xl">
+              <div class="flex justify-between items-center">
+                <div>
+                  <div class="text-sm">{{ fault.description }}</div>
+                  <div v-if="fault.related_stage" class="text-xs text-gray-400 mt-1">
+                    المرحلة: {{ getStageName(fault.related_stage) }}
+                    <span v-if="fault.responsible_worker_name"> — بواسطة: {{ fault.responsible_worker_name }}</span>
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <span :class="fault.status === 'pending' ? 'text-red-600' : 'text-emerald-600'" class="text-xs font-medium">
+                    {{ fault.status === 'pending' ? 'معلق' : 'تم إصلاحه' }}
+                  </span>
+                  <div class="text-xs text-gray-400 mt-1">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</div>
+                </div>
               </div>
-              <div class="text-right">
-                <span :class="fault.status === 'pending' ? 'text-red-600' : 'text-emerald-600'" class="text-xs font-medium">
-                  {{ fault.status === 'pending' ? 'معلق' : 'تم إصلاحه' }}
-                </span>
-                <div class="text-xs text-gray-400 mt-1">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</div>
+
+              <div v-if="fault.repairs?.length" class="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                <div v-for="repair in fault.repairs" :key="repair.id" class="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-gray-200">
+                  <div>
+                    <span class="text-xs font-medium text-emerald-700">🔧 {{ repair.worker_name }}</span>
+                    <span v-if="repair.notes" class="text-xs text-gray-500 block mt-0.5">{{ repair.notes }}</span>
+                  </div>
+                  <span class="text-xs text-gray-400 shrink-0">{{ new Date(repair.repair_date).toLocaleString('ar-EG') }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -231,6 +267,19 @@ const getStageName = (stage) => {
     'تجميع_كامل':             'تجميع كامل',
   }
   return names[stage] || stage
+}
+
+const currentStageLabel = (chassis) => {
+  const stages = chassis.stages || []
+
+  if (chassis.is_complete) {
+    if (stages.includes('تجميع_كامل')) return 'تجميع كامل ✅'
+    return 'تجميع الهيكل + توصيل الكهرباء والغلاف ✅ (مكتمل)'
+  }
+
+  if (stages.includes('توصيل_الكهرباء_والغلاف')) return 'توصيل الكهرباء والغلاف'
+  if (stages.includes('تجميع_الهيكل')) return 'تجميع الهيكل'
+  return 'لم تبدأ بعد'
 }
 
 const loadChassisSummary = async () => {

@@ -114,15 +114,34 @@ class SaleResponse(BaseModel):
 class FaultCreate(BaseModel):
     chassis_number: str
     description: str
+    related_stage: Optional[AssemblyStage] = None
     status: Optional[str] = "pending"
+
+class FaultRepairCreate(BaseModel):
+    worker_name: str
+    notes: Optional[str] = None
+
+class FaultRepairResponse(BaseModel):
+    id: int
+    fault_id: int
+    worker_id: int
+    worker_name: Optional[str] = None
+    repair_date: datetime
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class FaultResponse(BaseModel):
     id: int
     chassis_number: str
     description: str
-    worker_name: str | None = None
+    related_stage: Optional[str] = None
+    responsible_worker_name: Optional[str] = None
     reported_date: datetime
     status: str
+    resolved_at: Optional[datetime] = None
+    repairs: List[FaultRepairResponse] = []
 
     class Config:
         from_attributes = True

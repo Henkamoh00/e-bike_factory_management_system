@@ -1,4 +1,3 @@
-<!-- src/components/admin/tabs/AssemblyTab.vue -->
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
@@ -11,6 +10,8 @@
     <ChassisOverviewList
       ref="overviewRef"
       :workers-list="workersList"
+      :bike-types-list="bikeTypesList"
+      :bike-colors-list="bikeColorsList"
     />
   </div>
 </template>
@@ -22,7 +23,9 @@ import ChassisOverviewList from './ChassisOverviewList.vue'
 defineEmits(['open-assembly-modal'])
 
 const props = defineProps({
-  workersList: { type: Array, default: () => [] }
+  workersList: { type: Array, default: () => [] },
+  bikeTypesList: { type: Array, default: () => [] },
+  bikeColorsList: { type: Array, default: () => [] }
 })
 
 const overviewRef = ref(null)
