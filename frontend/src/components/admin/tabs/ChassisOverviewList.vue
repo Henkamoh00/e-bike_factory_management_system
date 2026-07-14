@@ -252,13 +252,14 @@ const filteredChassis = computed(() => {
     const stageWorkers = c.stage_workers || {}
 
     if (filters.value.worker_name && filters.value.stage) {
-      // لازم يكون نفس العامل هو من قام بنفس المرحلة تحديدًا
-      if (stageWorkers[filters.value.stage] !== filters.value.worker_name) return false
+      const directMatch = stageWorkers[filters.value.stage] === filters.value.worker_name
+      const coveredByFullAssembly =
+        (filters.value.stage === 'تجميع_الهيكل' || filters.value.stage === 'توصيل_الكهرباء_والغلاف') &&
+        stageWorkers['تجميع_كامل'] === filters.value.worker_name
+      if (!directMatch && !coveredByFullAssembly) return false
     } else if (filters.value.worker_name) {
-      // عامل فقط بدون تحديد مرحلة: أي مرحلة قام بها هذا العامل
       if (!(c.workers || []).includes(filters.value.worker_name)) return false
     } else if (filters.value.stage) {
-      // مرحلة فقط بدون تحديد عامل: أي عامل قام بهذه المرحلة
       if (!(c.stages || []).includes(filters.value.stage)) return false
     }
 
