@@ -204,12 +204,18 @@ def get_chassis_summary(db: Session):
         bike_type_name = next((r.bike_type.name for r in records if r.bike_type), None)
         bike_color_name = next((r.bike_color.name for r in records if r.bike_color), None)
 
+        stage_workers = {
+            (r.stage.value if hasattr(r.stage, 'value') else r.stage): (r.worker.name if r.worker else None)
+            for r in records
+        }
+
         summary.append({
             "chassis_number": chassis_number,
             "is_complete": is_complete,
             "is_sold": sale is not None,
             "workers": worker_names,
             "stages": stage_values,
+            "stage_workers": stage_workers,
             "bike_type": bike_type_name,
             "bike_color": bike_color_name,
             "customer_name": sale.customer.name if sale and sale.customer else None,
