@@ -17,7 +17,7 @@ def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
     return crud.get_all_faults(db, skip=skip, limit=limit)
 
 
-@router.post("/{fault_id}/repair", response_model=schemas.FaultRepairResponse)
+@router.post("/{fault_id}/repair/", response_model=schemas.FaultRepairResponse)
 def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_fault_repair(db, fault_id, repair)
@@ -25,7 +25,7 @@ def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session =
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{fault_id}/suggested-worker")
+@router.get("/{fault_id}/suggested-worker/")
 def suggested_worker(fault_id: int, db: Session = Depends(get_db)):
     suggestion = crud.get_suggested_worker_for_fault(db, fault_id)
     if not suggestion:

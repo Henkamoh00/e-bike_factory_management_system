@@ -246,67 +246,95 @@ const switchTab = (tab) => {
 }
 
 // ── API calls ───────────────────────────────────────────────────────────────
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API}/api/stats/`)
+    const res = await fetch(`${API}/api/stats/`, {
+      headers: requestHeaders
+    })
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
 }
 
 const loadBikeTypes = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-types`)
+    const res = await fetch(`${API}/api/bike-types/`, {
+      headers: requestHeaders
+    })
     if (res.ok) bikeTypesList.value = await res.json()
   } catch (e) { console.error('أنواع الدراجات', e) }
 }
 
 const loadBikeColors = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-colors`)
+    const res = await fetch(`${API}/api/bike-colors/`, {
+      headers: requestHeaders
+    })
     if (res.ok) bikeColorsList.value = await res.json()
   } catch (e) { console.error('ألوان الدراجات', e) }
 }
 
 const loadSales = async () => {
   try {
-    const res = await fetch(`${API}/api/sales/`)
+    const res = await fetch(`${API}/api/sales/`, {
+      headers: requestHeaders
+    })
     if (res.ok) salesList.value = await res.json()
   } catch (e) { console.error('مبيعات', e) }
 }
 
 const loadAvailableChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/available`)
+    const res = await fetch(`${API}/api/chassis/available/`, {
+      headers: requestHeaders
+    })
     if (res.ok) availableChassisList.value = await res.json()
   } catch (e) { console.error('هياكل متاحة', e) }
 }
 
 const loadFaults = async () => {
   try {
-    const res = await fetch(`${API}/api/faults/`)
+    const res = await fetch(`${API}/api/faults/`, {
+      headers: requestHeaders
+    })
     if (res.ok) faultsList.value = await res.json()
   } catch (e) { console.error('أعطال', e) }
 }
 
 const loadAllChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/all`)
+    const res = await fetch(`${API}/api/chassis/all/`, {
+      headers: requestHeaders
+    })
     if (res.ok) allChassisList.value = await res.json()
   } catch (e) { console.error('كل الهياكل', e) }
 }
 
 const loadWorkers = async () => {
   try {
-    const res = await fetch(`${API}/api/workers/`)
+    const res = await fetch(`${API}/api/workers/`, {
+      headers: requestHeaders
+    })
     if (res.ok) workersList.value = await res.json()
   } catch (e) { console.error('عمال', e) }
 }
 
 const loadCustomers = async () => {
   try {
-    const res = await fetch(`${API}/api/customers/`)
+    const res = await fetch(`${API}/api/customers/`, {
+      headers: requestHeaders
+    })
     if (res.ok) customersList.value = await res.json()
   } catch (e) { console.error('عملاء', e) }
 }

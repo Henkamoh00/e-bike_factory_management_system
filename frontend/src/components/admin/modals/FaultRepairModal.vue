@@ -35,6 +35,18 @@
 import { ref, computed, onMounted } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
+
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const suggestedWorkerName = ref('')
@@ -62,7 +74,9 @@ const form = ref({
 
 const loadSuggestedWorker = async () => {
   try {
-    const res = await fetch(`http://localhost:8000/api/faults/${props.fault.id}/suggested-worker`)
+    const res = await fetch(`${API}/api/faults/${props.fault.id}/suggested-worker/`, {
+      headers: requestHeaders
+    })
     if (res.ok) {
       const data = await res.json()
       if (data.worker_name) {
@@ -81,9 +95,11 @@ const submit = async () => {
 
   loading.value = true
   try {
-    const res = await fetch(`http://localhost:8000/api/faults/${props.fault.id}/repair`, {
+    const res = await fetch(`${API}/api/faults/${props.fault.id}/repair/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+      requestHeaders
+       },
       body: JSON.stringify(form.value)
     })
 

@@ -8,7 +8,4 @@ const app = createApp(App)
 
 app.use(router)
 
-// يمكن إضافة global properties لاحقاً
-// app.config.globalProperties.$API = 'http://localhost:8000'
-
 app.mount('#app')

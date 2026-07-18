@@ -154,6 +154,18 @@ import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
 import BikeTypeFormModal from '../../admin/modals/BikeTypeFormModal.vue'
 import BikeColorFormModal from '../../admin/modals/BikeColorFormModal.vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
+
 const emit = defineEmits(['close', 'success', 'worker-added', 'type-added', 'color-added'])
 const loading = ref(false)
 const pendingConfirm = ref(null)
@@ -225,12 +237,14 @@ const submit = async (force = false) => {
   loading.value = true
   try {
     const url = force
-      ? 'http://localhost:8000/api/assembly/record?force=true'
-      : 'http://localhost:8000/api/assembly/record'
+      ? `${API}/api/assembly/record?force=true/`
+      : `${API}/api/assembly/record/`
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+      requestHeaders
+       },
       body: JSON.stringify(form.value)
     })
 

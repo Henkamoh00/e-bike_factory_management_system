@@ -13,13 +13,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+origins = [
+    "https://electricbikemanager.app",
+    "https://electricbikemanager.vercel.app",
+    "http://localhost:5173",  # لبيئة التطوير المحلية أيضاً
+    "http://127.0.0.1:5173",
+]
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # غير هذا لاحقاً في الإنتاج
+    allow_origins=origins,  # غير هذا لاحقاً في الإنتاج
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "ngrok-skip-browser-warning"  # 👈 يجب كتابته صراحة هنا بالاسم!
+    ],
     expose_headers=["X-Confirm-Required"],
 )
 

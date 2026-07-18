@@ -67,6 +67,18 @@ import { ref, computed } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import CustomerFormModal from '../../admin/modals/CustomerFormModal.vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
+
 const emit = defineEmits(['close', 'success', 'customer-added'])
 const loading = ref(false)
 const showCustomerForm = ref(false)
@@ -111,9 +123,11 @@ const submit = async () => {
   if (!payload.sale_date) delete payload.sale_date
 
   try {
-    const res = await fetch('http://localhost:8000/api/sales/', {
+    const res = await fetch(`${API}/api/sales/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+      requestHeaders
+       },
       body: JSON.stringify(payload)
     })
 

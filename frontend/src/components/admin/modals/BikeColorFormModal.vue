@@ -27,6 +27,18 @@
 <script setup>
 import { ref } from 'vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
+
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const form = ref({ name: '' })
@@ -43,9 +55,11 @@ const submit = async () => {
   if (!form.value.name.trim()) { showToast('error', 'يرجى إدخال اسم النوع'); return }
   loading.value = true
   try {
-    const res = await fetch('http://localhost:8000/api/bike-colors', {
+    const res = await fetch(`${API}/api/bike-colors/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+      requestHeaders
+       },
       body: JSON.stringify(form.value)
     })
     const data = await res.json()

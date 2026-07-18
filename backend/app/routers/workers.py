@@ -5,7 +5,7 @@ from .. import crud, schemas, workshop_crud, models
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
 
-@router.get("/simple")
+@router.get("/simple/")
 def get_workers(db: Session = Depends(get_db)):
     workers = workshop_crud.get_workers(db)
     return [{"id": w.id, "name": w.name} for w in workers]

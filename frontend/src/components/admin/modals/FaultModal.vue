@@ -67,6 +67,18 @@
 import { ref, computed } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
+
+// إنشاء كائن الـ Headers الأساسي
+const requestHeaders = {
+  'Content-Type': 'application/json'
+}
+
+// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+if (API.includes('ngrok')) {
+  requestHeaders['ngrok-skip-browser-warning'] = 'true'
+}
+
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 
@@ -103,9 +115,11 @@ const submit = async () => {
   if (!payload.related_stage) delete payload.related_stage
 
   try {
-    const res = await fetch('http://localhost:8000/api/faults/', {
+    const res = await fetch(`${API}/api/faults/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+      requestHeaders
+       },
       body: JSON.stringify(payload)
     })
 

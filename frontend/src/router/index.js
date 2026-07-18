@@ -5,8 +5,8 @@ import AdminDashboard from '../views/AdminDashboard.vue'
 
 const routes = [
   {
-    path: '/admin',
-    name: 'Admin',
+    path: '/',
+    name: 'Dashboard',
     component: AdminDashboard
   }
 ]

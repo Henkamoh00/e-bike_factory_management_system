@@ -6,7 +6,7 @@ from .. import schemas, workshop_crud
 
 router = APIRouter(prefix="/api/assembly", tags=["assembly"])
 
-@router.post("/record", response_model=schemas.AssemblyResponse)
+@router.post("/record/", response_model=schemas.AssemblyResponse)
 def create_assembly_record(
     assembly: schemas.AssemblyCreate,
     force: bool = Query(default=False, description="تجاوز تحذير العامل المختلف بعد تأكيد المسؤول"),
