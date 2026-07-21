@@ -28,17 +28,28 @@
       <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
-    <div class="bg-white rounded-3xl shadow-xl p-6">
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
       <div v-if="filteredSales.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد مبيعات مطابقة</div>
-      <div v-else class="space-y-4">
-        <div v-for="sale in filteredSales" :key="sale.id" class="bg-gray-50 p-5 rounded-2xl flex justify-between items-center">
-          <div>
-            <div class="font-mono font-bold">{{ sale.chassis_number }}</div>
-            <div class="text-gray-600">العميل: <strong>{{ sale.customer_name }}</strong></div>
+
+      <div v-else class="divide-y divide-gray-100">
+        <div
+          v-for="sale in filteredSales"
+          :key="sale.id"
+          class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
+        >
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-base shrink-0">
+              💰
+            </div>
+            <div class="min-w-0">
+              <div class="font-mono font-bold text-gray-800 truncate">{{ sale.chassis_number }}</div>
+              <div class="text-xs text-gray-500 truncate">{{ sale.customer_name }}</div>
+            </div>
           </div>
-          <div class="text-right">
-            <div class="text-sm text-gray-500">{{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}</div>
-            <div v-if="sale.notes" class="text-xs text-gray-400 mt-1">{{ sale.notes }}</div>
+
+          <div class="text-left shrink-0">
+            <div class="text-xs text-gray-400">{{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}</div>
+            <div v-if="sale.notes" class="text-xs text-gray-400 truncate max-w-[140px]">{{ sale.notes }}</div>
           </div>
         </div>
       </div>

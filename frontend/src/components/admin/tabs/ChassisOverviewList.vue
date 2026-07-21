@@ -70,37 +70,36 @@
         لا توجد نتائج مطابقة
       </div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="divide-y divide-gray-100">
         <div
           v-for="chassis in filteredChassis"
           :key="chassis.chassis_number"
-          @click="openDetails(chassis.chassis_number)"
-          class="flex justify-between items-center p-4 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition"
+          class="flex items-center justify-between gap-4 py-3 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl"
         >
-          <div>
-            <div class="font-mono font-bold">{{ chassis.chassis_number }}</div>
-            <div class="text-sm text-gray-500 mt-1">
-              {{ chassis.is_complete ? '✅ مكتمل' : '⚙️ قيد التجميع' }}
-              <span v-if="chassis.is_sold" class="text-emerald-600"> • مباع لـ {{ chassis.customer_name }}</span>
-              <span v-else class="text-amber-600"> • غير مباع</span>
-            </div>
-            <div class="text-xs text-gray-400 mt-1">
-              المرحلة الحالية: <span class="font-medium text-gray-600">{{ currentStageLabel(chassis) }}</span>
-            </div>
-            <div class="flex gap-2 mt-2">
-              <span v-if="chassis.bike_type" class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-3 py-1">
-                🚲 {{ chassis.bike_type }}
-              </span>
-              <span v-if="chassis.bike_color" class="text-xs bg-purple-100 text-purple-700 rounded-full px-3 py-1">
-                🎨 {{ chassis.bike_color }}
-              </span>
+          <div @click="openDetails(chassis.chassis_number)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
+            <span class="text-lg shrink-0">{{ chassis.is_complete ? '✅' : '⚙️' }}</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-mono font-bold text-gray-800">{{ chassis.chassis_number }}</span>
+                <span class="text-xs text-gray-500">{{ currentStageLabel(chassis) }}</span>
+              </div>
+              <div class="flex items-center gap-2 mt-1 flex-wrap">
+                <span v-if="chassis.bike_type" class="text-xs bg-indigo-50 text-indigo-600 rounded-full px-2 py-0.5">🚲 {{ chassis.bike_type }}</span>
+                <span v-if="chassis.bike_color" class="text-xs bg-purple-50 text-purple-600 rounded-full px-2 py-0.5">🎨 {{ chassis.bike_color }}</span>
+                <span v-if="chassis.is_sold" class="text-xs text-emerald-600">مباع لـ {{ chassis.customer_name }}</span>
+                <span v-else class="text-xs text-amber-600">غير مباع</span>
+              </div>
             </div>
           </div>
-          <div class="text-left">
-            <span v-if="chassis.pending_faults_count > 0" class="text-xs bg-red-100 text-red-700 rounded-full px-3 py-1">
-              {{ chassis.pending_faults_count }} عطل معلق
+
+          <div class="text-left shrink-0 flex items-center gap-3">
+            <span v-if="chassis.pending_faults_count > 0" class="text-xs bg-red-100 text-red-700 rounded-full px-2.5 py-1">
+              {{ chassis.pending_faults_count }} عطل
             </span>
-            <div class="text-xs text-gray-400 mt-1">{{ new Date(chassis.last_updated).toLocaleDateString('ar-EG') }}</div>
+            <span class="text-xs text-gray-400">{{ new Date(chassis.last_updated).toLocaleDateString('ar-EG') }}</span>
+
+            <!-- مكان محجوز لأزرار تعديل/حذف مستقبلية -->
+            <div class="flex items-center gap-1 shrink-0"></div>
           </div>
         </div>
       </div>

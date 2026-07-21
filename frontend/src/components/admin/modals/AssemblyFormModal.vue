@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4">
-      <div class="p-8">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+      <div class="p-8 overflow-y-auto flex-1">
         <h2 class="text-2xl font-bold mb-6 text-emerald-700">تسجيل عملية تجميع</h2>
 
         <div class="mb-4">
@@ -69,7 +69,6 @@
           </div>
         </div>
 
-        <!-- حقل النوع: يظهر فقط عند تجميع_الهيكل أو تجميع_كامل -->
         <div v-if="showTypeField" class="mb-2 mt-4">
           <SearchableSelect
             v-model="form.bike_type_name"
@@ -88,7 +87,6 @@
           + إضافة نوع جديد
         </button>
 
-        <!-- حقل اللون: يظهر فقط عند توصيل_الكهرباء_والغلاف أو تجميع_كامل -->
         <div v-if="showColorField" class="mb-2 mt-2">
           <SearchableSelect
             v-model="form.bike_color_name"
@@ -108,7 +106,7 @@
         </button>
       </div>
 
-      <div class="border-t p-4 flex gap-3">
+      <div class="border-t p-4 flex gap-3 shrink-0">
         <button @click="cancel" class="flex-1 py-4 rounded-2xl font-medium text-gray-600 hover:bg-gray-100">إلغاء</button>
         <button @click="() => submit()" :disabled="loading" class="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold">
           {{ loading ? 'جاري التسجيل...' : '✅ تسجيل العملية' }}
@@ -161,7 +159,7 @@ const requestHeaders = {
   'Content-Type': 'application/json'
 }
 
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
+// إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
 if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
@@ -237,14 +235,12 @@ const submit = async (force = false) => {
   loading.value = true
   try {
     const url = force
-      ? `${API}/api/assembly/record?force=true/`
+      ? `${API}/api/assembly/record/?force=true`
       : `${API}/api/assembly/record/`
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-      requestHeaders
-       },
+      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
 

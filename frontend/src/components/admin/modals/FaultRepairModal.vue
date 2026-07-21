@@ -1,7 +1,7 @@
 <template>
   <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[65]">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4">
-      <div class="p-8">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+      <div class="p-8 overflow-y-auto flex-1">
         <h2 class="text-2xl font-bold mb-2 text-emerald-700">تسجيل تصليح عطل</h2>
         <p class="text-sm text-gray-500 mb-6 font-mono">{{ fault.chassis_number }} — {{ fault.description }}</p>
 
@@ -21,7 +21,7 @@
         <textarea v-model="form.notes" placeholder="ملاحظات التصليح (اختياري)" class="w-full p-4 border rounded-2xl h-24 mt-2"></textarea>
       </div>
 
-      <div class="border-t p-4 flex gap-3">
+      <div class="border-t p-4 flex gap-3 shrink-0">
         <button @click="cancel" class="flex-1 py-4 rounded-2xl font-medium text-gray-600 hover:bg-gray-100">إلغاء</button>
         <button @click="submit" :disabled="loading" class="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold">
           {{ loading ? 'جاري التسجيل...' : '✅ تأكيد التصليح' }}
@@ -37,12 +37,10 @@ import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
-// إنشاء كائن الـ Headers الأساسي
 const requestHeaders = {
   'Content-Type': 'application/json'
 }
 
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
 if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
@@ -97,9 +95,7 @@ const submit = async () => {
   try {
     const res = await fetch(`${API}/api/faults/${props.fault.id}/repair/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-      requestHeaders
-       },
+      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
 

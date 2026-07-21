@@ -1,6 +1,6 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-    <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl relative">
+    <div class="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl relative max-h-[90vh] flex flex-col">
       <transition name="fade">
         <div v-if="toast.show" class="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg z-10"
           :class="toast.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'">
@@ -8,13 +8,15 @@
         </div>
       </transition>
 
-      <h3 class="text-xl font-bold mb-6">إضافة نوع دراجة جديد</h3>
-      <div>
-        <label class="block text-sm text-gray-600 mb-1">اسم النوع</label>
-        <input v-model="form.name" type="text" placeholder="مثال: دراجة جبلية"
-          class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+      <div class="p-8 overflow-y-auto flex-1">
+        <h3 class="text-xl font-bold mb-6">إضافة نوع دراجة جديد</h3>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">اسم النوع</label>
+          <input v-model="form.name" type="text" placeholder="مثال: دراجة جبلية"
+            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+        </div>
       </div>
-      <div class="flex gap-3 mt-6">
+      <div class="flex gap-3 p-6 pt-0 shrink-0">
         <button @click="submit" :disabled="loading" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold">
           {{ loading ? 'جاري الحفظ...' : 'حفظ' }}
         </button>
@@ -29,12 +31,10 @@ import { ref } from 'vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
-// إنشاء كائن الـ Headers الأساسي
 const requestHeaders = {
   'Content-Type': 'application/json'
 }
 
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
 if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
@@ -57,9 +57,7 @@ const submit = async () => {
   try {
     const res = await fetch(`${API}/api/bike-types/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-      requestHeaders
-       },
+      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()

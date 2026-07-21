@@ -20,27 +20,32 @@
       <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
-    <div class="bg-white rounded-3xl shadow-xl p-6">
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
       <div v-if="filteredCustomers.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد عملاء مطابقون</div>
-      <div v-else class="space-y-4">
-        <div v-for="customer in filteredCustomers" :key="customer.id" class="bg-gray-50 p-5 rounded-2xl">
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="font-bold text-lg">{{ customer.name }}</div>
-              <div class="text-sm text-gray-500">{{ customer.phone }}</div>
-              <div class="text-sm text-gray-400">{{ customer.address }}</div>
+
+      <div v-else class="divide-y divide-gray-100">
+        <div
+          v-for="customer in filteredCustomers"
+          :key="customer.id"
+          class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
+        >
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
+              {{ customer.name.charAt(0) }}
             </div>
-            <div class="text-right">
-              <span class="text-sm text-purple-600 font-medium">{{ customer.total_purchases ?? 0 }} دراجة مشتراة</span>
+            <div class="min-w-0">
+              <div class="font-bold text-gray-800 truncate">{{ customer.name }}</div>
+              <div class="text-xs text-gray-400 truncate">
+                <span v-if="customer.phone">{{ customer.phone }}</span>
+                <span v-if="customer.phone && customer.address"> • </span>
+                <span v-if="customer.address">{{ customer.address }}</span>
+              </div>
             </div>
           </div>
-          <div v-if="customer.sales?.length" class="mt-4 space-y-2">
-            <div v-for="sale in customer.sales" :key="sale.id"
-              class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-gray-200">
-              <span class="font-mono text-sm">{{ sale.chassis_number }}</span>
-              <span class="text-xs text-gray-500">{{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}</span>
-            </div>
-          </div>
+
+          <span class="text-xs bg-purple-50 text-purple-600 font-medium px-3 py-1 rounded-full shrink-0">
+            {{ customer.total_purchases ?? 0 }} دراجة
+          </span>
         </div>
       </div>
     </div>

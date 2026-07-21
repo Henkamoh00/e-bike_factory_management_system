@@ -1,8 +1,7 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-    <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl relative">
+    <div class="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl relative max-h-[90vh] flex flex-col">
 
-      <!-- Toast نجاح/خطأ -->
       <transition name="fade">
         <div
           v-if="toast.show"
@@ -13,25 +12,27 @@
         </div>
       </transition>
 
-      <h3 class="text-xl font-bold mb-6">إضافة عميل جديد</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">اسم العميل</label>
-          <input v-model="form.name" type="text" placeholder="الاسم الكامل"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">رقم الهاتف</label>
-          <input v-model="form.phone" type="text" placeholder="05xxxxxxxx"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">العنوان (اختياري)</label>
-          <input v-model="form.address" type="text" placeholder="المدينة / الحي"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+      <div class="p-8 overflow-y-auto flex-1">
+        <h3 class="text-xl font-bold mb-6">إضافة عميل جديد</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">اسم العميل</label>
+            <input v-model="form.name" type="text" placeholder="الاسم الكامل"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">رقم الهاتف</label>
+            <input v-model="form.phone" type="text" placeholder="05xxxxxxxx"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">العنوان (اختياري)</label>
+            <input v-model="form.address" type="text" placeholder="المدينة / الحي"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+          </div>
         </div>
       </div>
-      <div class="flex gap-3 mt-6">
+      <div class="flex gap-3 p-6 pt-0 shrink-0">
         <button @click="submit" :disabled="loading"
           class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold">
           {{ loading ? 'جاري الحفظ...' : 'حفظ' }}
@@ -50,12 +51,10 @@ import { ref } from 'vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
-// إنشاء كائن الـ Headers الأساسي
 const requestHeaders = {
   'Content-Type': 'application/json'
 }
 
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
 if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
@@ -91,16 +90,14 @@ const submit = async () => {
   try {
     const res = await fetch(`${API}/api/customers/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json',
-      requestHeaders
-       },
+      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()
 
     if (res.ok) {
       showToast('success', '✅ تم إضافة العميل بنجاح')
-      setTimeout(() => emit('success', data), 700)   // مهلة صغيرة ليرى المستخدم الرسالة قبل إغلاق المودال
+      setTimeout(() => emit('success', data), 700)
     } else {
       showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }

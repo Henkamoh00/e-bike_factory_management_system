@@ -47,38 +47,45 @@
 
     <div class="bg-white rounded-3xl shadow-xl p-6">
       <div v-if="filteredFaults.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
-      <div v-else class="space-y-4">
-        <div v-for="fault in filteredFaults" :key="fault.id" class="bg-gray-50 p-5 rounded-2xl">
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="font-mono font-bold">{{ fault.chassis_number }}</div>
-              <div v-if="fault.related_stage" class="text-xs text-gray-400 mt-0.5">
-                المرحلة: {{ getStageName(fault.related_stage) }}
-                <span v-if="fault.responsible_worker_name"> — بواسطة: {{ fault.responsible_worker_name }}</span>
+
+      <div v-else class="divide-y divide-gray-100">
+        <div v-for="fault in filteredFaults" :key="fault.id" class="py-3">
+          <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
+            <div @click="toggleExpand(fault.id)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
+              <span class="text-lg shrink-0">{{ fault.status === 'pending' ? '🔴' : '🟢' }}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-mono font-bold text-gray-800">{{ fault.chassis_number }}</span>
+                  <span v-if="fault.related_stage" class="text-xs text-gray-500">{{ getStageName(fault.related_stage) }}</span>
+                  <span v-if="fault.responsible_worker_name" class="text-xs text-gray-400">— بواسطة {{ fault.responsible_worker_name }}</span>
+                </div>
+                <div class="text-sm text-gray-600 truncate max-w-md">{{ fault.description }}</div>
               </div>
-              <div class="text-gray-600 mt-1">{{ fault.description }}</div>
             </div>
-            <div class="text-right shrink-0">
-              <span :class="fault.status === 'pending' ? 'text-red-600' : 'text-emerald-600'" class="font-medium">
+
+            <div class="text-left shrink-0 flex items-center gap-3">
+              <span :class="fault.status === 'pending' ? 'text-red-600' : 'text-emerald-600'" class="text-xs font-medium">
                 {{ fault.status === 'pending' ? 'معلق' : 'تم إصلاحه' }}
               </span>
-              <div class="text-xs text-gray-500 mt-1">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</div>
+              <span class="text-xs text-gray-400">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</span>
               <button
                 v-if="fault.status === 'pending'"
                 @click="openRepairModal(fault)"
-                class="mt-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium"
+                class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium"
               >
-                ✅ تسجيل تصليح
+                ✅ تصليح
               </button>
+
+              <!-- مكان محجوز لأزرار تعديل/حذف مستقبلية -->
+              <div class="flex items-center gap-1 shrink-0"></div>
             </div>
           </div>
 
-          <!-- تاريخ التصليحات -->
-          <div v-if="fault.repairs?.length" class="mt-4 pt-4 border-t border-gray-200 space-y-2">
-            <div v-for="repair in fault.repairs" :key="repair.id" class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-gray-200">
+          <div v-if="expandedFaultId === fault.id && fault.repairs?.length" class="mt-3 mr-8 space-y-2">
+            <div v-for="repair in fault.repairs" :key="repair.id" class="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-xl">
               <div>
-                <span class="text-sm font-medium text-emerald-700">🔧 {{ repair.worker_name }}</span>
-                <span v-if="repair.notes" class="text-xs text-gray-500 block mt-1">{{ repair.notes }}</span>
+                <span class="text-xs font-medium text-emerald-700">🔧 {{ repair.worker_name }}</span>
+                <span v-if="repair.notes" class="text-xs text-gray-500 block mt-0.5">{{ repair.notes }}</span>
               </div>
               <span class="text-xs text-gray-400 shrink-0">{{ new Date(repair.repair_date).toLocaleString('ar-EG') }}</span>
             </div>
@@ -116,6 +123,7 @@ const faultsFilter = ref({
   responsible_worker: ''
 })
 const repairingFault = ref(null)
+const expandedFaultId = ref(null)
 
 const statusOptions = [
   { label: 'معلق', value: 'pending' },
@@ -147,6 +155,10 @@ const getStageName = (stage) => {
     'تجميع_كامل':             'تجميع كامل',
   }
   return names[stage] || stage
+}
+
+const toggleExpand = (faultId) => {
+  expandedFaultId.value = expandedFaultId.value === faultId ? null : faultId
 }
 
 const openRepairModal = (fault) => { repairingFault.value = fault }
