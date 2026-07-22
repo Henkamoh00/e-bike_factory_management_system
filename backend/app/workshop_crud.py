@@ -12,11 +12,40 @@ def get_or_create_worker(db: Session, name: str):
         db.add(worker)
         db.commit()
         db.refresh(worker)
+    elif worker.is_deleted:
+        # إعادة تفعيل العامل تلقائيًا لو تم اختياره مجددًا بعملية جديدة
+        worker.is_deleted = False
+        db.commit()
+        db.refresh(worker)
     return worker
 
 
 def get_workers(db: Session):
-    return db.query(models.Worker).order_by(models.Worker.name).all()
+    return db.query(models.Worker)\
+              .filter(not models.Worker.is_deleted)\
+              .order_by(models.Worker.name).all()
+
+
+def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate):
+    worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
+    if not worker:
+        raise ValueError("العامل غير موجود")
+    if data.name is not None:
+        worker.name = data.name
+    if data.phone is not None:
+        worker.phone = data.phone
+    db.commit()
+    db.refresh(worker)
+    return worker
+
+
+def soft_delete_worker(db: Session, worker_id: int):
+    worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
+    if not worker:
+        raise ValueError("العامل غير موجود")
+    worker.is_deleted = True
+    db.commit()
+    return worker
 
 
 # ====================== ASSEMBLY STAGES ======================

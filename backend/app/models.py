@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -15,6 +15,7 @@ class Worker(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     assemblies = relationship("AssemblyRecord", back_populates="worker")
@@ -61,6 +62,7 @@ class Customer(Base):
     name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Sale(Base):

@@ -24,7 +24,6 @@
           </div>
         </div>
 
-        <!-- زر إغلاق السايدبار (يظهر فقط على الموبايل/التابلت) -->
         <button
           @click="isSidebarOpen = false"
           class="lg:hidden shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
@@ -65,7 +64,6 @@
       <header class="bg-white/80 backdrop-blur border-b border-slate-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <!-- زر فتح/إغلاق السايدبار على الشاشات الكبيرة (بدون Overlay) -->
             <button
               @click="isDesktopSidebarOpen = !isDesktopSidebarOpen"
               class="hidden lg:flex shrink-0 w-10 h-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors duration-200"
@@ -78,7 +76,6 @@
               </svg>
             </button>
 
-            <!-- زر ☰ لفتح السايدبار على الموبايل/التابلت -->
             <button
               @click="isSidebarOpen = true"
               class="lg:hidden shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors duration-200"
@@ -128,13 +125,17 @@
           <WorkersTab
             v-else-if="activeTab === 'workers'"
             :workers-list="workersList"
-            @open-worker-modal="showWorkerModal = true"
+            @open-worker-modal="openAddWorker"
+            @edit-worker="openEditWorker"
+            @delete-worker="handleDeleteWorker"
           />
 
           <CustomersTab
             v-else-if="activeTab === 'customers'"
             :customers-list="customersList"
-            @open-customer-modal="showCustomerModal = true"
+            @open-customer-modal="openAddCustomer"
+            @edit-customer="openEditCustomer"
+            @delete-customer="handleDeleteCustomer"
           />
         </div>
       </main>
@@ -154,13 +155,15 @@
 
     <WorkerFormModal
       v-if="showWorkerModal"
-      @close="showWorkerModal = false"
+      :worker="editingWorker"
+      @close="closeWorkerModal"
       @success="handleWorkerFormSuccess"
     />
 
     <CustomerFormModal
       v-if="showCustomerModal"
-      @close="showCustomerModal = false"
+      :customer="editingCustomer"
+      @close="closeCustomerModal"
       @success="handleCustomerFormSuccess"
     />
 
@@ -199,8 +202,8 @@ import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 
 const activeTab = ref('dashboard')
-const isSidebarOpen = ref(false)        // فتح/إغلاق السايدبار على الموبايل (مع Overlay)
-const isDesktopSidebarOpen = ref(true)  // فتح/إغلاق السايدبار على الشاشات الكبيرة (بدون Overlay)
+const isSidebarOpen = ref(false)
+const isDesktopSidebarOpen = ref(true)
 
 const asideClasses = computed(() => {
   const mobile = isSidebarOpen.value ? 'translate-x-0' : 'translate-x-full'
@@ -216,6 +219,9 @@ const showFaultModal    = ref(false)
 const showWorkerModal   = ref(false)
 const showCustomerModal = ref(false)
 
+const editingWorker   = ref(null)
+const editingCustomer = ref(null)
+
 const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const assemblyTabRef = ref(null)
 const bikeTypesList = ref([])
@@ -227,7 +233,6 @@ const allChassisList         = ref([])
 const workersList            = ref([])
 const customersList          = ref([])
 
-// ── تبويبات (بيانات عرض فقط، لا تغيير على المنطق) ─────────────────────────
 const tabs = [
   { id: 'dashboard', label: 'الإحصائيات', icon: '📈' },
   { id: 'assembly',  label: 'الورشة',      icon: '⚙️' },
@@ -242,108 +247,151 @@ const currentTabIcon  = computed(() => tabs.find(t => t.id === activeTab.value)?
 
 const switchTab = (tab) => {
   activeTab.value = tab
-  isSidebarOpen.value = false // إغلاق السايدبار تلقائيًا بعد اختيار تبويب على الموبايل
+  isSidebarOpen.value = false
 }
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
 
-// إنشاء كائن الـ Headers الأساسي
 const requestHeaders = {
   'Content-Type': 'application/json'
 }
 
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
 if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API}/api/stats/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/stats/`, { headers: requestHeaders })
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
 }
 
 const loadBikeTypes = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-types/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/bike-types/`, { headers: requestHeaders })
     if (res.ok) bikeTypesList.value = await res.json()
   } catch (e) { console.error('أنواع الدراجات', e) }
 }
 
 const loadBikeColors = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-colors/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/bike-colors/`, { headers: requestHeaders })
     if (res.ok) bikeColorsList.value = await res.json()
   } catch (e) { console.error('ألوان الدراجات', e) }
 }
 
 const loadSales = async () => {
   try {
-    const res = await fetch(`${API}/api/sales/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/sales/`, { headers: requestHeaders })
     if (res.ok) salesList.value = await res.json()
   } catch (e) { console.error('مبيعات', e) }
 }
 
 const loadAvailableChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/available/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/chassis/available/`, { headers: requestHeaders })
     if (res.ok) availableChassisList.value = await res.json()
   } catch (e) { console.error('هياكل متاحة', e) }
 }
 
 const loadFaults = async () => {
   try {
-    const res = await fetch(`${API}/api/faults/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/faults/`, { headers: requestHeaders })
     if (res.ok) faultsList.value = await res.json()
   } catch (e) { console.error('أعطال', e) }
 }
 
 const loadAllChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/all/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/chassis/all/`, { headers: requestHeaders })
     if (res.ok) allChassisList.value = await res.json()
   } catch (e) { console.error('كل الهياكل', e) }
 }
 
 const loadWorkers = async () => {
   try {
-    const res = await fetch(`${API}/api/workers/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/workers/`, { headers: requestHeaders })
     if (res.ok) workersList.value = await res.json()
   } catch (e) { console.error('عمال', e) }
 }
 
 const loadCustomers = async () => {
   try {
-    const res = await fetch(`${API}/api/customers/`, {
-      headers: requestHeaders
-    })
+    const res = await fetch(`${API}/api/customers/`, { headers: requestHeaders })
     if (res.ok) customersList.value = await res.json()
   } catch (e) { console.error('عملاء', e) }
+}
+
+// ── فتح/إغلاق مودال العامل (إضافة أو تعديل) ─────────────────────────────
+const openAddWorker = () => {
+  editingWorker.value = null
+  showWorkerModal.value = true
+}
+const openEditWorker = (worker) => {
+  editingWorker.value = worker
+  showWorkerModal.value = true
+}
+const closeWorkerModal = () => {
+  showWorkerModal.value = false
+  editingWorker.value = null
+}
+
+// ── فتح/إغلاق مودال العميل (إضافة أو تعديل) ─────────────────────────────
+const openAddCustomer = () => {
+  editingCustomer.value = null
+  showCustomerModal.value = true
+}
+const openEditCustomer = (customer) => {
+  editingCustomer.value = customer
+  showCustomerModal.value = true
+}
+const closeCustomerModal = () => {
+  showCustomerModal.value = false
+  editingCustomer.value = null
+}
+
+// ── حذف عامل / عميل (Soft Delete عبر الباك اند) ──────────────────────────
+const handleDeleteWorker = async (workerId) => {
+  try {
+    const res = await fetch(`${API}/api/workers/${workerId}/`, {
+      method: 'DELETE',
+      headers: requestHeaders
+    })
+    if (res.ok) {
+      loadWorkers()
+    } else {
+      const data = await res.json()
+      alert('❌ ' + (data.detail || 'تعذر حذف العامل'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  }
+}
+
+const handleDeleteCustomer = async (customerId) => {
+  try {
+    const res = await fetch(`${API}/api/customers/${customerId}/`, {
+      method: 'DELETE',
+      headers: requestHeaders
+    })
+    if (res.ok) {
+      loadCustomers()
+    } else {
+      const data = await res.json()
+      alert('❌ ' + (data.detail || 'تعذر حذف العميل'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  }
 }
 
 const handleAssemblySuccess = () => { showAssemblyModal.value = false; assemblyTabRef.value?.refresh() }
 const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis() }
 const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults() }
-const handleCustomerFormSuccess = () => { showCustomerModal.value = false; loadCustomers() }
-const handleWorkerFormSuccess   = () => { showWorkerModal.value   = false; loadWorkers() }
+const handleCustomerFormSuccess = () => { closeCustomerModal(); loadCustomers() }
+const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
 
 onMounted(() => {
   loadStats()

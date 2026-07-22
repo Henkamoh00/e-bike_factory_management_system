@@ -13,7 +13,7 @@
       </transition>
 
       <div class="p-8 overflow-y-auto flex-1">
-        <h3 class="text-xl font-bold mb-6">إضافة عميل جديد</h3>
+        <h3 class="text-xl font-bold mb-6">{{ isEditing ? 'تعديل بيانات العميل' : 'إضافة عميل جديد' }}</h3>
         <div class="space-y-4">
           <div>
             <label class="block text-sm text-gray-600 mb-1">اسم العميل</label>
@@ -35,7 +35,7 @@
       <div class="flex gap-3 p-6 pt-0 shrink-0">
         <button @click="submit" :disabled="loading"
           class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold">
-          {{ loading ? 'جاري الحفظ...' : 'حفظ' }}
+          {{ loading ? 'جاري الحفظ...' : (isEditing ? 'حفظ التعديلات' : 'حفظ') }}
         </button>
         <button @click="emit('close')"
           class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-xl font-bold">
@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -59,10 +59,24 @@ if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
 
+const props = defineProps({
+  customer: { type: Object, default: null }
+})
+
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 
+const isEditing = computed(() => !!props.customer)
+
 const form = ref({ name: '', phone: '', address: '' })
+
+onMounted(() => {
+  if (props.customer) {
+    form.value.name = props.customer.name || ''
+    form.value.phone = props.customer.phone || ''
+    form.value.address = props.customer.address || ''
+  }
+})
 
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
@@ -88,15 +102,20 @@ const submit = async () => {
   loading.value = true
 
   try {
-    const res = await fetch(`${API}/api/customers/`, {
-      method: 'POST',
+    const url = isEditing.value
+      ? `${API}/api/customers/${props.customer.id}/`
+      : `${API}/api/customers/`
+    const method = isEditing.value ? 'PUT' : 'POST'
+
+    const res = await fetch(url, {
+      method,
       headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()
 
     if (res.ok) {
-      showToast('success', '✅ تم إضافة العميل بنجاح')
+      showToast('success', isEditing.value ? '✅ تم تحديث بيانات العميل' : '✅ تم إضافة العميل بنجاح')
       setTimeout(() => emit('success', data), 700)
     } else {
       showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))

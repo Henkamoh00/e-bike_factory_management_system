@@ -43,9 +43,32 @@
             </div>
           </div>
 
-          <span class="text-xs bg-purple-50 text-purple-600 font-medium px-3 py-1 rounded-full shrink-0">
-            {{ customer.total_purchases ?? 0 }} دراجة
-          </span>
+          <div class="flex items-center gap-4 shrink-0">
+            <span class="text-xs bg-purple-50 text-purple-600 font-medium px-3 py-1 rounded-full">
+              {{ customer.total_purchases ?? 0 }} دراجة
+            </span>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <button @click="$emit('edit-customer', customer)" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition">
+                ✏️
+              </button>
+              <button @click="askDelete(customer)" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- تأكيد حذف عميل -->
+    <div v-if="pendingDelete" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
+      <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+        <div class="text-4xl mb-4">⚠️</div>
+        <p class="text-gray-800 text-lg mb-8">هل أنت متأكد من حذف العميل "<strong>{{ pendingDelete.name }}</strong>"؟</p>
+        <div class="flex gap-3">
+          <button @click="confirmDelete" class="flex-1 bg-red-600 text-white py-4 rounded-xl">نعم، احذف</button>
+          <button @click="pendingDelete = null" class="flex-1 bg-gray-100 py-4 rounded-xl">إلغاء</button>
         </div>
       </div>
     </div>
@@ -56,13 +79,14 @@
 import { ref, computed } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
-defineEmits(['open-customer-modal'])
+const emit = defineEmits(['open-customer-modal', 'edit-customer', 'delete-customer'])
 
 const props = defineProps({
   customersList: { type: Array, default: () => [] }
 })
 
 const customersFilter = ref({ name: '' })
+const pendingDelete = ref(null)
 
 const customerOptions = computed(() =>
   props.customersList.map(c => ({ label: c.name, value: c.name }))
@@ -75,4 +99,11 @@ const filteredCustomers = computed(() => {
 })
 
 const resetFilter = () => { customersFilter.value = { name: '' } }
+
+const askDelete = (customer) => { pendingDelete.value = customer }
+
+const confirmDelete = () => {
+  emit('delete-customer', pendingDelete.value.id)
+  pendingDelete.value = null
+}
 </script>

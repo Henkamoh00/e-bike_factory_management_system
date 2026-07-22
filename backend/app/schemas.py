@@ -12,6 +12,10 @@ class WorkerCreate(BaseModel):
     name: str
     phone: str | None = None
  
+class WorkerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
 class WorkerResponse(BaseModel):
     id: int
     name: str
@@ -83,6 +87,11 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     pass
 
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    
 class Customer(CustomerBase):
     id: int
     created_at: datetime

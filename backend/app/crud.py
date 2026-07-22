@@ -8,9 +8,10 @@ from . import workshop_crud
 # ====================== WORKERS (تقرير للوحة الإدارة) ======================
 def get_workers_with_records(db: Session):
     """
-    يرجع كل العمال (الأحدث أولاً) مع ملخص سجلات التجميع الخاصة بكل عامل.
+    يرجع كل العمال غير المحذوفين (الأحدث أولاً) مع ملخص سجلات التجميع الخاصة بكل عامل.
     """
     workers = db.query(models.Worker)\
+                .filter(models.Worker.is_deleted == False)\
                 .order_by(desc(models.Worker.id))\
                 .all()
 
@@ -53,12 +54,34 @@ def create_customer(db: Session, customer: schemas.CustomerCreate):
     db.refresh(db_customer)
     return db_customer
 
+def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate):
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise ValueError("العميل غير موجود")
+    if data.name is not None:
+        customer.name = data.name
+    if data.phone is not None:
+        customer.phone = data.phone
+    if data.address is not None:
+        customer.address = data.address
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+def soft_delete_customer(db: Session, customer_id: int):
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise ValueError("العميل غير موجود")
+    customer.is_deleted = True
+    db.commit()
+    return customer
 
 def get_customers_with_sales(db: Session):
     """
-    يرجع كل العملاء (الأحدث أولاً) مع تفاصيل مشترياتهم.
+    يرجع كل العملاء غير المحذوفين (الأحدث أولاً) مع تفاصيل مشترياتهم.
     """
     customers = db.query(models.Customer)\
+                  .filter(models.Customer.is_deleted == False)\
                   .order_by(models.Customer.id.desc())\
                   .all()
 
