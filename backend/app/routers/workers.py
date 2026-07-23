@@ -38,3 +38,8 @@ def delete_worker(worker_id: int, db: Session = Depends(get_db)):
         return {"message": "تم حذف العامل بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
+def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db)):
+    return crud.bulk_soft_delete_workers(db, payload.ids)

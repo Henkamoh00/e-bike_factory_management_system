@@ -1,14 +1,12 @@
 <template>
   <div class="min-h-screen bg-slate-50 font-sans flex" dir="rtl">
 
-    <!-- Overlay للموبايل/التابلت عند فتح السايدبار -->
     <div
       v-if="isSidebarOpen"
       @click="isSidebarOpen = false"
       class="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
     ></div>
 
-    <!-- Sidebar -->
     <aside
       :class="asideClasses"
       class="fixed lg:sticky top-0 right-0 h-screen w-72 max-w-[85vw] overflow-hidden bg-white border-slate-200 flex flex-col shrink-0 z-50 transition-all duration-300 ease-in-out"
@@ -59,7 +57,6 @@
       </div>
     </aside>
 
-    <!-- Main content -->
     <div class="flex-1 min-w-0 w-full">
       <header class="bg-white/80 backdrop-blur border-b border-slate-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between gap-3">
@@ -109,35 +106,42 @@
 
           <SalesTab
             v-else-if="activeTab === 'sales'"
+            ref="salesTabRef"
             :sales-list="salesList"
             :customers-list="customersList"
             @open-sale-modal="showSaleModal = true"
             @cancel-sale="openCancelSale"
+            @refresh-sales="handleRefreshSales"
           />
 
           <FaultsTab
             v-else-if="activeTab === 'faults'"
+            ref="faultsTabRef"
             :faults-list="faultsList"
             :workers-list="workersList"
             @open-fault-modal="showFaultModal = true"
-            @refresh-faults="loadFaults"
+            @refresh-faults="handleRefreshFaults"
             @cancel-fault="openCancelFault"
           />
 
           <WorkersTab
             v-else-if="activeTab === 'workers'"
+            ref="workersTabRef"
             :workers-list="workersList"
             @open-worker-modal="openAddWorker"
             @edit-worker="openEditWorker"
             @delete-worker="handleDeleteWorker"
+            @refresh-workers="loadWorkers"
           />
 
           <CustomersTab
             v-else-if="activeTab === 'customers'"
+            ref="customersTabRef"
             :customers-list="customersList"
             @open-customer-modal="openAddCustomer"
             @edit-customer="openEditCustomer"
             @delete-customer="handleDeleteCustomer"
+            @refresh-customers="loadCustomers"
           />
         </div>
       </main>
@@ -185,7 +189,6 @@
       @success="handleFaultSuccess"
     />
 
-    <!-- إلغاء بيع -->
     <CancelReasonModal
       v-if="cancellingSale"
       title="إلغاء عملية البيع"
@@ -196,7 +199,6 @@
       @confirm="confirmCancelSale"
     />
 
-    <!-- إلغاء عطل -->
     <CancelReasonModal
       v-if="cancellingFault"
       title="إلغاء العطل"
@@ -210,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
 import SaleModal from '../components/admin/modals/SaleModal.vue'
@@ -247,13 +249,17 @@ const showCustomerModal = ref(false)
 const editingWorker   = ref(null)
 const editingCustomer = ref(null)
 
-// ── إلغاء بيع / عطل ─────────────────────────────────────────────────────
 const cancellingSale  = ref(null)
 const cancellingFault = ref(null)
 const cancelLoading   = ref(false)
 
 const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const assemblyTabRef = ref(null)
+const salesTabRef     = ref(null)
+const faultsTabRef    = ref(null)
+const workersTabRef   = ref(null)
+const customersTabRef = ref(null)
+
 const bikeTypesList = ref([])
 const bikeColorsList = ref([])
 const salesList             = ref([])
@@ -279,6 +285,14 @@ const switchTab = (tab) => {
   activeTab.value = tab
   isSidebarOpen.value = false
 }
+
+// ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
+watch(activeTab, () => {
+  salesTabRef.value?.clearSelection?.()
+  faultsTabRef.value?.clearSelection?.()
+  workersTabRef.value?.clearSelection?.()
+  customersTabRef.value?.clearSelection?.()
+})
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
@@ -382,7 +396,7 @@ const closeCustomerModal = () => {
   editingCustomer.value = null
 }
 
-// ── حذف عامل / عميل (Soft Delete عبر الباك اند) ──────────────────────────
+// ── حذف عامل / عميل (فردي) ────────────────────────────────────────────
 const handleDeleteWorker = async (workerId) => {
   try {
     const res = await fetch(`${API}/api/workers/${workerId}/`, {
@@ -417,7 +431,7 @@ const handleDeleteCustomer = async (customerId) => {
   }
 }
 
-// ── إلغاء بيع ─────────────────────────────────────────────────────────────
+// ── إلغاء بيع (فردي) ─────────────────────────────────────────────────────
 const openCancelSale = (sale) => { cancellingSale.value = sale }
 
 const confirmCancelSale = async (payload) => {
@@ -445,7 +459,7 @@ const confirmCancelSale = async (payload) => {
   }
 }
 
-// ── إلغاء عطل ─────────────────────────────────────────────────────────────
+// ── إلغاء عطل (فردي) ─────────────────────────────────────────────────────
 const openCancelFault = (fault) => { cancellingFault.value = fault }
 
 const confirmCancelFault = async (payload) => {
@@ -472,6 +486,10 @@ const confirmCancelFault = async (payload) => {
     cancelLoading.value = false
   }
 }
+
+// ── معالجات نجاح الإجراءات الجماعية ─────────────────────────────────────
+const handleRefreshSales = () => { loadSales(); loadAvailableChassis(); loadStats() }
+const handleRefreshFaults = () => { loadFaults(); loadAvailableChassis(); loadStats() }
 
 const handleAssemblySuccess = () => { showAssemblyModal.value = false; assemblyTabRef.value?.refresh() }
 const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis(); loadStats() }

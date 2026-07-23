@@ -168,6 +168,21 @@ class FaultResponse(BaseModel):
         from_attributes = True
 
 
+# ====================== BULK ACTIONS ======================
+class BulkIds(BaseModel):
+    ids: List[int]
+
+class BulkCancel(BaseModel):
+    ids: List[int]
+    reason: Optional[str] = None
+    confirm_no_reason: bool = False
+
+class BulkActionResult(BaseModel):
+    success_count: int
+    failed_ids: List[int] = []
+    message: str
+
+
 # ====================== DASHBOARD & HISTORY ======================
 class DashboardStats(BaseModel):
     total_chassis: int

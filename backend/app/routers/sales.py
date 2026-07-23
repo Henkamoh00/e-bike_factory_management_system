@@ -27,3 +27,11 @@ def cancel_sale(sale_id: int, payload: schemas.SaleCancel, db: Session = Depends
         return crud.cancel_sale(db, sale_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
+def bulk_cancel_sales(payload: schemas.BulkCancel, db: Session = Depends(get_db)):
+    try:
+        return crud.bulk_cancel_sales(db, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

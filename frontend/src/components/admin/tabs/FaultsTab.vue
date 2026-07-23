@@ -7,7 +7,6 @@
       </button>
     </div>
 
-    <!-- فلاتر الأعطال -->
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
         <label class="block text-sm text-gray-500 mb-1">بحث برقم الهيكل</label>
@@ -19,92 +18,97 @@
         />
       </div>
       <div>
-        <SearchableSelect
-          v-model="faultsFilter.status"
-          :options="statusOptions"
-          label="تصفية بالحالة"
-          empty-label="كل الحالات"
-        />
+        <SearchableSelect v-model="faultsFilter.status" :options="statusOptions" label="تصفية بالحالة" empty-label="كل الحالات" />
       </div>
       <div>
-        <SearchableSelect
-          v-model="faultsFilter.repaired_by"
-          :options="workerOptions"
-          label="تصفية بالعامل (المصلّح)"
-          empty-label="كل العمال"
-        />
+        <SearchableSelect v-model="faultsFilter.repaired_by" :options="workerOptions" label="تصفية بالعامل (المصلّح)" empty-label="كل العمال" />
       </div>
       <div>
-        <SearchableSelect
-          v-model="faultsFilter.responsible_worker"
-          :options="workerOptions"
-          label="تصفية بالعامل المتسبب في العطل"
-          empty-label="كل العمال"
-        />
+        <SearchableSelect v-model="faultsFilter.responsible_worker" :options="workerOptions" label="تصفية بالعامل المتسبب في العطل" empty-label="كل العمال" />
       </div>
       <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
+    <BulkActionsBar :count="bulk.selectedCount.value" @clear="bulk.clear">
+      <button
+        @click="openBulkRepair"
+        :disabled="bulkLoading"
+        class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium"
+      >
+        ✅ تصليح المحدد ({{ pendingSelectedCount }})
+      </button>
+      <button
+        @click="openBulkCancel"
+        :disabled="bulkLoading"
+        class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium"
+      >
+        ❌ إلغاء المحدد ({{ pendingSelectedCount }})
+      </button>
+    </BulkActionsBar>
+
     <div class="bg-white rounded-3xl shadow-xl p-6">
       <div v-if="filteredFaults.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
 
-      <div v-else class="divide-y divide-gray-100">
-        <div v-for="fault in filteredFaults" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
-          <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
-            <div @click="toggleExpand(fault.id)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
-              <span class="text-lg shrink-0">{{ statusIcon(fault.status) }}</span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-mono font-bold" :class="fault.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-gray-800'">
-                    {{ fault.chassis_number }}
-                  </span>
-                  <span v-if="fault.related_stage" class="text-xs text-gray-500">{{ getStageName(fault.related_stage) }}</span>
-                  <span v-if="fault.responsible_worker_name" class="text-xs text-gray-400">— بواسطة {{ fault.responsible_worker_name }}</span>
-                  <span v-if="fault.status === 'cancelled'" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
-                    ملغى
-                  </span>
+      <template v-else>
+        <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
+          <input type="checkbox" :checked="bulk.allSelected.value" @change="bulk.toggleAll" class="w-4 h-4 accent-indigo-600 rounded" />
+          <span class="text-xs text-gray-400">تحديد الكل ({{ filteredFaults.length }})</span>
+        </div>
+
+        <div class="divide-y divide-gray-100">
+          <div v-for="fault in filteredFaults" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
+            <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <input type="checkbox" :checked="bulk.isSelected(fault)" @change="bulk.toggleOne(fault)" class="w-4 h-4 accent-indigo-600 rounded shrink-0" />
+
+                <div @click="toggleExpand(fault.id)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
+                  <span class="text-lg shrink-0">{{ statusIcon(fault.status) }}</span>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-mono font-bold" :class="fault.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-gray-800'">
+                        {{ fault.chassis_number }}
+                      </span>
+                      <span v-if="fault.related_stage" class="text-xs text-gray-500">{{ getStageName(fault.related_stage) }}</span>
+                      <span v-if="fault.responsible_worker_name" class="text-xs text-gray-400">— بواسطة {{ fault.responsible_worker_name }}</span>
+                      <span v-if="fault.status === 'cancelled'" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+                        ملغى
+                      </span>
+                    </div>
+                    <div class="text-sm text-gray-600 truncate max-w-md">{{ fault.description }}</div>
+                    <div v-if="fault.status === 'cancelled' && fault.cancel_reason" class="text-xs text-gray-400 mt-0.5">
+                      سبب الإلغاء: {{ fault.cancel_reason }}
+                    </div>
+                  </div>
                 </div>
-                <div class="text-sm text-gray-600 truncate max-w-md">{{ fault.description }}</div>
-                <div v-if="fault.status === 'cancelled' && fault.cancel_reason" class="text-xs text-gray-400 mt-0.5">
-                  سبب الإلغاء: {{ fault.cancel_reason }}
-                </div>
+              </div>
+
+              <div class="text-left shrink-0 flex items-center gap-3">
+                <span :class="statusTextClass(fault.status)" class="text-xs font-medium">{{ statusLabel(fault.status) }}</span>
+                <span class="text-xs text-gray-400">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</span>
+
+                <template v-if="fault.status === 'pending'">
+                  <button @click="openRepairModal(fault)" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium">
+                    ✅ تصليح
+                  </button>
+                  <button @click="$emit('cancel-fault', fault)" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium">
+                    إلغاء
+                  </button>
+                </template>
               </div>
             </div>
 
-            <div class="text-left shrink-0 flex items-center gap-3">
-              <span :class="statusTextClass(fault.status)" class="text-xs font-medium">
-                {{ statusLabel(fault.status) }}
-              </span>
-              <span class="text-xs text-gray-400">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</span>
-
-              <template v-if="fault.status === 'pending'">
-                <button
-                  @click="openRepairModal(fault)"
-                  class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium"
-                >
-                  ✅ تصليح
-                </button>
-                <button
-                  @click="$emit('cancel-fault', fault)"
-                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium"
-                >
-                  إلغاء
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <div v-if="expandedFaultId === fault.id && fault.repairs?.length" class="mt-3 mr-8 space-y-2">
-            <div v-for="repair in fault.repairs" :key="repair.id" class="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-xl">
-              <div>
-                <span class="text-xs font-medium text-emerald-700">🔧 {{ repair.worker_name }}</span>
-                <span v-if="repair.notes" class="text-xs text-gray-500 block mt-0.5">{{ repair.notes }}</span>
+            <div v-if="expandedFaultId === fault.id && fault.repairs?.length" class="mt-3 mr-8 space-y-2">
+              <div v-for="repair in fault.repairs" :key="repair.id" class="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-xl">
+                <div>
+                  <span class="text-xs font-medium text-emerald-700">🔧 {{ repair.worker_name }}</span>
+                  <span v-if="repair.notes" class="text-xs text-gray-500 block mt-0.5">{{ repair.notes }}</span>
+                </div>
+                <span class="text-xs text-gray-400 shrink-0">{{ new Date(repair.repair_date).toLocaleString('ar-EG') }}</span>
               </div>
-              <span class="text-xs text-gray-400 shrink-0">{{ new Date(repair.repair_date).toLocaleString('ar-EG') }}</span>
             </div>
           </div>
         </div>
-      </div>
+      </template>
     </div>
 
     <FaultRepairModal
@@ -114,13 +118,36 @@
       @close="repairingFault = null"
       @success="handleRepairSuccess"
     />
+
+    <BulkRepairModal
+      v-if="showBulkRepairModal"
+      :count="pendingSelectedCount"
+      :workers-list="workersList"
+      :loading="bulkLoading"
+      @close="showBulkRepairModal = false"
+      @confirm="confirmBulkRepair"
+    />
+
+    <CancelReasonModal
+      v-if="showBulkCancelModal"
+      title="إلغاء الأعطال المحددة"
+      :subtitle="`سيتم إلغاء ${pendingSelectedCount} عطل معلق`"
+      icon="⚠️"
+      :loading="bulkLoading"
+      @close="showBulkCancelModal = false"
+      @confirm="confirmBulkCancel"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
+import BulkActionsBar from '../../shared/BulkActionsBar.vue'
+import CancelReasonModal from '../../shared/CancelReasonModal.vue'
 import FaultRepairModal from '../modals/FaultRepairModal.vue'
+import BulkRepairModal from '../modals/BulkRepairModal.vue'
+import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const emit = defineEmits(['open-fault-modal', 'refresh-faults', 'cancel-fault'])
 
@@ -129,12 +156,11 @@ const props = defineProps({
   workersList: { type: Array, default: () => [] }
 })
 
-const faultsFilter = ref({
-  chassis_number: '',
-  status: '',
-  repaired_by: '',
-  responsible_worker: ''
-})
+const API = import.meta.env.VITE_API_BASE_URL
+const requestHeaders = { 'Content-Type': 'application/json' }
+if (API.includes('ngrok')) requestHeaders['ngrok-skip-browser-warning'] = 'true'
+
+const faultsFilter = ref({ chassis_number: '', status: '', repaired_by: '', responsible_worker: '' })
 const repairingFault = ref(null)
 const expandedFaultId = ref(null)
 
@@ -144,9 +170,7 @@ const statusOptions = [
   { label: 'ملغى', value: 'cancelled' },
 ]
 
-const workerOptions = computed(() =>
-  props.workersList.map(w => ({ label: w.name, value: w.name }))
-)
+const workerOptions = computed(() => props.workersList.map(w => ({ label: w.name, value: w.name })))
 
 const filteredFaults = computed(() => {
   return props.faultsList.filter(f => {
@@ -164,28 +188,16 @@ const resetFilter = () => {
 
 const getStageName = (stage) => {
   const names = {
-    'تجميع_الهيكل':           'تجميع الهيكل',
+    'تجميع_الهيكل': 'تجميع الهيكل',
     'توصيل_الكهرباء_والغلاف': 'توصيل الكهرباء والغلاف',
-    'تجميع_كامل':             'تجميع كامل',
+    'تجميع_كامل': 'تجميع كامل',
   }
   return names[stage] || stage
 }
 
-const statusIcon = (status) => {
-  if (status === 'pending') return '🔴'
-  if (status === 'fixed') return '🟢'
-  return '⚪'
-}
-const statusLabel = (status) => {
-  if (status === 'pending') return 'معلق'
-  if (status === 'fixed') return 'تم إصلاحه'
-  return 'ملغى'
-}
-const statusTextClass = (status) => {
-  if (status === 'pending') return 'text-red-600'
-  if (status === 'fixed') return 'text-emerald-600'
-  return 'text-gray-400'
-}
+const statusIcon = (status) => status === 'pending' ? '🔴' : status === 'fixed' ? '🟢' : '⚪'
+const statusLabel = (status) => status === 'pending' ? 'معلق' : status === 'fixed' ? 'تم إصلاحه' : 'ملغى'
+const statusTextClass = (status) => status === 'pending' ? 'text-red-600' : status === 'fixed' ? 'text-emerald-600' : 'text-gray-400'
 
 const toggleExpand = (faultId) => {
   expandedFaultId.value = expandedFaultId.value === faultId ? null : faultId
@@ -197,4 +209,84 @@ const handleRepairSuccess = () => {
   repairingFault.value = null
   emit('refresh-faults')
 }
+
+// ── التحديد المتعدد ──────────────────────────────────────────────
+const bulk = useBulkSelection(filteredFaults)
+watch(filteredFaults, () => { bulk.clear() })
+
+const pendingSelectedCount = computed(() =>
+  props.faultsList.filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending').length
+)
+
+const showBulkRepairModal = ref(false)
+const showBulkCancelModal = ref(false)
+const bulkLoading = ref(false)
+
+const openBulkRepair = () => {
+  if (pendingSelectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  showBulkRepairModal.value = true
+}
+
+const openBulkCancel = () => {
+  if (pendingSelectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  showBulkCancelModal.value = true
+}
+
+const confirmBulkRepair = async (workerName) => {
+  bulkLoading.value = true
+  try {
+    const ids = props.faultsList
+      .filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending')
+      .map(f => f.id)
+
+    const res = await fetch(`${API}/api/faults/bulk-repair/`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify({ ids, worker_name: workerName })
+    })
+    const data = await res.json()
+
+    if (res.ok) {
+      showBulkRepairModal.value = false
+      bulk.clear()
+      emit('refresh-faults')
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر تنفيذ التصليح الجماعي'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    bulkLoading.value = false
+  }
+}
+
+const confirmBulkCancel = async (payload) => {
+  bulkLoading.value = true
+  try {
+    const ids = props.faultsList
+      .filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending')
+      .map(f => f.id)
+
+    const res = await fetch(`${API}/api/faults/bulk-cancel/`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify({ ids, ...payload })
+    })
+    const data = await res.json()
+
+    if (res.ok) {
+      showBulkCancelModal.value = false
+      bulk.clear()
+      emit('refresh-faults')
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    bulkLoading.value = false
+  }
+}
+
+defineExpose({ clearSelection: bulk.clear })
 </script>

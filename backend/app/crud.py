@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from . import models, schemas
@@ -109,6 +110,27 @@ def get_customers_with_sales(db: Session):
     return result
 
 
+# ====================== BULK: WORKERS / CUSTOMERS ======================
+def bulk_soft_delete_workers(db: Session, ids: List[int]):
+    workers = db.query(models.Worker).filter(models.Worker.id.in_(ids)).all()
+    found_ids = {w.id for w in workers}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for w in workers:
+        w.is_deleted = True
+    db.commit()
+    return {"success_count": len(workers), "failed_ids": failed_ids, "message": f"تم حذف {len(workers)} عامل"}
+
+
+def bulk_soft_delete_customers(db: Session, ids: List[int]):
+    customers = db.query(models.Customer).filter(models.Customer.id.in_(ids)).all()
+    found_ids = {c.id for c in customers}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for c in customers:
+        c.is_deleted = True
+    db.commit()
+    return {"success_count": len(customers), "failed_ids": failed_ids, "message": f"تم حذف {len(customers)} عميل"}
+
+
 # ====================== SALES ======================
 def create_sale(db: Session, sale: schemas.SaleCreate):
     """تسجيل بيع جديد لعميل موجود مسبقاً (يُحدَّد عبر customer_id)"""
@@ -172,6 +194,33 @@ def get_sales(db: Session, skip: int = 0, limit: int = 50):
         sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
 
     return sales
+
+
+# ====================== BULK: SALES ======================
+def bulk_cancel_sales(db: Session, payload: schemas.BulkCancel):
+    reason = (payload.reason or "").strip()
+    if not reason and not payload.confirm_no_reason:
+        raise ValueError("يرجى كتابة سبب الإلغاء أو تأكيد الإلغاء بدون سبب")
+
+    sales = db.query(models.Sale).filter(
+        models.Sale.id.in_(payload.ids),
+        models.Sale.status == "active"
+    ).all()
+
+    found_ids = {s.id for s in sales}
+    failed_ids = [i for i in payload.ids if i not in found_ids]
+
+    for sale in sales:
+        sale.status = "cancelled"
+        sale.cancelled_at = func.now()
+        sale.cancel_reason = reason or None
+
+    db.commit()
+    return {
+        "success_count": len(sales),
+        "failed_ids": failed_ids,
+        "message": f"تم إلغاء {len(sales)} عملية بيع"
+    }
 
 
 # ====================== CHASSIS (متاح للبيع) ======================
@@ -411,6 +460,58 @@ def get_suggested_worker_for_fault(db: Session, fault_id: int):
     if record and record.worker:
         return {"worker_id": record.worker.id, "worker_name": record.worker.name}
     return None
+
+
+# ====================== BULK: FAULTS ======================
+def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel):
+    reason = (payload.reason or "").strip()
+    if not reason and not payload.confirm_no_reason:
+        raise ValueError("يرجى كتابة سبب الإلغاء أو تأكيد الإلغاء بدون سبب")
+
+    faults = db.query(models.Fault).filter(
+        models.Fault.id.in_(payload.ids),
+        models.Fault.status == "pending"
+    ).all()
+
+    found_ids = {f.id for f in faults}
+    failed_ids = [i for i in payload.ids if i not in found_ids]
+
+    for fault in faults:
+        fault.status = "cancelled"
+        fault.resolved_at = func.now()
+        fault.cancel_reason = reason or None
+
+    db.commit()
+    return {
+        "success_count": len(faults),
+        "failed_ids": failed_ids,
+        "message": f"تم إلغاء {len(faults)} عطل"
+    }
+
+
+def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str):
+    """تصليح جماعي بنفس العامل"""
+    worker = workshop_crud.get_or_create_worker(db, worker_name)
+    faults = db.query(models.Fault).filter(
+        models.Fault.id.in_(ids),
+        models.Fault.status == "pending"
+    ).all()
+
+    found_ids = {f.id for f in faults}
+    failed_ids = [i for i in ids if i not in found_ids]
+
+    for fault in faults:
+        repair = models.FaultRepair(fault_id=fault.id, worker_id=worker.id)
+        db.add(repair)
+        fault.status = "fixed"
+        fault.resolved_at = func.now()
+
+    db.commit()
+    return {
+        "success_count": len(faults),
+        "failed_ids": failed_ids,
+        "message": f"تم إصلاح {len(faults)} عطل بواسطة {worker_name}"
+    }
 
 
 # ====================== DASHBOARD ======================

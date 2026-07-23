@@ -41,3 +41,16 @@ def suggested_worker(fault_id: int, db: Session = Depends(get_db)):
     if not suggestion:
         return {"worker_id": None, "worker_name": None}
     return suggestion
+
+
+@router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
+def bulk_cancel_faults(payload: schemas.BulkCancel, db: Session = Depends(get_db)):
+    try:
+        return crud.bulk_cancel_faults(db, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
+def bulk_repair_faults(ids: schemas.BulkIds, worker_name: str, db: Session = Depends(get_db)):
+    return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name)
