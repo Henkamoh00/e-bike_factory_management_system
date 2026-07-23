@@ -112,6 +112,7 @@
             :sales-list="salesList"
             :customers-list="customersList"
             @open-sale-modal="showSaleModal = true"
+            @cancel-sale="openCancelSale"
           />
 
           <FaultsTab
@@ -120,6 +121,7 @@
             :workers-list="workersList"
             @open-fault-modal="showFaultModal = true"
             @refresh-faults="loadFaults"
+            @cancel-fault="openCancelFault"
           />
 
           <WorkersTab
@@ -182,6 +184,28 @@
       @close="showFaultModal = false"
       @success="handleFaultSuccess"
     />
+
+    <!-- إلغاء بيع -->
+    <CancelReasonModal
+      v-if="cancellingSale"
+      title="إلغاء عملية البيع"
+      :subtitle="`الهيكل: ${cancellingSale.chassis_number} — العميل: ${cancellingSale.customer_name}`"
+      icon="💰"
+      :loading="cancelLoading"
+      @close="cancellingSale = null"
+      @confirm="confirmCancelSale"
+    />
+
+    <!-- إلغاء عطل -->
+    <CancelReasonModal
+      v-if="cancellingFault"
+      title="إلغاء العطل"
+      :subtitle="`الهيكل: ${cancellingFault.chassis_number} — ${cancellingFault.description}`"
+      icon="⚠️"
+      :loading="cancelLoading"
+      @close="cancellingFault = null"
+      @confirm="confirmCancelFault"
+    />
   </div>
 </template>
 
@@ -193,6 +217,7 @@ import SaleModal from '../components/admin/modals/SaleModal.vue'
 import FaultModal from '../components/admin/modals/FaultModal.vue'
 import CustomerFormModal from '../components/admin/modals/CustomerFormModal.vue'
 import WorkerFormModal from '../components/admin/modals/WorkerFormModal.vue'
+import CancelReasonModal from '../components/shared/CancelReasonModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
 import AssemblyTab from '../components/admin/tabs/AssemblyTab.vue'
@@ -221,6 +246,11 @@ const showCustomerModal = ref(false)
 
 const editingWorker   = ref(null)
 const editingCustomer = ref(null)
+
+// ── إلغاء بيع / عطل ─────────────────────────────────────────────────────
+const cancellingSale  = ref(null)
+const cancellingFault = ref(null)
+const cancelLoading   = ref(false)
 
 const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const assemblyTabRef = ref(null)
@@ -387,9 +417,65 @@ const handleDeleteCustomer = async (customerId) => {
   }
 }
 
+// ── إلغاء بيع ─────────────────────────────────────────────────────────────
+const openCancelSale = (sale) => { cancellingSale.value = sale }
+
+const confirmCancelSale = async (payload) => {
+  if (!cancellingSale.value) return
+  cancelLoading.value = true
+  try {
+    const res = await fetch(`${API}/api/sales/${cancellingSale.value.id}/cancel/`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (res.ok) {
+      cancellingSale.value = null
+      loadSales()
+      loadAvailableChassis()
+      loadStats()
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر إلغاء عملية البيع'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+// ── إلغاء عطل ─────────────────────────────────────────────────────────────
+const openCancelFault = (fault) => { cancellingFault.value = fault }
+
+const confirmCancelFault = async (payload) => {
+  if (!cancellingFault.value) return
+  cancelLoading.value = true
+  try {
+    const res = await fetch(`${API}/api/faults/${cancellingFault.value.id}/cancel/`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (res.ok) {
+      cancellingFault.value = null
+      loadFaults()
+      loadAvailableChassis()
+      loadStats()
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر إلغاء العطل'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
 const handleAssemblySuccess = () => { showAssemblyModal.value = false; assemblyTabRef.value?.refresh() }
-const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis() }
-const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults() }
+const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis(); loadStats() }
+const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults(); loadAvailableChassis(); loadStats() }
 const handleCustomerFormSuccess = () => { closeCustomerModal(); loadCustomers() }
 const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
 

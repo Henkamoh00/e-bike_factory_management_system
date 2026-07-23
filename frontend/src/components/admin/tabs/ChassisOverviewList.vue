@@ -143,10 +143,31 @@
           </div>
 
           <div>
-            <h4 class="font-semibold text-sm text-gray-500 mb-3">💰 معلومات البيع</h4>
-            <div v-if="selectedChassis.sale" class="p-4 bg-emerald-50 rounded-2xl">
-              <p class="font-medium text-sm">✅ تم البيع لـ <strong>{{ selectedChassis.sale.customer_name }}</strong></p>
-              <p class="text-xs text-gray-500 mt-1">{{ new Date(selectedChassis.sale.sale_date).toLocaleDateString('ar-EG') }}</p>
+            <h4 class="font-semibold text-sm text-gray-500 mb-3">💰 سجل البيع</h4>
+            <div v-if="selectedChassis.sales?.length" class="space-y-3">
+              <div
+                v-for="sale in selectedChassis.sales"
+                :key="sale.id"
+                class="p-4 rounded-2xl"
+                :class="sale.status === 'cancelled' ? 'bg-gray-50 opacity-70' : 'bg-emerald-50'"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <p class="font-medium text-sm" :class="sale.status === 'cancelled' ? 'text-gray-500 line-through' : ''">
+                    {{ sale.status === 'cancelled' ? '✖️ بيع ملغى لـ' : '✅ تم البيع لـ' }}
+                    <strong>{{ sale.customer_name }}</strong>
+                  </p>
+                  <span
+                    v-if="sale.status === 'cancelled'"
+                    class="text-xs bg-red-100 text-red-600 rounded-full px-2 py-0.5 font-medium shrink-0"
+                  >
+                    ملغى
+                  </span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}</p>
+                <p v-if="sale.status === 'cancelled' && sale.cancel_reason" class="text-xs text-red-500 mt-1">
+                  السبب: {{ sale.cancel_reason }}
+                </p>
+              </div>
             </div>
             <div v-else class="text-center py-8 text-gray-400">لم يتم بيع هذه الدراجة بعد</div>
           </div>

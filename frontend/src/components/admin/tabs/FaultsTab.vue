@@ -49,35 +49,48 @@
       <div v-if="filteredFaults.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
 
       <div v-else class="divide-y divide-gray-100">
-        <div v-for="fault in filteredFaults" :key="fault.id" class="py-3">
+        <div v-for="fault in filteredFaults" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
           <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
             <div @click="toggleExpand(fault.id)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
-              <span class="text-lg shrink-0">{{ fault.status === 'pending' ? '🔴' : '🟢' }}</span>
+              <span class="text-lg shrink-0">{{ statusIcon(fault.status) }}</span>
               <div class="min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-mono font-bold text-gray-800">{{ fault.chassis_number }}</span>
+                  <span class="font-mono font-bold" :class="fault.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-gray-800'">
+                    {{ fault.chassis_number }}
+                  </span>
                   <span v-if="fault.related_stage" class="text-xs text-gray-500">{{ getStageName(fault.related_stage) }}</span>
                   <span v-if="fault.responsible_worker_name" class="text-xs text-gray-400">— بواسطة {{ fault.responsible_worker_name }}</span>
+                  <span v-if="fault.status === 'cancelled'" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-medium">
+                    ملغى
+                  </span>
                 </div>
                 <div class="text-sm text-gray-600 truncate max-w-md">{{ fault.description }}</div>
+                <div v-if="fault.status === 'cancelled' && fault.cancel_reason" class="text-xs text-gray-400 mt-0.5">
+                  سبب الإلغاء: {{ fault.cancel_reason }}
+                </div>
               </div>
             </div>
 
             <div class="text-left shrink-0 flex items-center gap-3">
-              <span :class="fault.status === 'pending' ? 'text-red-600' : 'text-emerald-600'" class="text-xs font-medium">
-                {{ fault.status === 'pending' ? 'معلق' : 'تم إصلاحه' }}
+              <span :class="statusTextClass(fault.status)" class="text-xs font-medium">
+                {{ statusLabel(fault.status) }}
               </span>
               <span class="text-xs text-gray-400">{{ new Date(fault.reported_date).toLocaleDateString('ar-EG') }}</span>
-              <button
-                v-if="fault.status === 'pending'"
-                @click="openRepairModal(fault)"
-                class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium"
-              >
-                ✅ تصليح
-              </button>
 
-              <!-- مكان محجوز لأزرار تعديل/حذف مستقبلية -->
-              <div class="flex items-center gap-1 shrink-0"></div>
+              <template v-if="fault.status === 'pending'">
+                <button
+                  @click="openRepairModal(fault)"
+                  class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium"
+                >
+                  ✅ تصليح
+                </button>
+                <button
+                  @click="$emit('cancel-fault', fault)"
+                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium"
+                >
+                  إلغاء
+                </button>
+              </template>
             </div>
           </div>
 
@@ -109,7 +122,7 @@ import { ref, computed } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import FaultRepairModal from '../modals/FaultRepairModal.vue'
 
-const emit = defineEmits(['open-fault-modal', 'refresh-faults'])
+const emit = defineEmits(['open-fault-modal', 'refresh-faults', 'cancel-fault'])
 
 const props = defineProps({
   faultsList: { type: Array, default: () => [] },
@@ -128,6 +141,7 @@ const expandedFaultId = ref(null)
 const statusOptions = [
   { label: 'معلق', value: 'pending' },
   { label: 'تم إصلاحه', value: 'fixed' },
+  { label: 'ملغى', value: 'cancelled' },
 ]
 
 const workerOptions = computed(() =>
@@ -155,6 +169,22 @@ const getStageName = (stage) => {
     'تجميع_كامل':             'تجميع كامل',
   }
   return names[stage] || stage
+}
+
+const statusIcon = (status) => {
+  if (status === 'pending') return '🔴'
+  if (status === 'fixed') return '🟢'
+  return '⚪'
+}
+const statusLabel = (status) => {
+  if (status === 'pending') return 'معلق'
+  if (status === 'fixed') return 'تم إصلاحه'
+  return 'ملغى'
+}
+const statusTextClass = (status) => {
+  if (status === 'pending') return 'text-red-600'
+  if (status === 'fixed') return 'text-emerald-600'
+  return 'text-gray-400'
 }
 
 const toggleExpand = (faultId) => {
