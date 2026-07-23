@@ -69,10 +69,17 @@ class Sale(Base):
     __tablename__ = "sales"
 
     id = Column(Integer, primary_key=True, index=True)
-    chassis_number = Column(String, unique=True, index=True, nullable=False)
+    # ملاحظة: لم يعد unique، لأن هيكل واحد ممكن يكون له أكثر من سجل بيع
+    # (بيع ملغى + بيع نشط لاحق). القيد الفعلي (بيع نشط واحد فقط لكل هيكل)
+    # يُفرض على مستوى الكود في crud.create_sale
+    chassis_number = Column(String, index=True, nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"))
     sale_date = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(String, nullable=True)
+
+    status = Column(String, default="active", nullable=False)  # active | cancelled
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    cancel_reason = Column(String, nullable=True)
 
     customer = relationship("Customer")
 
@@ -84,8 +91,9 @@ class Fault(Base):
     description = Column(String, nullable=False)
     related_stage = Column(SQLEnum(AssemblyStage), nullable=True)
     reported_date = Column(DateTime(timezone=True), server_default=func.now())
-    status = Column(String, default="pending")  # pending, fixed
+    status = Column(String, default="pending")  # pending, fixed, cancelled
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    cancel_reason = Column(String, nullable=True)
 
     repairs = relationship("FaultRepair", back_populates="fault", order_by="FaultRepair.repair_date")
 

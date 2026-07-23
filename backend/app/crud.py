@@ -78,7 +78,7 @@ def soft_delete_customer(db: Session, customer_id: int):
 
 def get_customers_with_sales(db: Session):
     """
-    يرجع كل العملاء غير المحذوفين (الأحدث أولاً) مع تفاصيل مشترياتهم.
+    يرجع كل العملاء غير المحذوفين (الأحدث أولاً) مع تفاصيل مشترياتهم (النشطة فقط).
     """
     customers = db.query(models.Customer)\
                   .filter(models.Customer.is_deleted == False)\
@@ -87,9 +87,10 @@ def get_customers_with_sales(db: Session):
 
     result = []
     for c in customers:
-        sales = db.query(models.Sale).filter(models.Sale.customer_id == c.id).all() \
-                if hasattr(models.Sale, 'customer_id') else \
-                db.query(models.Sale).filter(models.Sale.customer_name == c.name).all()
+        sales = db.query(models.Sale).filter(
+            models.Sale.customer_id == c.id,
+            models.Sale.status == "active"
+        ).all()
         result.append({
             "id":               c.id,
             "name":             c.name,
@@ -111,11 +112,12 @@ def get_customers_with_sales(db: Session):
 # ====================== SALES ======================
 def create_sale(db: Session, sale: schemas.SaleCreate):
     """تسجيل بيع جديد لعميل موجود مسبقاً (يُحدَّد عبر customer_id)"""
-    existing_sale = db.query(models.Sale).filter(
-        models.Sale.chassis_number == sale.chassis_number
+    existing_active_sale = db.query(models.Sale).filter(
+        models.Sale.chassis_number == sale.chassis_number,
+        models.Sale.status == "active"
     ).first()
 
-    if existing_sale:
+    if existing_active_sale:
         raise ValueError("هذه الدراجة تم بيعها مسبقاً")
 
     customer = db.query(models.Customer).filter(
@@ -129,6 +131,7 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
         chassis_number=sale.chassis_number,
         customer_id=sale.customer_id,
         notes=sale.notes,
+        status="active",
         **({"sale_date": sale.sale_date} if sale.sale_date else {})
     )
     db.add(db_sale)
@@ -136,8 +139,29 @@ def create_sale(db: Session, sale: schemas.SaleCreate):
     db.refresh(db_sale)
     return db_sale
 
+
+def cancel_sale(db: Session, sale_id: int, payload: schemas.SaleCancel):
+    """إلغاء عملية بيع (Soft Cancel) - لا يُحذف السجل، فقط يُعلَّم كملغى"""
+    sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
+    if not sale:
+        raise ValueError("عملية البيع غير موجودة")
+    if sale.status == "cancelled":
+        raise ValueError("عملية البيع ملغاة مسبقاً")
+
+    reason = (payload.reason or "").strip()
+    if not reason and not payload.confirm_no_reason:
+        raise ValueError("يرجى كتابة سبب الإلغاء أو تأكيد الإلغاء بدون سبب")
+
+    sale.status = "cancelled"
+    sale.cancelled_at = func.now()
+    sale.cancel_reason = reason or None
+    db.commit()
+    db.refresh(sale)
+    return sale
+
+
 def get_sales(db: Session, skip: int = 0, limit: int = 50):
-    """عرض المبيعات مع تحميل بيانات العميل بطريقة فعالة"""
+    """عرض المبيعات (نشطة وملغاة) مع تحميل بيانات العميل بطريقة فعالة"""
     sales = db.query(models.Sale)\
               .options(joinedload(models.Sale.customer))\
               .order_by(desc(models.Sale.sale_date))\
@@ -157,7 +181,11 @@ def get_available_chassis(db: Session):
     أو عبر 'تجميع_الهيكل' + 'توصيل_الكهرباء_والغلاف' معًا)
     ولم تُباع بعد ولا يوجد عليها أي عطل معلّق.
     """
-    sold_numbers = {s[0] for s in db.query(models.Sale.chassis_number).all()}
+    sold_numbers = {
+        s[0] for s in db.query(models.Sale.chassis_number)
+        .filter(models.Sale.status == "active")
+        .all()
+    }
 
     faulty_numbers = {
         f[0] for f in db.query(models.Fault.chassis_number)
@@ -205,9 +233,13 @@ def get_chassis_summary(db: Session):
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
 
-    sold_map = {
+    # فقط المبيعات النشطة تُحتسب "مباعة" في الملخص
+    active_sold_map = {
         s.chassis_number: s
-        for s in db.query(models.Sale).options(joinedload(models.Sale.customer)).all()
+        for s in db.query(models.Sale)
+        .options(joinedload(models.Sale.customer))
+        .filter(models.Sale.status == "active")
+        .all()
     }
 
     all_faults = db.query(models.Fault).all()
@@ -218,7 +250,7 @@ def get_chassis_summary(db: Session):
     summary = []
     for chassis_number, records in records_by_chassis.items():
         is_complete = workshop_crud.is_chassis_complete(records)
-        sale = sold_map.get(chassis_number)
+        sale = active_sold_map.get(chassis_number)
         faults = faults_by_chassis.get(chassis_number, [])
         pending_faults = [f for f in faults if f.status == "pending"]
 
@@ -262,6 +294,29 @@ def create_fault(db: Session, fault: schemas.FaultCreate):
     db.commit()
     db.refresh(db_fault)
     return db_fault
+
+
+def cancel_fault(db: Session, fault_id: int, payload: schemas.FaultCancel):
+    """إلغاء عطل مسجَّل بالخطأ أو لم يعد قائماً - لا يُحذف، فقط يُعلَّم كملغى"""
+    fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
+    if not fault:
+        raise ValueError("العطل غير موجود")
+    if fault.status == "fixed":
+        raise ValueError("لا يمكن إلغاء عطل تم إصلاحه مسبقاً")
+    if fault.status == "cancelled":
+        raise ValueError("العطل ملغى مسبقاً")
+
+    reason = (payload.reason or "").strip()
+    if not reason and not payload.confirm_no_reason:
+        raise ValueError("يرجى كتابة سبب الإلغاء أو تأكيد الإلغاء بدون سبب")
+
+    fault.status = "cancelled"
+    fault.resolved_at = func.now()
+    fault.cancel_reason = reason or None
+    db.commit()
+    db.refresh(fault)
+    return fault
+
 
 def _attach_fault_extras(db: Session, faults):
     for fault in faults:
@@ -318,6 +373,8 @@ def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairC
         raise ValueError("العطل غير موجود")
     if db_fault.status == "fixed":
         raise ValueError("هذا العطل مسجل مسبقاً كمُصلَح")
+    if db_fault.status == "cancelled":
+        raise ValueError("هذا العطل ملغى، لا يمكن تسجيل تصليح له")
 
     worker = workshop_crud.get_or_create_worker(db, repair.worker_name)
 
@@ -374,8 +431,10 @@ def get_dashboard_stats(db: Session):
         if workshop_crud.is_chassis_complete(records)
     )
 
-    # عدد المبيعات
-    sold = db.query(func.count(models.Sale.id)).scalar() or 0
+    # عدد المبيعات النشطة فقط
+    sold = db.query(func.count(models.Sale.id)).filter(
+        models.Sale.status == "active"
+    ).scalar() or 0
 
     # الأعطال المعلقة
     pending_faults = db.query(func.count(models.Fault.id)).filter(
@@ -408,23 +467,19 @@ def get_full_chassis_history(db: Session, chassis_number: str):
             record.worker_name = "غير معروف"
 
 
-    sale = (
+    # نعرض كل عمليات البيع المرتبطة بهذا الهيكل (نشطة وملغاة) - الأحدث أولاً
+    sales = (
         db.query(models.Sale)
         .filter(
             models.Sale.chassis_number == chassis_number
         )
-        .first()
+        .order_by(desc(models.Sale.sale_date))
+        .all()
     )
 
-    # إضافة اسم العميل
-    if sale:
-
-        if sale.customer:
-            sale.customer_name = sale.customer.name
-
-        else:
-            sale.customer_name = "غير معروف"
-
+    # إضافة اسم العميل لكل عملية بيع
+    for sale in sales:
+        sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
 
     faults = get_faults_by_chassis(
         db,
@@ -437,7 +492,7 @@ def get_full_chassis_history(db: Session, chassis_number: str):
     return {
         "chassis_number": chassis_number,
         "assembly_history": assembly_records,
-        "sale": sale,
+        "sales": sales,
         "faults": faults,
         "bike_type": bike_type_name,
         "bike_color": bike_color_name,

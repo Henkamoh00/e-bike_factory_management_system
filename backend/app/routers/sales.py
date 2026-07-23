@@ -16,5 +16,14 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[schemas.SaleResponse])
 def get_all_sales(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    """عرض كل المبيعات"""
+    """عرض كل المبيعات (نشطة وملغاة)"""
     return crud.get_sales(db, skip=skip, limit=limit)
+
+
+@router.post("/{sale_id}/cancel/", response_model=schemas.SaleResponse)
+def cancel_sale(sale_id: int, payload: schemas.SaleCancel, db: Session = Depends(get_db)):
+    """إلغاء عملية بيع (لا يحذف السجل، فقط يعلّمه كملغى مع الاحتفاظ بالسبب)"""
+    try:
+        return crud.cancel_sale(db, sale_id, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -107,6 +107,10 @@ class SaleCreate(BaseModel):
     notes: Optional[str] = None
     sale_date: Optional[datetime] = None
 
+class SaleCancel(BaseModel):
+    reason: Optional[str] = None
+    confirm_no_reason: bool = False
+
 class SaleResponse(BaseModel):
     id: int
     chassis_number: str
@@ -114,6 +118,9 @@ class SaleResponse(BaseModel):
     customer_name: Optional[str] = None
     sale_date: datetime
     notes: Optional[str] = None
+    status: str = "active"
+    cancelled_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -125,6 +132,10 @@ class FaultCreate(BaseModel):
     description: str
     related_stage: Optional[AssemblyStage] = None
     status: Optional[str] = "pending"
+
+class FaultCancel(BaseModel):
+    reason: Optional[str] = None
+    confirm_no_reason: bool = False
 
 class FaultRepairCreate(BaseModel):
     worker_name: str
@@ -150,6 +161,7 @@ class FaultResponse(BaseModel):
     reported_date: datetime
     status: str
     resolved_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
     repairs: List[FaultRepairResponse] = []
 
     class Config:
@@ -167,7 +179,7 @@ class DashboardStats(BaseModel):
 class ChassisHistoryResponse(BaseModel):
     chassis_number: str
     assembly_history: List[AssemblyResponse]
-    sale: Optional[SaleResponse] = None
+    sales: List[SaleResponse] = []
     faults: List[FaultResponse]
 
     class Config:
