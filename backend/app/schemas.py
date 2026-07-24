@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
 from .models import AssemblyStage
 
 
@@ -13,8 +12,8 @@ class WorkerCreate(BaseModel):
     phone: str | None = None
  
 class WorkerUpdate(BaseModel):
-    name: Optional[str] = None
-    phone: Optional[str] = None
+    name: str | None = None
+    phone: str | None = None
 
 class WorkerResponse(BaseModel):
     id: int
@@ -36,6 +35,9 @@ class Worker(WorkerBase):
 class BikeTypeCreate(BaseModel):
     name: str
 
+class BikeTypeUpdate(BaseModel):
+    name: str | None = None
+
 class BikeTypeResponse(BaseModel):
     id: int
     name: str
@@ -46,6 +48,9 @@ class BikeTypeResponse(BaseModel):
 
 class BikeColorCreate(BaseModel):
     name: str
+
+class BikeColorUpdate(BaseModel):
+    name: str | None = None
 
 class BikeColorResponse(BaseModel):
     id: int
@@ -60,18 +65,18 @@ class AssemblyCreate(BaseModel):
     chassis_number: str
     worker_name: str
     stage: AssemblyStage
-    bike_type_name: Optional[str] = None
-    bike_color_name: Optional[str] = None
+    bike_type_name: str | None = None
+    bike_color_name: str | None = None
     force: bool = False
 
 class AssemblyResponse(BaseModel):
     id: int
     chassis_number: str
     worker_id: int
-    worker_name: Optional[str] = None
+    worker_name: str | None = None
     stage: str
-    bike_type_name: Optional[str] = None
-    bike_color_name: Optional[str] = None
+    bike_type_name: str | None = None
+    bike_color_name: str | None = None
     timestamp: datetime
 
     class Config:
@@ -81,16 +86,16 @@ class AssemblyResponse(BaseModel):
 # ====================== CUSTOMER ======================
 class CustomerBase(BaseModel):
     name: str
-    phone: Optional[str] = None
-    address: Optional[str] = None
+    phone: str | None = None
+    address: str | None = None
 
 class CustomerCreate(CustomerBase):
     pass
 
 class CustomerUpdate(BaseModel):
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
+    name: str | None = None
+    phone: str | None = None
+    address: str | None = None
     
 class Customer(CustomerBase):
     id: int
@@ -104,23 +109,23 @@ class Customer(CustomerBase):
 class SaleCreate(BaseModel):
     chassis_number: str
     customer_id: int
-    notes: Optional[str] = None
-    sale_date: Optional[datetime] = None
+    notes: str | None = None
+    sale_date: datetime | None = None
 
 class SaleCancel(BaseModel):
-    reason: Optional[str] = None
+    reason: str | None = None
     confirm_no_reason: bool = False
 
 class SaleResponse(BaseModel):
     id: int
     chassis_number: str
     customer_id: int
-    customer_name: Optional[str] = None
+    customer_name: str | None = None
     sale_date: datetime
-    notes: Optional[str] = None
+    notes: str | None = None
     status: str = "active"
-    cancelled_at: Optional[datetime] = None
-    cancel_reason: Optional[str] = None
+    cancelled_at: datetime | None = None
+    cancel_reason: str | None = None
 
     class Config:
         from_attributes = True
@@ -130,24 +135,24 @@ class SaleResponse(BaseModel):
 class FaultCreate(BaseModel):
     chassis_number: str
     description: str
-    related_stage: Optional[AssemblyStage] = None
-    status: Optional[str] = "pending"
+    related_stage: AssemblyStage | None = None
+    status: str | None = "pending"
 
 class FaultCancel(BaseModel):
-    reason: Optional[str] = None
+    reason: str | None = None
     confirm_no_reason: bool = False
 
 class FaultRepairCreate(BaseModel):
     worker_name: str
-    notes: Optional[str] = None
+    notes: str | None = None
 
 class FaultRepairResponse(BaseModel):
     id: int
     fault_id: int
     worker_id: int
-    worker_name: Optional[str] = None
+    worker_name: str | None = None
     repair_date: datetime
-    notes: Optional[str] = None
+    notes: str | None = None
 
     class Config:
         from_attributes = True
@@ -156,13 +161,13 @@ class FaultResponse(BaseModel):
     id: int
     chassis_number: str
     description: str
-    related_stage: Optional[str] = None
-    responsible_worker_name: Optional[str] = None
+    related_stage: str | None = None
+    responsible_worker_name: str | None = None
     reported_date: datetime
     status: str
-    resolved_at: Optional[datetime] = None
-    cancel_reason: Optional[str] = None
-    repairs: List[FaultRepairResponse] = []
+    resolved_at: datetime | None = None
+    cancel_reason: str | None = None
+    repairs: list[FaultRepairResponse] = []
 
     class Config:
         from_attributes = True
@@ -170,16 +175,16 @@ class FaultResponse(BaseModel):
 
 # ====================== BULK ACTIONS ======================
 class BulkIds(BaseModel):
-    ids: List[int]
+    ids: list[int]
 
 class BulkCancel(BaseModel):
-    ids: List[int]
-    reason: Optional[str] = None
+    ids: list[int]
+    reason: str | None = None
     confirm_no_reason: bool = False
 
 class BulkActionResult(BaseModel):
     success_count: int
-    failed_ids: List[int] = []
+    failed_ids: list[int] = []
     message: str
 
 
@@ -193,9 +198,9 @@ class DashboardStats(BaseModel):
 
 class ChassisHistoryResponse(BaseModel):
     chassis_number: str
-    assembly_history: List[AssemblyResponse]
-    sales: List[SaleResponse] = []
-    faults: List[FaultResponse]
+    assembly_history: list[AssemblyResponse]
+    sales: list[SaleResponse] = []
+    faults: list[FaultResponse]
 
     class Config:
         from_attributes = True

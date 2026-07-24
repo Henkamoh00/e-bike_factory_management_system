@@ -9,7 +9,7 @@
       </transition>
 
       <div class="p-8 overflow-y-auto flex-1">
-        <h3 class="text-xl font-bold mb-6">إضافة نوع دراجة جديد</h3>
+        <h3 class="text-xl font-bold mb-6">{{ isEditing ? 'تعديل نوع الدراجة' : 'إضافة نوع دراجة جديد' }}</h3>
         <div>
           <label class="block text-sm text-gray-600 mb-1">اسم النوع</label>
           <input v-model="form.name" type="text" placeholder="مثال: دراجة جبلية"
@@ -18,7 +18,7 @@
       </div>
       <div class="flex gap-3 p-6 pt-0 shrink-0">
         <button @click="submit" :disabled="loading" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold">
-          {{ loading ? 'جاري الحفظ...' : 'حفظ' }}
+          {{ loading ? 'جاري الحفظ...' : (isEditing ? 'حفظ التعديلات' : 'حفظ') }}
         </button>
         <button @click="emit('close')" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-xl font-bold">إلغاء</button>
       </div>
@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
 
@@ -39,9 +39,22 @@ if (API.includes('ngrok')) {
   requestHeaders['ngrok-skip-browser-warning'] = 'true'
 }
 
+const props = defineProps({
+  bikeType: { type: Object, default: null }
+})
+
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const form = ref({ name: '' })
+
+const isEditing = computed(() => !!props.bikeType)
+
+onMounted(() => {
+  if (props.bikeType) {
+    form.value.name = props.bikeType.name || ''
+  }
+})
+
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 
@@ -55,14 +68,19 @@ const submit = async () => {
   if (!form.value.name.trim()) { showToast('error', 'يرجى إدخال اسم النوع'); return }
   loading.value = true
   try {
-    const res = await fetch(`${API}/api/bike-types/`, {
-      method: 'POST',
+    const url = isEditing.value
+      ? `${API}/api/bike-types/${props.bikeType.id}/`
+      : `${API}/api/bike-types/`
+    const method = isEditing.value ? 'PUT' : 'POST'
+
+    const res = await fetch(url, {
+      method,
       headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()
     if (res.ok) {
-      showToast('success', '✅ تم إضافة النوع بنجاح')
+      showToast('success', isEditing.value ? '✅ تم تحديث النوع بنجاح' : '✅ تم إضافة النوع بنجاح')
       setTimeout(() => emit('success', data), 700)
     } else {
       showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))

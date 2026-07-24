@@ -598,3 +598,49 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         "bike_type": bike_type_name,
         "bike_color": bike_color_name,
     }
+
+
+# ====================== BIKE TYPES / COLORS (تقرير للوحة الإدارة) ======================
+def get_bike_types_with_usage(db: Session):
+    types = db.query(models.BikeType)\
+              .filter(models.BikeType.is_deleted == False)\
+              .order_by(desc(models.BikeType.id)).all()
+    result = []
+    for t in types:
+        count = db.query(func.count(models.AssemblyRecord.id))\
+                   .filter(models.AssemblyRecord.bike_type_id == t.id).scalar() or 0
+        result.append({"id": t.id, "name": t.name, "usage_count": count})
+    return result
+
+
+def get_bike_colors_with_usage(db: Session):
+    colors = db.query(models.BikeColor)\
+               .filter(models.BikeColor.is_deleted == False)\
+               .order_by(desc(models.BikeColor.id)).all()
+    result = []
+    for c in colors:
+        count = db.query(func.count(models.AssemblyRecord.id))\
+                   .filter(models.AssemblyRecord.bike_color_id == c.id).scalar() or 0
+        result.append({"id": c.id, "name": c.name, "usage_count": count})
+    return result
+
+
+# ====================== BULK: BIKE TYPES / COLORS ======================
+def bulk_soft_delete_bike_types(db: Session, ids: List[int]):
+    types = db.query(models.BikeType).filter(models.BikeType.id.in_(ids)).all()
+    found_ids = {t.id for t in types}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for t in types:
+        t.is_deleted = True
+    db.commit()
+    return {"success_count": len(types), "failed_ids": failed_ids, "message": f"تم حذف {len(types)} نوع"}
+
+
+def bulk_soft_delete_bike_colors(db: Session, ids: List[int]):
+    colors = db.query(models.BikeColor).filter(models.BikeColor.id.in_(ids)).all()
+    found_ids = {c.id for c in colors}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for c in colors:
+        c.is_deleted = True
+    db.commit()
+    return {"success_count": len(colors), "failed_ids": failed_ids, "message": f"تم حذف {len(colors)} لون"}

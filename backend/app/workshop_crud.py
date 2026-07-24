@@ -22,7 +22,7 @@ def get_or_create_worker(db: Session, name: str):
 
 def get_workers(db: Session):
     return db.query(models.Worker)\
-              .filter(not models.Worker.is_deleted)\
+              .filter(models.Worker.is_deleted == False)\
               .order_by(models.Worker.name).all()
 
 
@@ -175,7 +175,8 @@ def get_assembly_by_chassis(db: Session, chassis_number: str):
               .filter(models.AssemblyRecord.chassis_number == chassis_number)\
               .order_by(models.AssemblyRecord.timestamp).all()
 
-# ====================== BIKE TYPE / COLOR ======================
+
+# ====================== BIKE TYPE ======================
 def get_or_create_bike_type(db: Session, name: str):
     bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
     if not bike_type:
@@ -183,13 +184,37 @@ def get_or_create_bike_type(db: Session, name: str):
         db.add(bike_type)
         db.commit()
         db.refresh(bike_type)
+    elif bike_type.is_deleted:
+        bike_type.is_deleted = False
+        db.commit()
+        db.refresh(bike_type)
+    return bike_type
+
+def get_bike_types(db: Session):
+    return db.query(models.BikeType)\
+              .filter(models.BikeType.is_deleted == False)\
+              .order_by(models.BikeType.name).all()
+
+def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate):
+    bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
+    if not bike_type:
+        raise ValueError("نوع الدراجة غير موجود")
+    if data.name is not None:
+        bike_type.name = data.name
+    db.commit()
+    db.refresh(bike_type)
+    return bike_type
+
+def soft_delete_bike_type(db: Session, type_id: int):
+    bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
+    if not bike_type:
+        raise ValueError("نوع الدراجة غير موجود")
+    bike_type.is_deleted = True
+    db.commit()
     return bike_type
 
 
-def get_bike_types(db: Session):
-    return db.query(models.BikeType).order_by(models.BikeType.name).all()
-
-
+# ====================== BIKE COLOR ======================
 def get_or_create_bike_color(db: Session, name: str):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.name == name).first()
     if not bike_color:
@@ -197,8 +222,32 @@ def get_or_create_bike_color(db: Session, name: str):
         db.add(bike_color)
         db.commit()
         db.refresh(bike_color)
+    elif bike_color.is_deleted:
+        bike_color.is_deleted = False
+        db.commit()
+        db.refresh(bike_color)
     return bike_color
 
 
 def get_bike_colors(db: Session):
-    return db.query(models.BikeColor).order_by(models.BikeColor.name).all()
+    return db.query(models.BikeColor)\
+              .filter(models.BikeColor.is_deleted == False)\
+              .order_by(models.BikeColor.name).all()
+
+def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate):
+    bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
+    if not bike_color:
+        raise ValueError("لون الدراجة غير موجود")
+    if data.name is not None:
+        bike_color.name = data.name
+    db.commit()
+    db.refresh(bike_color)
+    return bike_color
+
+def soft_delete_bike_color(db: Session, color_id: int):
+    bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
+    if not bike_color:
+        raise ValueError("لون الدراجة غير موجود")
+    bike_color.is_deleted = True
+    db.commit()
+    return bike_color

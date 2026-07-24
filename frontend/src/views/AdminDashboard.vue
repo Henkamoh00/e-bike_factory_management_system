@@ -143,6 +143,26 @@
             @delete-customer="handleDeleteCustomer"
             @refresh-customers="loadCustomers"
           />
+
+          <BikeTypesTab
+            v-else-if="activeTab === 'bike_types'"
+            ref="bikeTypesTabRef"
+            :bike-types-list="bikeTypesList"
+            @open-bike-type-modal="openAddBikeType"
+            @edit-bike-type="openEditBikeType"
+            @delete-bike-type="handleDeleteBikeType"
+            @refresh-bike-types="loadBikeTypes"
+          />
+
+          <BikeColorsTab
+            v-else-if="activeTab === 'bike_colors'"
+            ref="bikeColorsTabRef"
+            :bike-colors-list="bikeColorsList"
+            @open-bike-color-modal="openAddBikeColor"
+            @edit-bike-color="openEditBikeColor"
+            @delete-bike-color="handleDeleteBikeColor"
+            @refresh-bike-colors="loadBikeColors"
+          />
         </div>
       </main>
     </div>
@@ -171,6 +191,20 @@
       :customer="editingCustomer"
       @close="closeCustomerModal"
       @success="handleCustomerFormSuccess"
+    />
+
+    <BikeTypeFormModal
+      v-if="showBikeTypeModal"
+      :bike-type="editingBikeType"
+      @close="closeBikeTypeModal"
+      @success="handleBikeTypeFormSuccess"
+    />
+
+    <BikeColorFormModal
+      v-if="showBikeColorModal"
+      :bike-color="editingBikeColor"
+      @close="closeBikeColorModal"
+      @success="handleBikeColorFormSuccess"
     />
 
     <SaleModal
@@ -219,6 +253,8 @@ import SaleModal from '../components/admin/modals/SaleModal.vue'
 import FaultModal from '../components/admin/modals/FaultModal.vue'
 import CustomerFormModal from '../components/admin/modals/CustomerFormModal.vue'
 import WorkerFormModal from '../components/admin/modals/WorkerFormModal.vue'
+import BikeTypeFormModal from '../components/admin/modals/BikeTypeFormModal.vue'
+import BikeColorFormModal from '../components/admin/modals/BikeColorFormModal.vue'
 import CancelReasonModal from '../components/shared/CancelReasonModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
@@ -227,6 +263,8 @@ import SalesTab from '../components/admin/tabs/SalesTab.vue'
 import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
+import BikeTypesTab from '../components/admin/tabs/BikeTypesTab.vue'
+import BikeColorsTab from '../components/admin/tabs/BikeColorsTab.vue'
 
 const activeTab = ref('dashboard')
 const isSidebarOpen = ref(false)
@@ -245,9 +283,13 @@ const showSaleModal     = ref(false)
 const showFaultModal    = ref(false)
 const showWorkerModal   = ref(false)
 const showCustomerModal = ref(false)
+const showBikeTypeModal  = ref(false)
+const showBikeColorModal = ref(false)
 
 const editingWorker   = ref(null)
 const editingCustomer = ref(null)
+const editingBikeType  = ref(null)
+const editingBikeColor = ref(null)
 
 const cancellingSale  = ref(null)
 const cancellingFault = ref(null)
@@ -259,6 +301,8 @@ const salesTabRef     = ref(null)
 const faultsTabRef    = ref(null)
 const workersTabRef   = ref(null)
 const customersTabRef = ref(null)
+const bikeTypesTabRef  = ref(null)
+const bikeColorsTabRef = ref(null)
 
 const bikeTypesList = ref([])
 const bikeColorsList = ref([])
@@ -270,12 +314,14 @@ const workersList            = ref([])
 const customersList          = ref([])
 
 const tabs = [
-  { id: 'dashboard', label: 'الإحصائيات', icon: '📈' },
-  { id: 'assembly',  label: 'الورشة',      icon: '⚙️' },
-  { id: 'sales',     label: 'المبيعات',    icon: '💰' },
-  { id: 'faults',    label: 'الأعطال',     icon: '⚠️' },
-  { id: 'workers',   label: 'العمال',      icon: '👷' },
-  { id: 'customers', label: 'العملاء',     icon: '🧑‍🤝‍🧑' },
+  { id: 'dashboard',   label: 'الإحصائيات',      icon: '📈' },
+  { id: 'assembly',    label: 'الورشة',           icon: '⚙️' },
+  { id: 'sales',       label: 'المبيعات',         icon: '💰' },
+  { id: 'faults',      label: 'الأعطال',          icon: '⚠️' },
+  { id: 'workers',     label: 'العمال',           icon: '👷' },
+  { id: 'customers',   label: 'العملاء',          icon: '🧑‍🤝‍🧑' },
+  { id: 'bike_types',  label: 'أنواع الدراجات',   icon: '🚲' },
+  { id: 'bike_colors', label: 'ألوان الدراجات',   icon: '🎨' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -292,6 +338,8 @@ watch(activeTab, () => {
   faultsTabRef.value?.clearSelection?.()
   workersTabRef.value?.clearSelection?.()
   customersTabRef.value?.clearSelection?.()
+  bikeTypesTabRef.value?.clearSelection?.()
+  bikeColorsTabRef.value?.clearSelection?.()
 })
 
 // ── API calls ───────────────────────────────────────────────────────────────
@@ -396,6 +444,34 @@ const closeCustomerModal = () => {
   editingCustomer.value = null
 }
 
+// ── فتح/إغلاق مودال نوع الدراجة (إضافة أو تعديل) ─────────────────────────
+const openAddBikeType = () => {
+  editingBikeType.value = null
+  showBikeTypeModal.value = true
+}
+const openEditBikeType = (type) => {
+  editingBikeType.value = type
+  showBikeTypeModal.value = true
+}
+const closeBikeTypeModal = () => {
+  showBikeTypeModal.value = false
+  editingBikeType.value = null
+}
+
+// ── فتح/إغلاق مودال لون الدراجة (إضافة أو تعديل) ─────────────────────────
+const openAddBikeColor = () => {
+  editingBikeColor.value = null
+  showBikeColorModal.value = true
+}
+const openEditBikeColor = (color) => {
+  editingBikeColor.value = color
+  showBikeColorModal.value = true
+}
+const closeBikeColorModal = () => {
+  showBikeColorModal.value = false
+  editingBikeColor.value = null
+}
+
 // ── حذف عامل / عميل (فردي) ────────────────────────────────────────────
 const handleDeleteWorker = async (workerId) => {
   try {
@@ -425,6 +501,41 @@ const handleDeleteCustomer = async (customerId) => {
     } else {
       const data = await res.json()
       alert('❌ ' + (data.detail || 'تعذر حذف العميل'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  }
+}
+
+// ── حذف نوع / لون دراجة (فردي) ───────────────────────────────────────
+const handleDeleteBikeType = async (typeId) => {
+  try {
+    const res = await fetch(`${API}/api/bike-types/${typeId}/`, {
+      method: 'DELETE',
+      headers: requestHeaders
+    })
+    if (res.ok) {
+      loadBikeTypes()
+    } else {
+      const data = await res.json()
+      alert('❌ ' + (data.detail || 'تعذر حذف النوع'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  }
+}
+
+const handleDeleteBikeColor = async (colorId) => {
+  try {
+    const res = await fetch(`${API}/api/bike-colors/${colorId}/`, {
+      method: 'DELETE',
+      headers: requestHeaders
+    })
+    if (res.ok) {
+      loadBikeColors()
+    } else {
+      const data = await res.json()
+      alert('❌ ' + (data.detail || 'تعذر حذف اللون'))
     }
   } catch (e) {
     alert('تعذر الاتصال بالسيرفر')
@@ -496,6 +607,8 @@ const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); load
 const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults(); loadAvailableChassis(); loadStats() }
 const handleCustomerFormSuccess = () => { closeCustomerModal(); loadCustomers() }
 const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
+const handleBikeTypeFormSuccess  = () => { closeBikeTypeModal(); loadBikeTypes() }
+const handleBikeColorFormSuccess = () => { closeBikeColorModal(); loadBikeColors() }
 
 onMounted(() => {
   loadStats()
