@@ -35,14 +35,14 @@
         :disabled="bulkLoading"
         class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium"
       >
-        ✅ تصليح المحدد ({{ pendingSelectedCount }})
+        ✅ تصليح المحدد ({{ bulk.selectedCount.value }})
       </button>
       <button
         @click="openBulkCancel"
         :disabled="bulkLoading"
         class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium"
       >
-        ❌ إلغاء المحدد ({{ pendingSelectedCount }})
+        ❌ إلغاء المحدد ({{ bulk.selectedCount.value }})
       </button>
     </BulkActionsBar>
 
@@ -51,15 +51,29 @@
 
       <template v-else>
         <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
-          <input type="checkbox" :checked="bulk.allSelected.value" @change="bulk.toggleAll" class="w-4 h-4 accent-indigo-600 rounded" />
-          <span class="text-xs text-gray-400">تحديد الكل ({{ filteredFaults.length }})</span>
+          <input
+            type="checkbox"
+            :checked="bulk.allSelected.value"
+            :disabled="bulk.eligibleCount.value === 0"
+            @change="bulk.toggleAll"
+            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          />
+          <span class="text-xs text-gray-400">
+            تحديد الكل ({{ bulk.eligibleCount.value }} معلق قابل للتحديد من {{ filteredFaults.length }})
+          </span>
         </div>
 
         <div class="divide-y divide-gray-100">
           <div v-for="fault in filteredFaults" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
             <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
               <div class="flex items-center gap-3 min-w-0 flex-1">
-                <input type="checkbox" :checked="bulk.isSelected(fault)" @change="bulk.toggleOne(fault)" class="w-4 h-4 accent-indigo-600 rounded shrink-0" />
+                <input
+                  type="checkbox"
+                  :checked="bulk.isSelected(fault)"
+                  :disabled="fault.status !== 'pending'"
+                  @change="bulk.toggleOne(fault)"
+                  class="w-4 h-4 accent-indigo-600 rounded shrink-0 disabled:opacity-20 disabled:cursor-not-allowed"
+                />
 
                 <div @click="toggleExpand(fault.id)" class="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
                   <span class="text-lg shrink-0">{{ statusIcon(fault.status) }}</span>
@@ -121,7 +135,7 @@
 
     <BulkRepairModal
       v-if="showBulkRepairModal"
-      :count="pendingSelectedCount"
+      :count="bulk.selectedCount.value"
       :workers-list="workersList"
       :loading="bulkLoading"
       @close="showBulkRepairModal = false"
@@ -131,7 +145,7 @@
     <CancelReasonModal
       v-if="showBulkCancelModal"
       title="إلغاء الأعطال المحددة"
-      :subtitle="`سيتم إلغاء ${pendingSelectedCount} عطل معلق`"
+      :subtitle="`سيتم إلغاء ${bulk.selectedCount.value} عطل معلق`"
       icon="⚠️"
       :loading="bulkLoading"
       @close="showBulkCancelModal = false"
@@ -210,34 +224,28 @@ const handleRepairSuccess = () => {
   emit('refresh-faults')
 }
 
-// ── التحديد المتعدد ──────────────────────────────────────────────
-const bulk = useBulkSelection(filteredFaults)
+// ── التحديد المتعدد: فقط الأعطال المعلقة قابلة للتحديد ──────────────────
+const bulk = useBulkSelection(filteredFaults, 'id', (fault) => fault.status === 'pending')
 watch(filteredFaults, () => { bulk.clear() })
-
-const pendingSelectedCount = computed(() =>
-  props.faultsList.filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending').length
-)
 
 const showBulkRepairModal = ref(false)
 const showBulkCancelModal = ref(false)
 const bulkLoading = ref(false)
 
 const openBulkRepair = () => {
-  if (pendingSelectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  if (bulk.selectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
   showBulkRepairModal.value = true
 }
 
 const openBulkCancel = () => {
-  if (pendingSelectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  if (bulk.selectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
   showBulkCancelModal.value = true
 }
 
 const confirmBulkRepair = async (workerName) => {
   bulkLoading.value = true
   try {
-    const ids = props.faultsList
-      .filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending')
-      .map(f => f.id)
+    const ids = bulk.selectedIdsArray.value
 
     const res = await fetch(`${API}/api/faults/bulk-repair/`, {
       method: 'POST',
@@ -263,9 +271,7 @@ const confirmBulkRepair = async (workerName) => {
 const confirmBulkCancel = async (payload) => {
   bulkLoading.value = true
   try {
-    const ids = props.faultsList
-      .filter(f => bulk.selectedIds.value.has(f.id) && f.status === 'pending')
-      .map(f => f.id)
+    const ids = bulk.selectedIdsArray.value
 
     const res = await fetch(`${API}/api/faults/bulk-cancel/`, {
       method: 'POST',

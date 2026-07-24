@@ -31,7 +31,7 @@
         :disabled="bulkLoading"
         class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium"
       >
-        ❌ إلغاء المحدد ({{ cancellableSelectedCount }})
+        ❌ إلغاء المحدد ({{ bulk.selectedCount.value }})
       </button>
     </BulkActionsBar>
 
@@ -40,8 +40,16 @@
 
       <template v-else>
         <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
-          <input type="checkbox" :checked="bulk.allSelected.value" @change="bulk.toggleAll" class="w-4 h-4 accent-indigo-600 rounded" />
-          <span class="text-xs text-gray-400">تحديد الكل ({{ filteredSales.length }})</span>
+          <input
+            type="checkbox"
+            :checked="bulk.allSelected.value"
+            :disabled="bulk.eligibleCount.value === 0"
+            @change="bulk.toggleAll"
+            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          />
+          <span class="text-xs text-gray-400">
+            تحديد الكل ({{ bulk.eligibleCount.value }} قابل للتحديد من {{ filteredSales.length }})
+          </span>
         </div>
 
         <div class="divide-y divide-gray-100">
@@ -52,7 +60,13 @@
             :class="{ 'opacity-50': sale.status === 'cancelled' }"
           >
             <div class="flex items-center gap-3 min-w-0 flex-1">
-              <input type="checkbox" :checked="bulk.isSelected(sale)" @change="bulk.toggleOne(sale)" class="w-4 h-4 accent-indigo-600 rounded shrink-0" />
+              <input
+                type="checkbox"
+                :checked="bulk.isSelected(sale)"
+                :disabled="sale.status !== 'active'"
+                @change="bulk.toggleOne(sale)"
+                class="w-4 h-4 accent-indigo-600 rounded shrink-0 disabled:opacity-20 disabled:cursor-not-allowed"
+              />
 
               <div
                 class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
@@ -95,7 +109,7 @@
     <CancelReasonModal
       v-if="showBulkCancelModal"
       title="إلغاء عمليات البيع المحددة"
-      :subtitle="`سيتم إلغاء ${cancellableSelectedCount} عملية بيع نشطة`"
+      :subtitle="`سيتم إلغاء ${bulk.selectedCount.value} عملية بيع نشطة`"
       icon="💰"
       :loading="bulkLoading"
       @close="showBulkCancelModal = false"
@@ -143,18 +157,15 @@ const filteredSales = computed(() => {
 
 const resetFilter = () => { salesFilter.value = { customer_name: '', status: '', date_from: '', date_to: '' } }
 
-const bulk = useBulkSelection(filteredSales)
+// ── التحديد المتعدد: فقط المبيعات النشطة قابلة للتحديد ─────────────────
+const bulk = useBulkSelection(filteredSales, 'id', (sale) => sale.status === 'active')
 watch(filteredSales, () => { bulk.clear() })
-
-const cancellableSelectedCount = computed(() =>
-  props.salesList.filter(s => bulk.selectedIds.value.has(s.id) && s.status === 'active').length
-)
 
 const showBulkCancelModal = ref(false)
 const bulkLoading = ref(false)
 
 const openBulkCancel = () => {
-  if (cancellableSelectedCount.value === 0) {
+  if (bulk.selectedCount.value === 0) {
     alert('لا توجد عمليات بيع نشطة ضمن التحديد الحالي')
     return
   }
@@ -164,9 +175,7 @@ const openBulkCancel = () => {
 const confirmBulkCancel = async (payload) => {
   bulkLoading.value = true
   try {
-    const ids = props.salesList
-      .filter(s => bulk.selectedIds.value.has(s.id) && s.status === 'active')
-      .map(s => s.id)
+    const ids = bulk.selectedIdsArray.value
 
     const res = await fetch(`${API}/api/sales/bulk-cancel/`, {
       method: 'POST',
