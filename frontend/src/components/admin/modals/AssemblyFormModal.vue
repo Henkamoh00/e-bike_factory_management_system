@@ -147,22 +147,14 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
 import BikeTypeFormModal from '../../admin/modals/BikeTypeFormModal.vue'
 import BikeColorFormModal from '../../admin/modals/BikeColorFormModal.vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-// إنشاء كائن الـ Headers الأساسي
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-// إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success', 'worker-added', 'type-added', 'color-added'])
 const loading = ref(false)
@@ -235,12 +227,11 @@ const submit = async (force = false) => {
   loading.value = true
   try {
     const url = force
-      ? `${API}/api/assembly/record/?force=true`
-      : `${API}/api/assembly/record/`
+      ? `/api/assembly/record/?force=true`
+      : `/api/assembly/record/`
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
 

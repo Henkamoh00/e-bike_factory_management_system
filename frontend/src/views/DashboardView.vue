@@ -54,6 +54,12 @@
 
       <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
         <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 1.0 · نظام التجميع الكهربائي</p>
+        <p class="text-xs text-slate-500 text-center mb-2 truncate">
+          {{ user?.full_name || user?.username }} — {{ user?.role }}
+        </p>
+        <button @click="handleLogout" class="w-full text-xs text-red-500 hover:text-red-700 py-1">
+          تسجيل الخروج
+        </button>
       </div>
     </aside>
 
@@ -247,6 +253,8 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
 
 import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
 import SaleModal from '../components/admin/modals/SaleModal.vue'
@@ -345,73 +353,69 @@ watch(activeTab, () => {
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
 
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
+// إنشاء كائن الـ Headers الأساسي مع متطلبات Auth.
+const { user, logout, apiFetch } = useAuth()
 
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
 
 const loadStats = async () => {
   try {
-    const res = await fetch(`${API}/api/stats/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/stats/`)
     if (res.ok) stats.value = await res.json()
   } catch (e) { console.error('إحصائيات', e) }
 }
 
 const loadBikeTypes = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-types/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/bike-types/`)
     if (res.ok) bikeTypesList.value = await res.json()
   } catch (e) { console.error('أنواع الدراجات', e) }
 }
 
 const loadBikeColors = async () => {
   try {
-    const res = await fetch(`${API}/api/bike-colors/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/bike-colors/`)
     if (res.ok) bikeColorsList.value = await res.json()
   } catch (e) { console.error('ألوان الدراجات', e) }
 }
 
 const loadSales = async () => {
   try {
-    const res = await fetch(`${API}/api/sales/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/sales/`)
     if (res.ok) salesList.value = await res.json()
   } catch (e) { console.error('مبيعات', e) }
 }
 
 const loadAvailableChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/available/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/chassis/available/`)
     if (res.ok) availableChassisList.value = await res.json()
   } catch (e) { console.error('هياكل متاحة', e) }
 }
 
 const loadFaults = async () => {
   try {
-    const res = await fetch(`${API}/api/faults/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/faults/`)
     if (res.ok) faultsList.value = await res.json()
   } catch (e) { console.error('أعطال', e) }
 }
 
 const loadAllChassis = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/all/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/chassis/all/`)
     if (res.ok) allChassisList.value = await res.json()
   } catch (e) { console.error('كل الهياكل', e) }
 }
 
 const loadWorkers = async () => {
   try {
-    const res = await fetch(`${API}/api/workers/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/workers/`)
     if (res.ok) workersList.value = await res.json()
   } catch (e) { console.error('عمال', e) }
 }
 
 const loadCustomers = async () => {
   try {
-    const res = await fetch(`${API}/api/customers/`, { headers: requestHeaders })
+    const res = await apiFetch(`/api/customers/`)
     if (res.ok) customersList.value = await res.json()
   } catch (e) { console.error('عملاء', e) }
 }
@@ -475,9 +479,8 @@ const closeBikeColorModal = () => {
 // ── حذف عامل / عميل (فردي) ────────────────────────────────────────────
 const handleDeleteWorker = async (workerId) => {
   try {
-    const res = await fetch(`${API}/api/workers/${workerId}/`, {
-      method: 'DELETE',
-      headers: requestHeaders
+    const res = await apiFetch(`/api/workers/${workerId}/`, {
+      method: 'DELETE'
     })
     if (res.ok) {
       loadWorkers()
@@ -492,9 +495,8 @@ const handleDeleteWorker = async (workerId) => {
 
 const handleDeleteCustomer = async (customerId) => {
   try {
-    const res = await fetch(`${API}/api/customers/${customerId}/`, {
-      method: 'DELETE',
-      headers: requestHeaders
+    const res = await apiFetch(`/api/customers/${customerId}/`, {
+      method: 'DELETE'
     })
     if (res.ok) {
       loadCustomers()
@@ -510,9 +512,8 @@ const handleDeleteCustomer = async (customerId) => {
 // ── حذف نوع / لون دراجة (فردي) ───────────────────────────────────────
 const handleDeleteBikeType = async (typeId) => {
   try {
-    const res = await fetch(`${API}/api/bike-types/${typeId}/`, {
-      method: 'DELETE',
-      headers: requestHeaders
+    const res = await apiFetch(`/api/bike-types/${typeId}/`, {
+      method: 'DELETE'
     })
     if (res.ok) {
       loadBikeTypes()
@@ -527,9 +528,8 @@ const handleDeleteBikeType = async (typeId) => {
 
 const handleDeleteBikeColor = async (colorId) => {
   try {
-    const res = await fetch(`${API}/api/bike-colors/${colorId}/`, {
-      method: 'DELETE',
-      headers: requestHeaders
+    const res = await apiFetch(`/api/bike-colors/${colorId}/`, {
+      method: 'DELETE'
     })
     if (res.ok) {
       loadBikeColors()
@@ -549,9 +549,8 @@ const confirmCancelSale = async (payload) => {
   if (!cancellingSale.value) return
   cancelLoading.value = true
   try {
-    const res = await fetch(`${API}/api/sales/${cancellingSale.value.id}/cancel/`, {
+    const res = await apiFetch(`/api/sales/${cancellingSale.value.id}/cancel/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(payload)
     })
     const data = await res.json()
@@ -577,9 +576,8 @@ const confirmCancelFault = async (payload) => {
   if (!cancellingFault.value) return
   cancelLoading.value = true
   try {
-    const res = await fetch(`${API}/api/faults/${cancellingFault.value.id}/cancel/`, {
+    const res = await apiFetch(`/api/faults/${cancellingFault.value.id}/cancel/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(payload)
     })
     const data = await res.json()
@@ -609,6 +607,16 @@ const handleCustomerFormSuccess = () => { closeCustomerModal(); loadCustomers() 
 const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
 const handleBikeTypeFormSuccess  = () => { closeBikeTypeModal(); loadBikeTypes() }
 const handleBikeColorFormSuccess = () => { closeBikeColorModal(); loadBikeColors() }
+
+
+// ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
+const router = useRouter()
+
+const handleLogout = () => {
+  logout()
+  router.push({ name: 'Login' })
+}
+
 
 onMounted(() => {
   loadStats()

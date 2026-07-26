@@ -28,16 +28,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const props = defineProps({
   bikeType: { type: Object, default: null }
@@ -69,13 +63,12 @@ const submit = async () => {
   loading.value = true
   try {
     const url = isEditing.value
-      ? `${API}/api/bike-types/${props.bikeType.id}/`
-      : `${API}/api/bike-types/`
+      ? `/api/bike-types/${props.bikeType.id}/`
+      : `/api/bike-types/`
     const method = isEditing.value ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
-      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()

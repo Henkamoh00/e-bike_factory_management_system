@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from .models import AssemblyStage
+from .models import AssemblyStage, UserRole
 
 
 # ====================== WORKER ======================
@@ -210,3 +210,38 @@ class ChassisHistoryResponse(BaseModel):
 class ResponseMessage(BaseModel):
     message: str
     status: str = "success"
+
+
+# ====================== AUTH / USERS ======================
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    full_name: str | None = None
+    role: UserRole = UserRole.WORKER
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+    password: str | None = None  # لتغيير كلمة المرور عند الحاجة
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    full_name: str | None = None
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    last_login: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse

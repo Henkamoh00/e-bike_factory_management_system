@@ -65,17 +65,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
@@ -113,9 +107,8 @@ const submit = async () => {
   if (!payload.related_stage) delete payload.related_stage
 
   try {
-    const res = await fetch(`${API}/api/faults/`, {
+    const res = await apiFetch(`/api/faults/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(payload)
     })
 

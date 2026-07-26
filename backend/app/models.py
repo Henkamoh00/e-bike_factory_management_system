@@ -111,3 +111,24 @@ class FaultRepair(Base):
 
     fault = relationship("Fault", back_populates="repairs")
     worker = relationship("Worker")
+
+
+class UserRole(str, enum.Enum):
+    ADMIN   = "admin"     # صلاحيات كاملة
+    MANAGER = "مسؤول"      # إدارة تشغيلية (مبيعات/عملاء/تقارير)
+    WORKER  = "عامل"       # تسجيل تجميع/تصليح فقط
+    # أي دور جديد يُضاف هنا مستقبلاً بدون كسر البيانات القديمة
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=True)
+    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.WORKER)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)

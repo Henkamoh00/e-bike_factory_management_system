@@ -213,20 +213,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
+const { apiFetch } = useAuth()
 
-// إنشاء كائن الـ Headers الأساسي
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-// 3. إضافة الـ Header الخاص بـ ngrok فقط إذا كان الرابط يحتوي على كلمة ngrok
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
 
 const props = defineProps({
   workersList: { type: Array, default: () => [] }
@@ -328,9 +321,7 @@ const currentStageLabel = (chassis) => {
 
 const loadChassisSummary = async () => {
   try {
-    const res = await fetch(`${API}/api/chassis/summary/`, {
-      headers: requestHeaders
-    })
+    const res = await apiFetch(`/api/chassis/summary/`)
     if (res.ok) chassisList.value = await res.json()
   } catch (e) { console.error('ملخص الهياكل', e) }
 }
@@ -339,9 +330,7 @@ const openDetails = async (chassisNumber) => {
   loadingDetails.value = true
   selectedChassis.value = { chassis_number: chassisNumber }
   try {
-    const res = await fetch(`${API}/api/chassis/${chassisNumber}/`, {
-      headers: requestHeaders
-    })
+    const res = await apiFetch(`/api/chassis/${chassisNumber}/`)
     if (res.ok) {
       selectedChassis.value = await res.json()
     } else {

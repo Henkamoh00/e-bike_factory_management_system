@@ -64,18 +64,12 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import CustomerFormModal from '../../admin/modals/CustomerFormModal.vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success', 'customer-added'])
 const loading = ref(false)
@@ -121,9 +115,8 @@ const submit = async () => {
   if (!payload.sale_date) delete payload.sale_date
 
   try {
-    const res = await fetch(`${API}/api/sales/`, {
+    const res = await apiFetch(`/api/sales/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(payload)
     })
 

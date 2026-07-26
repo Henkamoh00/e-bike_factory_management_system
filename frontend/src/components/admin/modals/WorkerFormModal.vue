@@ -43,16 +43,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const props = defineProps({
   worker: { type: Object, default: null }
@@ -90,13 +84,12 @@ const submit = async () => {
   loading.value = true
   try {
     const url = isEditing.value
-      ? `${API}/api/workers/${props.worker.id}/`
-      : `${API}/api/workers/`
+      ? `/api/workers/${props.worker.id}/`
+      : `/api/workers/`
     const method = isEditing.value ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
-      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
     const data = await res.json()

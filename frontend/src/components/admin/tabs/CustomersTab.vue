@@ -97,6 +97,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
@@ -109,8 +110,7 @@ const props = defineProps({
 })
 
 const API = import.meta.env.VITE_API_BASE_URL
-const requestHeaders = { 'Content-Type': 'application/json' }
-if (API.includes('ngrok')) requestHeaders['ngrok-skip-browser-warning'] = 'true'
+const { apiFetch } = useAuth()
 
 const customersFilter = ref({ name: '' })
 const pendingDelete = ref(null)
@@ -143,9 +143,8 @@ const confirmBulkDelete = async () => {
   bulkLoading.value = true
   try {
     const ids = bulk.selectedIdsArray.value
-    const res = await fetch(`${API}/api/customers/bulk-delete/`, {
+    const res = await apiFetch(`/api/customers/bulk-delete/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify({ ids })
     })
     const data = await res.json()

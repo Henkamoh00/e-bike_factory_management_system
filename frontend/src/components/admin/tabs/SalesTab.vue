@@ -120,6 +120,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
@@ -133,8 +134,7 @@ const props = defineProps({
 })
 
 const API = import.meta.env.VITE_API_BASE_URL
-const requestHeaders = { 'Content-Type': 'application/json' }
-if (API.includes('ngrok')) requestHeaders['ngrok-skip-browser-warning'] = 'true'
+const { apiFetch } = useAuth()
 
 const salesFilter = ref({ customer_name: '', status: '', date_from: '', date_to: '' })
 
@@ -177,9 +177,8 @@ const confirmBulkCancel = async (payload) => {
   try {
     const ids = bulk.selectedIdsArray.value
 
-    const res = await fetch(`${API}/api/sales/bulk-cancel/`, {
+    const res = await apiFetch(`/api/sales/bulk-cancel/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify({ ids, ...payload })
     })
     const data = await res.json()

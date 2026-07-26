@@ -33,17 +33,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const API = import.meta.env.VITE_API_BASE_URL
-
-const requestHeaders = {
-  'Content-Type': 'application/json'
-}
-
-if (API.includes('ngrok')) {
-  requestHeaders['ngrok-skip-browser-warning'] = 'true'
-}
+const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
@@ -72,9 +66,7 @@ const form = ref({
 
 const loadSuggestedWorker = async () => {
   try {
-    const res = await fetch(`${API}/api/faults/${props.fault.id}/suggested-worker/`, {
-      headers: requestHeaders
-    })
+    const res = await apiFetch(`/api/faults/${props.fault.id}/suggested-worker/`)
     if (res.ok) {
       const data = await res.json()
       if (data.worker_name) {
@@ -93,9 +85,8 @@ const submit = async () => {
 
   loading.value = true
   try {
-    const res = await fetch(`${API}/api/faults/${props.fault.id}/repair/`, {
+    const res = await apiFetch(`/api/faults/${props.fault.id}/repair/`, {
       method: 'POST',
-      headers: requestHeaders,
       body: JSON.stringify(form.value)
     })
 
