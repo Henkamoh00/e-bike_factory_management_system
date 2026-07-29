@@ -35,7 +35,7 @@
 
       <nav class="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 overflow-y-auto">
         <button
-          v-for="tab in tabs"
+          v-for="tab in visibleTabs"
           :key="tab.id"
           @click="switchTab(tab.id)"
           :class="activeTab === tab.id
@@ -255,6 +255,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { getAllowedTabs, getDefaultTab, isTabAllowed } from '../composables/useTabPermissions'
+
 
 import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
 import SaleModal from '../components/admin/modals/SaleModal.vue'
@@ -274,7 +276,13 @@ import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 
-const activeTab = ref('dashboard')
+
+// ── التبويبات المسموحة حسب دور المستخدم الحالي ─────────────────────
+const visibleTabs = computed(() => getAllowedTabs(user.value?.role))
+
+// activeTab يبدأ فارغًا ويُحدَّد فعليًا في onMounted بعد معرفة الدور
+const activeTab = ref('')
+
 const isSidebarOpen = ref(false)
 const isDesktopSidebarOpen = ref(true)
 
@@ -321,21 +329,11 @@ const allChassisList         = ref([])
 const workersList            = ref([])
 const customersList          = ref([])
 
-const tabs = [
-  { id: 'dashboard',   label: 'الإحصائيات',      icon: '📈' },
-  { id: 'users',       label: 'المستخدمون',       icon: '👤' },
-  { id: 'settings',    label: 'الإعدادات',        icon: '🛠️' },
-  { id: 'assembly',    label: 'الورشة',           icon: '⚙️' },
-  { id: 'sales',       label: 'المبيعات',         icon: '💰' },
-  { id: 'faults',      label: 'الأعطال',          icon: '⚠️' },
-  { id: 'workers',     label: 'العمال',           icon: '👷' },
-  { id: 'customers',   label: 'العملاء',          icon: '🧑‍🤝‍🧑' },
-]
-
-const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
-const currentTabIcon  = computed(() => tabs.find(t => t.id === activeTab.value)?.icon || '')
+const currentTabLabel = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.label || '')
+const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.icon || '')
 
 const switchTab = (tab) => {
+  if (!isTabAllowed(tab, user.value?.role)) return   // 🛡️ حماية إضافية
   activeTab.value = tab
   isSidebarOpen.value = false
 }
@@ -616,6 +614,31 @@ const handleLogout = () => {
   logout()
   router.push({ name: 'Login' })
 }
+
+
+// ── تحميل البيانات بشكل شرطي حسب الدور (يحل مشكلة الـ 403 الصامتة) ─────────────────────────────────────
+const isAdminOrSupervisor = computed(() => ['admin', 'supervisor'].includes(user.value?.role))
+
+onMounted(() => {
+  // تحديد التبويب الافتراضي أول مرة حسب الدور
+  activeTab.value = getDefaultTab(user.value?.role)
+
+  // بيانات مشتركة يحتاجها الجميع (الورشة + الأعطال)
+  loadBikeTypes()
+  loadBikeColors()
+  loadWorkers()
+  loadFaults()
+  loadAllChassis()
+
+  // بيانات إدارية حصرية لـ admin / supervisor فقط
+  if (isAdminOrSupervisor.value) {
+    loadStats()
+    loadSales()
+    loadAvailableChassis()
+    loadCustomers()
+  }
+})
+
 
 
 onMounted(() => {
