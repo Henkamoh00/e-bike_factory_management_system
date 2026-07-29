@@ -3,7 +3,7 @@
 // أي تعديل مستقبلي على الصلاحيات يكفي أن يتم هنا فقط
 
 export const TAB_DEFINITIONS = [
-  { id: 'dashboard', label: 'الإحصائيات',    icon: '📈', roles: ['admin', 'supervisor'] },
+  { id: 'stats', label: 'الإحصائيات',    icon: '📈', roles: ['admin', 'supervisor'] },
   { id: 'users',     label: 'المستخدمون',     icon: '👤', roles: ['admin', 'supervisor'] },
   { id: 'settings',  label: 'الإعدادات',      icon: '🛠️', roles: ['admin', 'supervisor'] },
   { id: 'assembly',  label: 'الورشة',         icon: '⚙️', roles: ['admin', 'supervisor', 'operator'] },

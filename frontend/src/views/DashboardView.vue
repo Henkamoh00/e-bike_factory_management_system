@@ -99,7 +99,7 @@
 
       <main class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
         <div class="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8 transition-all duration-300">
-          <DashboardStatsTab v-if="activeTab === 'dashboard'" :stats="stats" />
+          <DashboardStatsTab v-if="activeTab === 'stats'" :stats="stats" />
 
           <AssemblyTab
             v-else-if="activeTab === 'assembly'"
@@ -253,7 +253,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute  } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { getAllowedTabs, getDefaultTab, isTabAllowed } from '../composables/useTabPermissions'
 
@@ -276,12 +276,24 @@ import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 
-
 // ── التبويبات المسموحة حسب دور المستخدم الحالي ─────────────────────
 const visibleTabs = computed(() => getAllowedTabs(user.value?.role))
 
-// activeTab يبدأ فارغًا ويُحدَّد فعليًا في onMounted بعد معرفة الدور
-const activeTab = ref('')
+// ── تحميل البيانات بشكل شرطي حسب الدور (يحل مشكلة الـ 403 الصامتة) ─────────────────────────────────────
+const isAdminOrSupervisor = computed(() => ['admin', 'supervisor'].includes(user.value?.role))
+
+// ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
+const router = useRouter()
+const route = useRoute()
+
+const activeTab = computed({
+  get: () => route.query.tab || getDefaultTab(user.value?.role),
+  set: (val) => {
+    if (route.query.tab !== val) {
+      router.push({ query: { ...route.query, tab: val } })
+    }
+  }
+})
 
 const isSidebarOpen = ref(false)
 const isDesktopSidebarOpen = ref(true)
@@ -333,8 +345,8 @@ const currentTabLabel = computed(() => visibleTabs.value.find(t => t.id === acti
 const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.icon || '')
 
 const switchTab = (tab) => {
-  if (!isTabAllowed(tab, user.value?.role)) return   // 🛡️ حماية إضافية
-  activeTab.value = tab
+  if (!isTabAllowed(tab, user.value?.role)) return   // 🛡️ حماية
+  activeTab.value = tab   // هذا سيُحدّث الرابط تلقائيًا (?tab=tab)
   isSidebarOpen.value = false
 }
 
@@ -606,22 +618,18 @@ const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
 const handleBikeTypeFormSuccess  = () => { closeBikeTypeModal(); loadBikeTypes() }
 const handleBikeColorFormSuccess = () => { closeBikeColorModal(); loadBikeColors() }
 
-
-// ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
-const router = useRouter()
-
 const handleLogout = () => {
   logout()
-  router.push({ name: 'Login' })
+  router.replace({ name: 'Login' })
 }
 
 
-// ── تحميل البيانات بشكل شرطي حسب الدور (يحل مشكلة الـ 403 الصامتة) ─────────────────────────────────────
-const isAdminOrSupervisor = computed(() => ['admin', 'supervisor'].includes(user.value?.role))
-
 onMounted(() => {
-  // تحديد التبويب الافتراضي أول مرة حسب الدور
-  activeTab.value = getDefaultTab(user.value?.role)
+  // إذا الرابط بدون ?tab أو يحتوي تبويبًا غير مسموح لهذا الدور -> صحّحه لأول تبويب صالح
+  const requested = route.query.tab
+  if (!requested || !isTabAllowed(requested, user.value?.role)) {
+    router.replace({ query: { ...route.query, tab: getDefaultTab(user.value?.role) } })
+  }
 
   // بيانات مشتركة يحتاجها الجميع (الورشة + الأعطال)
   loadBikeTypes()
@@ -639,17 +647,4 @@ onMounted(() => {
   }
 })
 
-
-
-onMounted(() => {
-  loadStats()
-  loadBikeTypes()
-  loadBikeColors()
-  loadSales()
-  loadAvailableChassis()
-  loadFaults()
-  loadAllChassis()
-  loadWorkers()
-  loadCustomers()
-})
 </script>

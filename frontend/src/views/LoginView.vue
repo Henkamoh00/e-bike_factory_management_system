@@ -74,7 +74,7 @@ const submit = async () => {
     const data = await res.json()
     if (res.ok) {
       setSession(data.access_token, data.user)
-      router.push({ name: 'Dashboard' })
+      router.replace({ name: 'Dashboard' })
     } else {
       error.value = data.detail || 'حدث خطأ أثناء تسجيل الدخول'
     }

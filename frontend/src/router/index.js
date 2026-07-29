@@ -6,7 +6,12 @@ import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
 
 const routes = [
   {
-    path: '/',
+    // أي مسار غير معروف (بما فيه '/') يُعاد توجيهه لصفحة الدخول
+    path: '/:pathMatch(.*)*',
+    redirect: '/login'
+  },
+  {
+    path: '/login',
     name: 'Login',
     component: LoginView
   },
@@ -16,6 +21,7 @@ const routes = [
     component: DashboardView,
     meta: { requiresAuth: true }
   }
+  
 ]
 
 const router = createRouter({
@@ -31,17 +37,18 @@ router.beforeEach((to) => {
     return { name: 'Login' }
   }
 
-  // 2. إذا كان المستخدم مسجلاً ويحاول فتح صفحة الـ Login -> وجهه للـ Dashboard
+  // 2. إذا كان المستخدم مسجلاً ويحاول فتح صفحة الـ Login -> وجهه لتبويبه الافتراضي
   if (to.name === 'Login' && isAuthenticated.value) {
-    return { name: 'Dashboard' }
+    return { name: 'Dashboard', query: { tab: getDefaultTab(user.value?.role) } }
   }
 
-  // 3. 🛡️ حماية ثانية: لو حاول المستخدم الوصول لتبويب محظور مباشرة عبر رابط
-  //    مثل /dashboard?tab=users وهو مسيّر (operator) -> يُعاد توجيهه لتبويبه الافتراضي المسموح
-  if (to.name === 'Dashboard' && isAuthenticated.value && to.query.tab) {
+  // 3. 🛡️ حماية ثانية حقيقية الآن: منع الوصول لتبويب محظور عبر تعديل الرابط يدويًا
+  //    (مثال: مسيّر يكتب /dashboard?tab=users في المتصفح مباشرة)
+  if (to.name === 'Dashboard' && isAuthenticated.value) {
+    const requestedTab = to.query.tab
     const role = user.value?.role
-    if (!isTabAllowed(to.query.tab, role)) {
-      return { name: 'Dashboard', query: { tab: getDefaultTab(role) } }
+    if (!requestedTab || !isTabAllowed(requestedTab, role)) {
+      return { name: 'Dashboard', query: { ...to.query, tab: getDefaultTab(role) } }
     }
   }
 
