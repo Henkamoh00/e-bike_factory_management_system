@@ -64,3 +64,36 @@ def soft_delete_user(db: Session, user_id: int):
     user.is_active = False
     db.commit()
     return user
+
+
+def bulk_deactivate_users(db: Session, ids: list[int], current_user_id: int):
+    ids = [i for i in ids if i != current_user_id]  # حماية: استبعاد الحساب الحالي دائمًا
+    users = db.query(models.User).filter(models.User.id.in_(ids)).all()
+    found_ids = {u.id for u in users}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for u in users:
+        u.is_active = False
+    db.commit()
+    return {"success_count": len(users), "failed_ids": failed_ids, "message": f"تم تعطيل {len(users)} مستخدم"}
+
+
+def bulk_activate_users(db: Session, ids: list[int]):
+    users = db.query(models.User).filter(models.User.id.in_(ids)).all()
+    found_ids = {u.id for u in users}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for u in users:
+        u.is_active = True
+    db.commit()
+    return {"success_count": len(users), "failed_ids": failed_ids, "message": f"تم تفعيل {len(users)} مستخدم"}
+
+
+def bulk_soft_delete_users(db: Session, ids: list[int], current_user_id: int):
+    ids = [i for i in ids if i != current_user_id]  # حماية: استبعاد الحساب الحالي دائمًا
+    users = db.query(models.User).filter(models.User.id.in_(ids)).all()
+    found_ids = {u.id for u in users}
+    failed_ids = [i for i in ids if i not in found_ids]
+    for u in users:
+        u.is_deleted = True
+        u.is_active = False
+    db.commit()
+    return {"success_count": len(users), "failed_ids": failed_ids, "message": f"تم حذف {len(users)} مستخدم"}

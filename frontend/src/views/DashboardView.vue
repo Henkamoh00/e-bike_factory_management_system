@@ -53,7 +53,7 @@
       </nav>
 
       <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
-        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 1.0 · نظام التجميع الكهربائي</p>
+        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 2.0 · نظام التجميع الكهربائي</p>
         <p class="text-xs text-slate-500 text-center mb-2 truncate">
           {{ user?.full_name || user?.username }} — {{ user?.role }}
         </p>
@@ -150,24 +150,24 @@
             @refresh-customers="loadCustomers"
           />
 
-          <BikeTypesTab
-            v-else-if="activeTab === 'bike_types'"
-            ref="bikeTypesTabRef"
+          <SettingsTab
+            v-else-if="activeTab === 'settings'"
+            ref="settingsTabRef"
             :bike-types-list="bikeTypesList"
+            :bike-colors-list="bikeColorsList"
             @open-bike-type-modal="openAddBikeType"
             @edit-bike-type="openEditBikeType"
             @delete-bike-type="handleDeleteBikeType"
             @refresh-bike-types="loadBikeTypes"
-          />
-
-          <BikeColorsTab
-            v-else-if="activeTab === 'bike_colors'"
-            ref="bikeColorsTabRef"
-            :bike-colors-list="bikeColorsList"
             @open-bike-color-modal="openAddBikeColor"
             @edit-bike-color="openEditBikeColor"
             @delete-bike-color="handleDeleteBikeColor"
             @refresh-bike-colors="loadBikeColors"
+          />
+
+          <UsersTab
+            v-else-if="activeTab === 'users'"
+            ref="usersTabRef"
           />
         </div>
       </main>
@@ -266,13 +266,13 @@ import BikeColorFormModal from '../components/admin/modals/BikeColorFormModal.vu
 import CancelReasonModal from '../components/shared/CancelReasonModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
+import UsersTab from '../components/admin/tabs/UsersTab.vue'
 import AssemblyTab from '../components/admin/tabs/AssemblyTab.vue'
 import SalesTab from '../components/admin/tabs/SalesTab.vue'
 import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
-import BikeTypesTab from '../components/admin/tabs/BikeTypesTab.vue'
-import BikeColorsTab from '../components/admin/tabs/BikeColorsTab.vue'
+import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 
 const activeTab = ref('dashboard')
 const isSidebarOpen = ref(false)
@@ -286,16 +286,16 @@ const asideClasses = computed(() => {
   return `${mobile} ${desktop}`
 })
 
-const showAssemblyModal = ref(false)
-const showSaleModal     = ref(false)
-const showFaultModal    = ref(false)
-const showWorkerModal   = ref(false)
-const showCustomerModal = ref(false)
+const showAssemblyModal  = ref(false)
+const showSaleModal      = ref(false)
+const showFaultModal     = ref(false)
+const showWorkerModal    = ref(false)
+const showCustomerModal  = ref(false)
 const showBikeTypeModal  = ref(false)
 const showBikeColorModal = ref(false)
 
-const editingWorker   = ref(null)
-const editingCustomer = ref(null)
+const editingWorker    = ref(null)
+const editingCustomer  = ref(null)
 const editingBikeType  = ref(null)
 const editingBikeColor = ref(null)
 
@@ -303,19 +303,19 @@ const cancellingSale  = ref(null)
 const cancellingFault = ref(null)
 const cancelLoading   = ref(false)
 
-const stats                = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
-const assemblyTabRef = ref(null)
-const salesTabRef     = ref(null)
-const faultsTabRef    = ref(null)
-const workersTabRef   = ref(null)
-const customersTabRef = ref(null)
-const bikeTypesTabRef  = ref(null)
-const bikeColorsTabRef = ref(null)
+const stats            = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
+const usersTabRef      = ref(null)
+const assemblyTabRef   = ref(null)
+const salesTabRef      = ref(null)
+const faultsTabRef     = ref(null)
+const workersTabRef    = ref(null)
+const customersTabRef  = ref(null)
+const settingsTabRef   = ref(null)
 
 const bikeTypesList = ref([])
 const bikeColorsList = ref([])
-const salesList             = ref([])
-const availableChassisList  = ref([])
+const salesList              = ref([])
+const availableChassisList   = ref([])
 const faultsList             = ref([])
 const allChassisList         = ref([])
 const workersList            = ref([])
@@ -323,13 +323,13 @@ const customersList          = ref([])
 
 const tabs = [
   { id: 'dashboard',   label: 'الإحصائيات',      icon: '📈' },
+  { id: 'users',       label: 'المستخدمون',       icon: '👤' },
+  { id: 'settings',    label: 'الإعدادات',        icon: '🛠️' },
   { id: 'assembly',    label: 'الورشة',           icon: '⚙️' },
   { id: 'sales',       label: 'المبيعات',         icon: '💰' },
   { id: 'faults',      label: 'الأعطال',          icon: '⚠️' },
   { id: 'workers',     label: 'العمال',           icon: '👷' },
   { id: 'customers',   label: 'العملاء',          icon: '🧑‍🤝‍🧑' },
-  { id: 'bike_types',  label: 'أنواع الدراجات',   icon: '🚲' },
-  { id: 'bike_colors', label: 'ألوان الدراجات',   icon: '🎨' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -342,12 +342,12 @@ const switchTab = (tab) => {
 
 // ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
 watch(activeTab, () => {
+  usersTabRef.value?.clearSelection?.()
+  settingsTabRef.value?.clearSelection?.()
   salesTabRef.value?.clearSelection?.()
   faultsTabRef.value?.clearSelection?.()
   workersTabRef.value?.clearSelection?.()
   customersTabRef.value?.clearSelection?.()
-  bikeTypesTabRef.value?.clearSelection?.()
-  bikeColorsTabRef.value?.clearSelection?.()
 })
 
 // ── API calls ───────────────────────────────────────────────────────────────

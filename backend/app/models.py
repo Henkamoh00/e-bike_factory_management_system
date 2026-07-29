@@ -115,8 +115,8 @@ class FaultRepair(Base):
 
 class UserRole(str, enum.Enum):
     ADMIN   = "admin"     # صلاحيات كاملة
-    MANAGER = "مسؤول"      # إدارة تشغيلية (مبيعات/عملاء/تقارير)
-    WORKER  = "عامل"       # تسجيل تجميع/تصليح فقط
+    SUPERVISOR = "supervisor"      # إدارة تشغيلية (مبيعات/عملاء/تقارير)
+    OPERATOR  = "operator"       # تسجيل تجميع/تصليح فقط
     # أي دور جديد يُضاف هنا مستقبلاً بدون كسر البيانات القديمة
 
 
@@ -127,7 +127,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=True)
-    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.WORKER)
+    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.OPERATOR)
     is_active = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

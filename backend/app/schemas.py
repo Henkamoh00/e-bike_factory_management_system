@@ -217,7 +217,7 @@ class UserCreate(BaseModel):
     username: str
     password: str
     full_name: str | None = None
-    role: UserRole = UserRole.WORKER
+    role: UserRole = UserRole.OPERATOR
 
 class UserUpdate(BaseModel):
     full_name: str | None = None

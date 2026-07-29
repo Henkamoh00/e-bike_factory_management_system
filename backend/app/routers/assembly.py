@@ -2,15 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from .. import schemas, workshop_crud
+from .. import schemas, workshop_crud, models
+from ..security import get_current_user
 
 router = APIRouter(prefix="/api/assembly", tags=["assembly"])
 
+# متاح لكل مستخدم مسجّل دخول (admin / supervisor / operator) — هذا صلب عمل المسيّر
 @router.post("/record/", response_model=schemas.AssemblyResponse)
 def create_assembly_record(
     assembly: schemas.AssemblyCreate,
     force: bool = Query(default=False, description="تجاوز تحذير العامل المختلف بعد تأكيد المسؤول"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     try:
         record = workshop_crud.create_assembly_record(db=db, assembly=assembly, force=force)
