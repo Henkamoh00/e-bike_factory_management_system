@@ -7,10 +7,10 @@ from ..security import get_current_user
 
 router = APIRouter(prefix="/api/faults", tags=["faults"])
 
-# متاح لكل مستخدم مسجّل دخول (admin / supervisor / operator)
 @router.post("/", response_model=schemas.FaultResponse)
 def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return crud.create_fault(db, fault)
+    db_fault = crud.create_fault(db, fault, current_user.id)
+    return crud._attach_fault_extras(db, [db_fault])[0]
 
 
 @router.get("/", response_model=List[schemas.FaultResponse])
@@ -22,7 +22,9 @@ def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db
 @router.post("/{fault_id}/repair/", response_model=schemas.FaultRepairResponse)
 def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     try:
-        return crud.create_fault_repair(db, fault_id, repair)
+        db_repair = crud.create_fault_repair(db, fault_id, repair, current_user.id)
+        db_repair.recorded_by_username = current_user.username
+        return db_repair
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -31,7 +33,7 @@ def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session =
 def cancel_fault(fault_id: int, payload: schemas.FaultCancel, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """إلغاء عطل (لا يُحذف، يبقى ظاهراً بالسجل مع علامة إلغاء وسبب)"""
     try:
-        fault = crud.cancel_fault(db, fault_id, payload)
+        fault = crud.cancel_fault(db, fault_id, payload, current_user.id)
         return crud._attach_fault_extras(db, [fault])[0]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -48,11 +50,11 @@ def suggested_worker(fault_id: int, db: Session = Depends(get_db), current_user:
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
 def bulk_cancel_faults(payload: schemas.BulkCancel, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     try:
-        return crud.bulk_cancel_faults(db, payload)
+        return crud.bulk_cancel_faults(db, payload, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
 def bulk_repair_faults(ids: schemas.BulkIds, worker_name: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name)
+    return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name, current_user.id)

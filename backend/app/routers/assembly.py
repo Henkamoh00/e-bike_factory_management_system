@@ -7,7 +7,6 @@ from ..security import get_current_user
 
 router = APIRouter(prefix="/api/assembly", tags=["assembly"])
 
-# متاح لكل مستخدم مسجّل دخول (admin / supervisor / operator) — هذا صلب عمل المسيّر
 @router.post("/record/", response_model=schemas.AssemblyResponse)
 def create_assembly_record(
     assembly: schemas.AssemblyCreate,
@@ -16,18 +15,16 @@ def create_assembly_record(
     current_user: models.User = Depends(get_current_user)
 ):
     try:
-        record = workshop_crud.create_assembly_record(db=db, assembly=assembly, force=force)
+        record = workshop_crud.create_assembly_record(
+            db=db,
+            assembly=assembly,
+            current_user_id=current_user.id,
+            force=force,
+        )
+        if record.recorded_by:
+            record.recorded_by_username = record.recorded_by.username
         return record
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# @router.get("/records", response_model=List[schemas.AssemblyResponse])
-# def get_records(db: Session = Depends(get_db)):
-#     records = workshop_crud.get_assembly_records(db)
-#     for record in records:
-#         if record.worker:
-#             record.worker_name = record.worker.name
-#     return records

@@ -78,6 +78,7 @@ class AssemblyResponse(BaseModel):
     bike_type_name: str | None = None
     bike_color_name: str | None = None
     timestamp: datetime
+    recorded_by_username: str | None = None   # 👈 جديد
 
     class Config:
         from_attributes = True
@@ -126,6 +127,8 @@ class SaleResponse(BaseModel):
     status: str = "active"
     cancelled_at: datetime | None = None
     cancel_reason: str | None = None
+    created_by_username: str | None = None     # 👈 جديد
+    cancelled_by_username: str | None = None    # 👈 جديد
 
     class Config:
         from_attributes = True
@@ -153,6 +156,7 @@ class FaultRepairResponse(BaseModel):
     worker_name: str | None = None
     repair_date: datetime
     notes: str | None = None
+    recorded_by_username: str | None = None   # 👈 جديد
 
     class Config:
         from_attributes = True
@@ -168,6 +172,8 @@ class FaultResponse(BaseModel):
     resolved_at: datetime | None = None
     cancel_reason: str | None = None
     repairs: list[FaultRepairResponse] = []
+    reported_by_username: str | None = None    # 👈 جديد
+    cancelled_by_username: str | None = None    # 👈 جديد
 
     class Config:
         from_attributes = True

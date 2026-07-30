@@ -10,7 +10,6 @@ admin_or_supervisor = require_roles(models.UserRole.ADMIN, models.UserRole.SUPER
 
 
 # ====================== BIKE TYPES ======================
-# القراءة: متاحة للجميع (يحتاجها المسيّر في نموذج التجميع)
 @router.get("/bike-types/")
 def get_bike_types(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_bike_types_with_usage(db)
@@ -24,7 +23,7 @@ def create_bike_type(data: schemas.BikeTypeCreate, db: Session = Depends(get_db)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="نوع الدراجة موجود مسبقاً")
-    return workshop_crud.get_or_create_bike_type(db, data.name)
+    return workshop_crud.get_or_create_bike_type(db, data.name, current_user.id)
 
 
 @router.put("/bike-types/{type_id}/")
@@ -38,7 +37,7 @@ def update_bike_type(type_id: int, data: schemas.BikeTypeUpdate, db: Session = D
 @router.delete("/bike-types/{type_id}/")
 def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(admin_or_supervisor)):
     try:
-        workshop_crud.soft_delete_bike_type(db, type_id)
+        workshop_crud.soft_delete_bike_type(db, type_id, current_user.id)
         return {"message": "تم حذف نوع الدراجة بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -46,7 +45,7 @@ def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/bike-types/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_bike_types(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(admin_or_supervisor)):
-    return crud.bulk_soft_delete_bike_types(db, payload.ids)
+    return crud.bulk_soft_delete_bike_types(db, payload.ids, current_user.id)
 
 
 # ====================== BIKE COLORS ======================
@@ -63,7 +62,7 @@ def create_bike_color(data: schemas.BikeColorCreate, db: Session = Depends(get_d
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="لون الدراجة موجود مسبقاً")
-    return workshop_crud.get_or_create_bike_color(db, data.name)
+    return workshop_crud.get_or_create_bike_color(db, data.name, current_user.id)
 
 
 @router.put("/bike-colors/{color_id}/")
@@ -77,7 +76,7 @@ def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session 
 @router.delete("/bike-colors/{color_id}/")
 def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(admin_or_supervisor)):
     try:
-        workshop_crud.soft_delete_bike_color(db, color_id)
+        workshop_crud.soft_delete_bike_color(db, color_id, current_user.id)
         return {"message": "تم حذف لون الدراجة بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -85,4 +84,4 @@ def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user
 
 @router.post("/bike-colors/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_bike_colors(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(admin_or_supervisor)):
-    return crud.bulk_soft_delete_bike_colors(db, payload.ids)
+    return crud.bulk_soft_delete_bike_colors(db, payload.ids, current_user.id)

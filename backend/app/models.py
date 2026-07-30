@@ -18,7 +18,13 @@ class Worker(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    assemblies = relationship("AssemblyRecord", back_populates="worker")
+    # ── تتبع المستخدم ──────────────────────────────────────────
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    assemblies = relationship("AssemblyRecord", back_populates="worker", foreign_keys="AssemblyRecord.worker_id")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
 
 class BikeType(Base):
     __tablename__ = "bike_types"
@@ -28,7 +34,12 @@ class BikeType(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     assemblies = relationship("AssemblyRecord", back_populates="bike_type")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
 
 
 class BikeColor(Base):
@@ -39,7 +50,12 @@ class BikeColor(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     assemblies = relationship("AssemblyRecord", back_populates="bike_color")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
 
 
 class AssemblyRecord(Base):
@@ -53,9 +69,13 @@ class AssemblyRecord(Base):
     bike_color_id = Column(Integer, ForeignKey("bike_colors.id"), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
-    worker = relationship("Worker", back_populates="assemblies")
+    # ── من قام بتسجيل/تعديل هذا السجل عبر النظام (المسيّر/المشرف) ─────
+    recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    worker = relationship("Worker", back_populates="assemblies", foreign_keys=[worker_id])
     bike_type = relationship("BikeType", back_populates="assemblies")
     bike_color = relationship("BikeColor", back_populates="assemblies")
+    recorded_by = relationship("User", foreign_keys=[recorded_by_id])
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -67,13 +87,16 @@ class Customer(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
+
 class Sale(Base):
     __tablename__ = "sales"
 
     id = Column(Integer, primary_key=True, index=True)
-    # ملاحظة: لم يعد unique، لأن هيكل واحد ممكن يكون له أكثر من سجل بيع
-    # (بيع ملغى + بيع نشط لاحق). القيد الفعلي (بيع نشط واحد فقط لكل هيكل)
-    # يُفرض على مستوى الكود في crud.create_sale
     chassis_number = Column(String, index=True, nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"))
     sale_date = Column(DateTime(timezone=True), server_default=func.now())
@@ -83,7 +106,13 @@ class Sale(Base):
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
     cancel_reason = Column(String, nullable=True)
 
+    # ── تتبع المستخدم ──────────────────────────────────────────
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    cancelled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     customer = relationship("Customer")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    cancelled_by = relationship("User", foreign_keys=[cancelled_by_id])
 
 class Fault(Base):
     __tablename__ = "faults"
@@ -97,7 +126,13 @@ class Fault(Base):
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     cancel_reason = Column(String, nullable=True)
 
+    # ── تتبع المستخدم ──────────────────────────────────────────
+    reported_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    cancelled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     repairs = relationship("FaultRepair", back_populates="fault", order_by="FaultRepair.repair_date")
+    reported_by = relationship("User", foreign_keys=[reported_by_id])
+    cancelled_by = relationship("User", foreign_keys=[cancelled_by_id])
 
 
 class FaultRepair(Base):
@@ -109,8 +144,12 @@ class FaultRepair(Base):
     repair_date = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(String, nullable=True)
 
+    # ── المستخدم الذي سجّل عملية التصليح في النظام (قد يختلف عن العامل الفعلي) ─
+    recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     fault = relationship("Fault", back_populates="repairs")
     worker = relationship("Worker")
+    recorded_by = relationship("User", foreign_keys=[recorded_by_id])
 
 
 class UserRole(str, enum.Enum):

@@ -5,16 +5,17 @@ from . import models, schemas
 
 
 # ====================== WORKERS ======================
-def get_or_create_worker(db: Session, name: str):
+def get_or_create_worker(db: Session, name: str, current_user_id: int | None = None):
     worker = db.query(models.Worker).filter(models.Worker.name == name).first()
     if not worker:
-        worker = models.Worker(name=name)
+        worker = models.Worker(name=name, created_by_id=current_user_id)
         db.add(worker)
         db.commit()
         db.refresh(worker)
     elif worker.is_deleted:
         # إعادة تفعيل العامل تلقائيًا لو تم اختياره مجددًا بعملية جديدة
         worker.is_deleted = False
+        worker.deleted_by_id = None
         db.commit()
         db.refresh(worker)
     return worker
@@ -39,11 +40,12 @@ def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate):
     return worker
 
 
-def soft_delete_worker(db: Session, worker_id: int):
+def soft_delete_worker(db: Session, worker_id: int, current_user_id: int):
     worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
     if not worker:
         raise ValueError("العامل غير موجود")
     worker.is_deleted = True
+    worker.deleted_by_id = current_user_id
     db.commit()
     return worker
 
@@ -74,10 +76,11 @@ def is_chassis_complete(records: list) -> bool:
 def create_assembly_record(
     db: Session,
     assembly: schemas.AssemblyCreate,
+    current_user_id: int,
     force: bool = False,
 ):
     stage = assembly.stage.value if hasattr(assembly.stage, 'value') else assembly.stage
-    worker = get_or_create_worker(db, assembly.worker_name)
+    worker = get_or_create_worker(db, assembly.worker_name, current_user_id)
 
     all_records = db.query(models.AssemblyRecord)\
         .filter(models.AssemblyRecord.chassis_number == assembly.chassis_number)\
@@ -101,9 +104,9 @@ def create_assembly_record(
         raise HTTPException(status_code=422, detail="⛔ لون الدراجة مطلوب لهذه المرحلة.")
 
     if needs_type:
-        type_id = get_or_create_bike_type(db, assembly.bike_type_name).id
+        type_id = get_or_create_bike_type(db, assembly.bike_type_name, current_user_id).id
     if needs_color:
-        color_id = get_or_create_bike_color(db, assembly.bike_color_name).id
+        color_id = get_or_create_bike_color(db, assembly.bike_color_name, current_user_id).id
 
     # ── باقي الفحوصات المنطقية (بدون أي تغيير) ───────────────────────────
     if STAGE_COMPLETE in existing_stages and stage != STAGE_COMPLETE:
@@ -137,6 +140,7 @@ def create_assembly_record(
         if same_stage_same_worker:
             rec = same_stage_same_worker[0]
             rec.timestamp = func.now()
+            rec.recorded_by_id = current_user_id
             db.commit()
             db.refresh(rec)
             return rec
@@ -152,6 +156,7 @@ def create_assembly_record(
         rec = same_stage_records[0]
         rec.worker_id = worker.id
         rec.timestamp = func.now()
+        rec.recorded_by_id = current_user_id
         db.commit()
         db.refresh(rec)
         return rec
@@ -163,6 +168,7 @@ def create_assembly_record(
         stage=stage,
         bike_type_id=type_id,
         bike_color_id=color_id,
+        recorded_by_id=current_user_id,
     )
     db.add(record)
     db.commit()
@@ -177,15 +183,16 @@ def get_assembly_by_chassis(db: Session, chassis_number: str):
 
 
 # ====================== BIKE TYPE ======================
-def get_or_create_bike_type(db: Session, name: str):
+def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None = None):
     bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
     if not bike_type:
-        bike_type = models.BikeType(name=name)
+        bike_type = models.BikeType(name=name, created_by_id=current_user_id)
         db.add(bike_type)
         db.commit()
         db.refresh(bike_type)
     elif bike_type.is_deleted:
         bike_type.is_deleted = False
+        bike_type.deleted_by_id = None
         db.commit()
         db.refresh(bike_type)
     return bike_type
@@ -205,25 +212,27 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate):
     db.refresh(bike_type)
     return bike_type
 
-def soft_delete_bike_type(db: Session, type_id: int):
+def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
     if not bike_type:
         raise ValueError("نوع الدراجة غير موجود")
     bike_type.is_deleted = True
+    bike_type.deleted_by_id = current_user_id
     db.commit()
     return bike_type
 
 
 # ====================== BIKE COLOR ======================
-def get_or_create_bike_color(db: Session, name: str):
+def get_or_create_bike_color(db: Session, name: str, current_user_id: int | None = None):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.name == name).first()
     if not bike_color:
-        bike_color = models.BikeColor(name=name)
+        bike_color = models.BikeColor(name=name, created_by_id=current_user_id)
         db.add(bike_color)
         db.commit()
         db.refresh(bike_color)
     elif bike_color.is_deleted:
         bike_color.is_deleted = False
+        bike_color.deleted_by_id = None
         db.commit()
         db.refresh(bike_color)
     return bike_color
@@ -244,10 +253,11 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate)
     db.refresh(bike_color)
     return bike_color
 
-def soft_delete_bike_color(db: Session, color_id: int):
+def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
     if not bike_color:
         raise ValueError("لون الدراجة غير موجود")
     bike_color.is_deleted = True
+    bike_color.deleted_by_id = current_user_id
     db.commit()
     return bike_color
