@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
-from . import models
+from . import models, schemas
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-dev-key-change-me")
 ALGORITHM = "HS256"
@@ -16,7 +16,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login/", auto_error=Fal
 
 
 def hash_password(plain: str) -> str:
-    # bcrypt يقبل 72 بايت كحد أقصى - نقصّ بأمان بدل ما نرمي خطأ للمستخدم
     password_bytes = plain.encode("utf-8")[:72]
     hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
     return hashed.decode("utf-8")
@@ -60,16 +59,28 @@ def get_current_user(
     )
     if user is None or not user.is_active:
         raise credentials_exception
+
+    if user.role_obj is None:
+        raise HTTPException(status_code=500, detail="حساب المستخدم بدون دور صالح، راجع الإدارة")
+
+    user.role = user.role_obj.name
+    user.role_label = user.role_obj.label
+    # 🛡️ admin دائمًا بكل الصلاحيات
+    if user.role == models.RoleNames.ADMIN:
+        user.allowed_tabs = list(schemas.ALL_TAB_IDS)
+    else:
+        user.allowed_tabs = user.role_obj.allowed_tabs or []
+
     return user
 
 
-def require_roles(*allowed_roles: models.UserRole):
+def require_roles(*allowed_role_names: str):
     """
-    جاهزة للتفعيل لاحقًا على أي راوتر:
-        dependencies=[Depends(require_roles(models.UserRole.ADMIN))]
+    الآن تستقبل أسماء الأدوار كسلاسل نصية بدلاً من قيم Enum:
+        dependencies=[Depends(require_roles("admin", "supervisor"))]
     """
     def checker(current_user: models.User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+        if current_user.role not in allowed_role_names:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="ليس لديك صلاحية للقيام بهذا الإجراء",

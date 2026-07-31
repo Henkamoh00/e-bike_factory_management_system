@@ -6,7 +6,6 @@ import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
 
 const routes = [
   {
-    // أي مسار غير معروف (بما فيه '/') يُعاد توجيهه لصفحة الدخول
     path: '/:pathMatch(.*)*',
     redirect: '/login'
   },
@@ -21,7 +20,6 @@ const routes = [
     component: DashboardView,
     meta: { requiresAuth: true }
   }
-  
 ]
 
 const router = createRouter({
@@ -29,30 +27,39 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
-  const { isAuthenticated, user } = useAuth()
+router.beforeEach(async (to) => {
+  const { isAuthenticated, user, fetchCurrentUser, loading } = useAuth()
 
-  // 1. إذا كانت الصفحة تطلب تسجيل دخول والمستخدم غير مسجل -> وجهه للـ Login
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return { name: 'Login' }
   }
 
-  // 2. إذا كان المستخدم مسجلاً ويحاول فتح صفحة الـ Login -> وجهه لتبويبه الافتراضي
-  if (to.name === 'Login' && isAuthenticated.value) {
-    return { name: 'Dashboard', query: { tab: getDefaultTab(user.value?.role) } }
+  if (isAuthenticated.value && !user.value && fetchCurrentUser) {
+    await fetchCurrentUser()
   }
 
-  // 3. 🛡️ حماية ثانية حقيقية الآن: منع الوصول لتبويب محظور عبر تعديل الرابط يدويًا
-  //    (مثال: مسيّر يكتب /dashboard?tab=users في المتصفح مباشرة)
+  const role = user.value?.role
+  const allowedTabs = user.value?.allowed_tabs
+
+  if (to.name === 'Login' && isAuthenticated.value) {
+    const defaultTab = getDefaultTab(role, allowedTabs)
+    return { name: 'Dashboard', query: { tab: defaultTab } }
+  }
+
   if (to.name === 'Dashboard' && isAuthenticated.value) {
     const requestedTab = to.query.tab
-    const role = user.value?.role
-    if (!requestedTab || !isTabAllowed(requestedTab, role)) {
-      return { name: 'Dashboard', query: { ...to.query, tab: getDefaultTab(role) } }
+    const defaultTab = getDefaultTab(role, allowedTabs)
+
+    if (!requestedTab || !isTabAllowed(requestedTab, role, allowedTabs)) {
+      if (requestedTab === defaultTab) {
+        return true
+      }
+      return {
+        name: 'Dashboard',
+        query: { ...to.query, tab: defaultTab }
+      }
     }
   }
-
-  // 4. السماح بعبور الملاحة بشكل طبيعي (دون الحاجة لاستدعاء next())
 })
 
 export default router

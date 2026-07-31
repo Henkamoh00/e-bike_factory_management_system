@@ -54,7 +54,7 @@ def bulk_cancel_faults(payload: schemas.BulkCancel, db: Session = Depends(get_db
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
+# أظنها غير مستخدمة قط اطلاقا
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
 def bulk_repair_faults(ids: schemas.BulkIds, worker_name: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name, current_user.id)

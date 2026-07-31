@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from .models import AssemblyStage, UserRole
+from .models import AssemblyStage
 
 
 # ====================== WORKER ======================
@@ -218,24 +218,56 @@ class ResponseMessage(BaseModel):
     status: str = "success"
 
 
+# ====================== ROLES ======================
+# القائمة المرجعية الوحيدة لمعرّفات التبويبات المتاحة في لوحة الإدارة
+# ⚠️ يجب أن تبقى متطابقة تمامًا مع TAB_DEFINITIONS في useTabPermissions.js بالفرونت إند
+ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "sales", "faults", "workers", "customers"]
+
+
+class RoleCreate(BaseModel):
+    name: str
+    label: str
+    description: str | None = None
+    allowed_tabs: list[str] = []
+
+class RoleUpdate(BaseModel):
+    label: str | None = None
+    description: str | None = None
+    allowed_tabs: list[str] | None = None
+
+class RoleResponse(BaseModel):
+    id: int
+    name: str
+    label: str
+    description: str | None = None
+    is_system: bool
+    allowed_tabs: list[str] = []
+    users_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 # ====================== AUTH / USERS ======================
 class UserCreate(BaseModel):
     username: str
     password: str
     full_name: str | None = None
-    role: UserRole = UserRole.OPERATOR
+    role: str = "operator"
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
-    role: UserRole | None = None
+    role: str | None = None
     is_active: bool | None = None
-    password: str | None = None  # لتغيير كلمة المرور عند الحاجة
+    password: str | None = None
 
 class UserResponse(BaseModel):
     id: int
     username: str
     full_name: str | None = None
-    role: UserRole
+    role: str
+    role_label: str | None = None
+    allowed_tabs: list[str] = []
     is_active: bool
     created_at: datetime
     last_login: datetime | None = None

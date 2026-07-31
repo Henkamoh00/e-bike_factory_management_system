@@ -17,9 +17,10 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user.last_login = func.now()
     db.commit()
     db.refresh(user)
+    user.role = user.role_obj.name
+    user.role_label = user.role_obj.label
 
-    role_value = user.role.value if hasattr(user.role, "value") else user.role
-    token = create_access_token({"sub": user.username, "role": role_value})
+    token = create_access_token({"sub": user.username, "role": user.role})
 
     return {"access_token": token, "token_type": "bearer", "user": user}
 

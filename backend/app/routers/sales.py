@@ -7,7 +7,7 @@ from ..security import require_roles
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
-admin_or_supervisor = require_roles(models.UserRole.ADMIN, models.UserRole.SUPERVISOR)
+admin_or_supervisor = require_roles(models.RoleNames.ADMIN, models.RoleNames.SUPERVISOR)
 
 
 @router.post("/", response_model=schemas.SaleResponse)

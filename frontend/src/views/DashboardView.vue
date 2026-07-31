@@ -276,18 +276,18 @@ import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 
-// ── التبويبات المسموحة حسب دور المستخدم الحالي ─────────────────────
-const visibleTabs = computed(() => getAllowedTabs(user.value?.role))
+// ── التبويبات المسموحة حسب صلاحيات المستخدم الحالي (allowed_tabs) ─────────────────
+const visibleTabs = computed(() => getAllowedTabs(user.value?.role, user.value?.allowed_tabs))
 
-// ── تحميل البيانات بشكل شرطي حسب الدور (يحل مشكلة الـ 403 الصامتة) ─────────────────────────────────────
-const isAdminOrSupervisor = computed(() => ['admin', 'supervisor'].includes(user.value?.role))
+// ── دالة مساعدة: هل يملك المستخدم الحالي وصولاً لهذا التبويب؟ ─────────────────────
+const canAccessTab = (tabId) => isTabAllowed(tabId, user.value?.role, user.value?.allowed_tabs)
 
 // ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
 const router = useRouter()
 const route = useRoute()
 
 const activeTab = computed({
-  get: () => route.query.tab || getDefaultTab(user.value?.role),
+  get: () => route.query.tab || getDefaultTab(user.value?.role, user.value?.allowed_tabs),
   set: (val) => {
     if (route.query.tab !== val) {
       router.push({ query: { ...route.query, tab: val } })
@@ -345,8 +345,8 @@ const currentTabLabel = computed(() => visibleTabs.value.find(t => t.id === acti
 const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.icon || '')
 
 const switchTab = (tab) => {
-  if (!isTabAllowed(tab, user.value?.role)) return   // 🛡️ حماية
-  activeTab.value = tab   // هذا سيُحدّث الرابط تلقائيًا (?tab=tab)
+  if (!canAccessTab(tab)) return   // 🛡️ حماية
+  activeTab.value = tab
   isSidebarOpen.value = false
 }
 
@@ -625,10 +625,10 @@ const handleLogout = () => {
 
 
 onMounted(() => {
-  // إذا الرابط بدون ?tab أو يحتوي تبويبًا غير مسموح لهذا الدور -> صحّحه لأول تبويب صالح
+  // إذا الرابط بدون ?tab أو يحتوي تبويبًا غير مسموح لهذا المستخدم -> صحّحه لأول تبويب صالح
   const requested = route.query.tab
-  if (!requested || !isTabAllowed(requested, user.value?.role)) {
-    router.replace({ query: { ...route.query, tab: getDefaultTab(user.value?.role) } })
+  if (!requested || !canAccessTab(requested)) {
+    router.replace({ query: { ...route.query, tab: getDefaultTab(user.value?.role, user.value?.allowed_tabs) } })
   }
 
   // بيانات مشتركة يحتاجها الجميع (الورشة + الأعطال)
@@ -638,13 +638,10 @@ onMounted(() => {
   loadFaults()
   loadAllChassis()
 
-  // بيانات إدارية حصرية لـ admin / supervisor فقط
-  if (isAdminOrSupervisor.value) {
-    loadStats()
-    loadSales()
-    loadAvailableChassis()
-    loadCustomers()
-  }
+  // بيانات حصرية حسب التبويبات المسموحة فعليًا لهذا المستخدم
+  if (canAccessTab('stats')) loadStats()
+  if (canAccessTab('sales')) { loadSales(); loadAvailableChassis() }
+  if (canAccessTab('customers')) loadCustomers()
 })
 
 </script>

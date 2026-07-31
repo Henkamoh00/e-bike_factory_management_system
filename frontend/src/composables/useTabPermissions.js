@@ -1,32 +1,42 @@
-// مصدر واحد للحقيقة لمصفوفة صلاحيات التبويبات
-// يُستخدم في DashboardView.vue (إخفاء التبويبات) وفي index.js (route guard)
-// أي تعديل مستقبلي على الصلاحيات يكفي أن يتم هنا فقط
+// مصدر واحد للحقيقة لكتالوج التبويبات (id/label/icon فقط)
+// صلاحيات كل دور أصبحت ديناميكية الآن، تُدار من الباك إند (جدول roles)
+// وتصل مع بيانات المستخدم كحقل allowed_tabs
 
 export const TAB_DEFINITIONS = [
-  { id: 'stats', label: 'الإحصائيات',    icon: '📈', roles: ['admin', 'supervisor'] },
-  { id: 'users',     label: 'المستخدمون',     icon: '👤', roles: ['admin', 'supervisor'] },
-  { id: 'settings',  label: 'الإعدادات',      icon: '🛠️', roles: ['admin', 'supervisor'] },
-  { id: 'assembly',  label: 'الورشة',         icon: '⚙️', roles: ['admin', 'supervisor', 'operator'] },
-  { id: 'sales',     label: 'المبيعات',       icon: '💰', roles: ['admin', 'supervisor'] },
-  { id: 'faults',    label: 'الأعطال',        icon: '⚠️', roles: ['admin', 'supervisor', 'operator'] },
-  { id: 'workers',   label: 'العمال',         icon: '👷', roles: ['admin', 'supervisor'] },
-  { id: 'customers', label: 'العملاء',        icon: '🧑‍🤝‍🧑', roles: ['admin', 'supervisor'] },
+  { id: 'stats',     label: 'الإحصائيات',    icon: '📈' },
+  { id: 'users',     label: 'المستخدمون',     icon: '👤' },
+  { id: 'settings',  label: 'الإعدادات',      icon: '🛠️' },
+  { id: 'assembly',  label: 'الورشة',         icon: '⚙️' },
+  { id: 'sales',     label: 'المبيعات',       icon: '💰' },
+  { id: 'faults',    label: 'الأعطال',        icon: '⚠️' },
+  { id: 'workers',   label: 'العمال',         icon: '👷' },
+  { id: 'customers', label: 'العملاء',        icon: '🧑‍🤝‍🧑' },
 ]
 
-// أول تبويب مسموح به لكل دور (يُستخدم كتبويب افتراضي عند الدخول)
-export function getDefaultTab(role) {
-  const allowed = TAB_DEFINITIONS.find(t => t.roles.includes(role))
-  return allowed ? allowed.id : 'assembly'
+const ALL_TAB_IDS = TAB_DEFINITIONS.map(t => t.id)
+
+// 🛡️ admin دائمًا بكل الصلاحيات بغض النظر عمّا هو مخزّن فعليًا
+// (حماية من قفل النظام بالكامل بالخطأ عبر تبويب إدارة الأدوار)
+function resolveAllowedIds(role, allowedTabs) {
+  if (role === 'admin') return ALL_TAB_IDS
+  return Array.isArray(allowedTabs) ? allowedTabs : []
 }
 
-// هل هذا التبويب مسموح لهذا الدور؟
-export function isTabAllowed(tabId, role) {
-  const tab = TAB_DEFINITIONS.find(t => t.id === tabId)
-  if (!tab) return false
-  return tab.roles.includes(role)
+// أول تبويب مسموح به (يُستخدم كتبويب افتراضي عند الدخول)
+export function getDefaultTab(role, allowedTabs) {
+  const ids = resolveAllowedIds(role, allowedTabs)
+  const allowed = TAB_DEFINITIONS.find(t => ids.includes(t.id))
+  return allowed ? allowed.id : null
 }
 
-// قائمة التبويبات المسموحة لدور معيّن (تُستخدم في القائمة الجانبية)
-export function getAllowedTabs(role) {
-  return TAB_DEFINITIONS.filter(t => t.roles.includes(role))
+// هل هذا التبويب مسموح لهذا المستخدم؟
+export function isTabAllowed(tabId, role, allowedTabs) {
+  const ids = resolveAllowedIds(role, allowedTabs)
+  return ids.includes(tabId)
+}
+
+// قائمة التبويبات المسموحة (تُستخدم في القائمة الجانبية)
+export function getAllowedTabs(role, allowedTabs) {
+  const ids = resolveAllowedIds(role, allowedTabs)
+  return TAB_DEFINITIONS.filter(t => ids.includes(t.id))
 }

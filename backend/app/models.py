@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -9,6 +9,34 @@ class AssemblyStage(str, enum.Enum):
     ELECTRICAL_COVER = "توصيل_الكهرباء_والغلاف"
     FINAL_ASSEMBLY = "تجميع_كامل"
 
+
+# ── أسماء الأدوار الأساسية (ثوابت بايثون فقط، وليست Enum قاعدة بيانات) ──
+# تُستخدم في الراوترز بدلاً من models.UserRole.ADMIN القديمة
+class RoleNames:
+    ADMIN = "admin"
+    SUPERVISOR = "supervisor"
+    OPERATOR = "operator"
+
+
+class Role(Base):
+    """
+    جدول الأدوار المستقل.
+    allowed_tabs: قائمة معرّفات التبويبات المسموحة لهذا الدور في لوحة الإدارة
+                  (مثال: ["assembly", "faults"])
+    """
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    label = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_system = Column(Boolean, default=False, nullable=False)
+    allowed_tabs = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    users = relationship("User", back_populates="role_obj")
+
+
 class Worker(Base):
     __tablename__ = "workers"
 
@@ -18,7 +46,6 @@ class Worker(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # ── تتبع المستخدم ──────────────────────────────────────────
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -69,7 +96,6 @@ class AssemblyRecord(Base):
     bike_color_id = Column(Integer, ForeignKey("bike_colors.id"), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
-    # ── من قام بتسجيل/تعديل هذا السجل عبر النظام (المسيّر/المشرف) ─────
     recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     worker = relationship("Worker", back_populates="assemblies", foreign_keys=[worker_id])
@@ -102,11 +128,10 @@ class Sale(Base):
     sale_date = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(String, nullable=True)
 
-    status = Column(String, default="active", nullable=False)  # active | cancelled
+    status = Column(String, default="active", nullable=False)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
     cancel_reason = Column(String, nullable=True)
 
-    # ── تتبع المستخدم ──────────────────────────────────────────
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     cancelled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -122,11 +147,10 @@ class Fault(Base):
     description = Column(String, nullable=False)
     related_stage = Column(SQLEnum(AssemblyStage), nullable=True)
     reported_date = Column(DateTime(timezone=True), server_default=func.now())
-    status = Column(String, default="pending")  # pending, fixed, cancelled
+    status = Column(String, default="pending")
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     cancel_reason = Column(String, nullable=True)
 
-    # ── تتبع المستخدم ──────────────────────────────────────────
     reported_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     cancelled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -144,19 +168,11 @@ class FaultRepair(Base):
     repair_date = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(String, nullable=True)
 
-    # ── المستخدم الذي سجّل عملية التصليح في النظام (قد يختلف عن العامل الفعلي) ─
     recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     fault = relationship("Fault", back_populates="repairs")
     worker = relationship("Worker")
     recorded_by = relationship("User", foreign_keys=[recorded_by_id])
-
-
-class UserRole(str, enum.Enum):
-    ADMIN   = "admin"     # صلاحيات كاملة
-    SUPERVISOR = "supervisor"      # إدارة تشغيلية (مبيعات/عملاء/تقارير)
-    OPERATOR  = "operator"       # تسجيل تجميع/تصليح فقط
-    # أي دور جديد يُضاف هنا مستقبلاً بدون كسر البيانات القديمة
 
 
 class User(Base):
@@ -166,7 +182,14 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=True)
-    role = Column(SQLEnum(UserRole), nullable=False, default=UserRole.OPERATOR)
+
+    # ── الدور أصبح Foreign Key على جدول roles بدلاً من Enum ──────────
+    # ملاحظة: اسم العلاقة "role_obj" (وليس "role") لتفادي التعارض مع
+    # الحقل النصي role الذي نُلحقه ديناميكيًا في auth_crud.py قبل الإرجاع
+    # عبر Pydantic (نفس أسلوب customer_name في crud.py)
+    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    role_obj = relationship("Role", back_populates="users")
+
     is_active = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

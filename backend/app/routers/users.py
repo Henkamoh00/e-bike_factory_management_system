@@ -7,8 +7,8 @@ from ..security import get_current_user, require_roles
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 # اختصارات لمصفوفة الصلاحيات
-admin_or_supervisor = require_roles(models.UserRole.ADMIN, models.UserRole.SUPERVISOR)
-admin_only = require_roles(models.UserRole.ADMIN)
+admin_or_supervisor = require_roles(models.RoleNames.ADMIN, models.RoleNames.SUPERVISOR)
+admin_only = require_roles(models.RoleNames.ADMIN)
 
 
 @router.get("/", response_model=list[schemas.UserResponse])
@@ -41,11 +41,11 @@ def update_user(
     if current_user.id == user_id and data.is_active is False:
         raise HTTPException(status_code=400, detail="لا يمكنك تعطيل حسابك الخاص")
     # المشرف (supervisor) لا يمكنه تعديل حساب مدير أو منح صلاحية مدير
-    if current_user.role == models.UserRole.SUPERVISOR:
+    if current_user.role == models.RoleNames.SUPERVISOR:
         target = db.query(models.User).filter(models.User.id == user_id).first()
-        if target and target.role == models.UserRole.ADMIN:
+        if target and target.role_obj and target.role_obj.name == models.RoleNames.ADMIN:
             raise HTTPException(status_code=403, detail="لا يمكن للمشرف تعديل حساب مدير")
-        if data.role == models.UserRole.ADMIN:
+        if data.role == models.RoleNames.ADMIN:
             raise HTTPException(status_code=403, detail="لا يمكن للمشرف منح صلاحية مدير")
     try:
         return auth_crud.update_user(db, user_id, data)

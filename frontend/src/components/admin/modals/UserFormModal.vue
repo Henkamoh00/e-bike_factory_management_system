@@ -100,7 +100,7 @@ const isEditing = computed(() => !!props.userData)
 const form = ref({
   username: '',
   full_name: '',
-  role: props.roleOptions[0]?.value || '',
+  role: props.roleOptions[0]?.value || 'operator',
   password: '',
   is_active: true
 })

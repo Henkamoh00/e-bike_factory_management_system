@@ -81,7 +81,7 @@
               <div class="min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-bold text-gray-800 truncate">{{ u.full_name || u.username }}</span>
-                  <span class="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full">{{ u.role }}</span>
+                  <span class="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full">{{ u.role_label || u.role }}</span>
                   <span v-if="!u.is_active" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">معطّل</span>
                   <span v-if="u.id === currentUser?.id" class="text-xs bg-amber-50 text-amber-600 rounded-full px-2 py-0.5">أنت</span>
                 </div>
@@ -185,13 +185,21 @@ const pendingDelete = ref(null)
 
 const filters = ref({ role: '', status: '' })
 
-const roleOptions = [
-  { label: 'مدير (Admin)', value: 'admin' },
-  { label: 'مشرف', value: 'supervisor' },
-  { label: 'مسيّر', value: 'operator' },
-]
+const roleOptions = ref([])
+
+const loadRoles = async () => {
+  try {
+    const res = await apiFetch('/api/roles/')
+    if (res.ok) {
+      const data = await res.json()
+      roleOptions.value = data.map(r => ({ label: r.label, value: r.name }))
+    }
+  } catch (e) { console.error('أدوار', e) }
+}
 
 const roleFilterOptions = roleOptions
+
+
 const statusOptions = [
   { label: 'مفعّل', value: 'active' },
   { label: 'معطّل', value: 'inactive' },
@@ -297,5 +305,6 @@ defineExpose({ refresh: loadUsers, clearSelection: bulk.clear })
 
 onMounted(() => {
   loadUsers()
+  loadRoles()
 })
 </script>

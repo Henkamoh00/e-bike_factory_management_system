@@ -6,7 +6,7 @@ from ..security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api", tags=["bike-options"])
 
-admin_or_supervisor = require_roles(models.UserRole.ADMIN, models.UserRole.SUPERVISOR)
+admin_or_supervisor = require_roles(models.RoleNames.ADMIN, models.RoleNames.SUPERVISOR)
 
 
 # ====================== BIKE TYPES ======================

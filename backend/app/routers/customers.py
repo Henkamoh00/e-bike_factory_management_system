@@ -6,7 +6,7 @@ from ..security import require_roles
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
-admin_or_supervisor = require_roles(models.UserRole.ADMIN, models.UserRole.SUPERVISOR)
+admin_or_supervisor = require_roles(models.RoleNames.ADMIN, models.RoleNames.SUPERVISOR)
 
 
 @router.get("/")
