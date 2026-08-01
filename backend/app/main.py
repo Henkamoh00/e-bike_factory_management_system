@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles
+from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles, logs
 from .database import engine
 from . import models
 
@@ -46,6 +46,7 @@ app.include_router(stats.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(roles.router)
+app.include_router(logs.router)
 
 
 @app.get("/")

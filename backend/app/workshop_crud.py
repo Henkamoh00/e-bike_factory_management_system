@@ -1,7 +1,7 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
 from fastapi import HTTPException
-from . import models, schemas
+from . import models, schemas, audit_crud
 
 
 # ====================== WORKERS ======================
@@ -12,6 +12,7 @@ def get_or_create_worker(db: Session, name: str, current_user_id: int | None = N
         db.add(worker)
         db.commit()
         db.refresh(worker)
+        audit_crud.log_action(db, "create", "worker", worker.id, current_user_id, entity_label=worker.name)
     elif worker.is_deleted:
         # إعادة تفعيل العامل تلقائيًا لو تم اختياره مجددًا بعملية جديدة
         worker.is_deleted = False
@@ -27,7 +28,7 @@ def get_workers(db: Session):
               .order_by(models.Worker.name).all()
 
 
-def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate):
+def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate, current_user_id: int | None = None):
     worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
     if not worker:
         raise ValueError("العامل غير موجود")
@@ -37,6 +38,7 @@ def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate):
         worker.phone = data.phone
     db.commit()
     db.refresh(worker)
+    audit_crud.log_action(db, "update", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
 
 
@@ -47,6 +49,29 @@ def soft_delete_worker(db: Session, worker_id: int, current_user_id: int):
     worker.is_deleted = True
     worker.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(db, "delete", "worker", worker.id, current_user_id, entity_label=worker.name)
+    return worker
+
+def get_archived_workers(db: Session):
+    workers = db.query(models.Worker)\
+                .options(joinedload(models.Worker.deleted_by))\
+                .filter(models.Worker.is_deleted == True)\
+                .order_by(desc(models.Worker.id)).all()
+    for w in workers:
+        w.deleted_by_username = w.deleted_by.username if w.deleted_by else None
+    return workers
+
+
+def restore_worker(db: Session, worker_id: int, current_user_id: int):
+    worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
+    if not worker:
+        raise ValueError("العامل غير موجود")
+    if not worker.is_deleted:
+        raise ValueError("العامل غير مؤرشف أصلاً")
+    worker.is_deleted = False
+    worker.deleted_by_id = None
+    db.commit()
+    audit_crud.log_action(db, "restore", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
 
 
@@ -143,6 +168,10 @@ def create_assembly_record(
             rec.recorded_by_id = current_user_id
             db.commit()
             db.refresh(rec)
+            audit_crud.log_action(
+                db, "create", "assembly", rec.id, current_user_id,
+                entity_label=f"{assembly.chassis_number} — {_label(stage)}"
+            )
             return rec
 
         if not force:
@@ -159,6 +188,10 @@ def create_assembly_record(
         rec.recorded_by_id = current_user_id
         db.commit()
         db.refresh(rec)
+        audit_crud.log_action(
+            db, "create", "assembly", rec.id, current_user_id,
+            entity_label=f"{assembly.chassis_number} — {_label(stage)}"
+        )
         return rec
 
     # سجل جديد
@@ -173,6 +206,10 @@ def create_assembly_record(
     db.add(record)
     db.commit()
     db.refresh(record)
+    audit_crud.log_action(
+        db, "create", "assembly", record.id, current_user_id,
+        entity_label=f"{assembly.chassis_number} — {_label(stage)}"
+    )
     return record
 
 
@@ -189,6 +226,7 @@ def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None 
         bike_type = models.BikeType(name=name, created_by_id=current_user_id)
         db.add(bike_type)
         db.commit()
+        audit_crud.log_action(db, "create", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
         db.refresh(bike_type)
     elif bike_type.is_deleted:
         bike_type.is_deleted = False
@@ -202,7 +240,7 @@ def get_bike_types(db: Session):
               .filter(models.BikeType.is_deleted == False)\
               .order_by(models.BikeType.name).all()
 
-def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate):
+def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, current_user_id: int | None = None):
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
     if not bike_type:
         raise ValueError("نوع الدراجة غير موجود")
@@ -210,6 +248,7 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate):
         bike_type.name = data.name
     db.commit()
     db.refresh(bike_type)
+    audit_crud.log_action(db, "update", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
 def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
@@ -219,6 +258,29 @@ def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
     bike_type.is_deleted = True
     bike_type.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(db, "delete", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
+    return bike_type
+
+def get_archived_bike_types(db: Session):
+    types = db.query(models.BikeType)\
+              .options(joinedload(models.BikeType.deleted_by))\
+              .filter(models.BikeType.is_deleted == True)\
+              .order_by(desc(models.BikeType.id)).all()
+    for t in types:
+        t.deleted_by_username = t.deleted_by.username if t.deleted_by else None
+    return types
+
+
+def restore_bike_type(db: Session, type_id: int, current_user_id: int):
+    bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
+    if not bike_type:
+        raise ValueError("نوع الدراجة غير موجود")
+    if not bike_type.is_deleted:
+        raise ValueError("النوع غير مؤرشف أصلاً")
+    bike_type.is_deleted = False
+    bike_type.deleted_by_id = None
+    db.commit()
+    audit_crud.log_action(db, "restore", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
 
@@ -229,6 +291,7 @@ def get_or_create_bike_color(db: Session, name: str, current_user_id: int | None
         bike_color = models.BikeColor(name=name, created_by_id=current_user_id)
         db.add(bike_color)
         db.commit()
+        audit_crud.log_action(db, "create", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
         db.refresh(bike_color)
     elif bike_color.is_deleted:
         bike_color.is_deleted = False
@@ -243,7 +306,7 @@ def get_bike_colors(db: Session):
               .filter(models.BikeColor.is_deleted == False)\
               .order_by(models.BikeColor.name).all()
 
-def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate):
+def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate, current_user_id: int | None = None):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
     if not bike_color:
         raise ValueError("لون الدراجة غير موجود")
@@ -251,6 +314,7 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate)
         bike_color.name = data.name
     db.commit()
     db.refresh(bike_color)
+    audit_crud.log_action(db, "update", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color
 
 def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
@@ -260,4 +324,27 @@ def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
     bike_color.is_deleted = True
     bike_color.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(db, "delete", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
+    return bike_color
+
+def get_archived_bike_colors(db: Session):
+    colors = db.query(models.BikeColor)\
+               .options(joinedload(models.BikeColor.deleted_by))\
+               .filter(models.BikeColor.is_deleted == True)\
+               .order_by(desc(models.BikeColor.id)).all()
+    for c in colors:
+        c.deleted_by_username = c.deleted_by.username if c.deleted_by else None
+    return colors
+
+
+def restore_bike_color(db: Session, color_id: int, current_user_id: int):
+    bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
+    if not bike_color:
+        raise ValueError("لون الدراجة غير موجود")
+    if not bike_color.is_deleted:
+        raise ValueError("اللون غير مؤرشف أصلاً")
+    bike_color.is_deleted = False
+    bike_color.deleted_by_id = None
+    db.commit()
+    audit_crud.log_action(db, "restore", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color

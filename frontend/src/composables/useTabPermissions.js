@@ -11,6 +11,8 @@ export const TAB_DEFINITIONS = [
   { id: 'faults',    label: 'الأعطال',        icon: '⚠️' },
   { id: 'workers',   label: 'العمال',         icon: '👷' },
   { id: 'customers', label: 'العملاء',        icon: '🧑‍🤝‍🧑' },
+  { id: 'logs',      label: 'سجل النشاط',     icon: '🪵' },
+  { id: 'archive',   label: 'الأرشيف',        icon: '🗄️' },
 ]
 
 const ALL_TAB_IDS = TAB_DEFINITIONS.map(t => t.id)

@@ -221,7 +221,7 @@ class ResponseMessage(BaseModel):
 # ====================== ROLES ======================
 # القائمة المرجعية الوحيدة لمعرّفات التبويبات المتاحة في لوحة الإدارة
 # ⚠️ يجب أن تبقى متطابقة تمامًا مع TAB_DEFINITIONS في useTabPermissions.js بالفرونت إند
-ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "sales", "faults", "workers", "customers"]
+ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "sales", "faults", "workers", "customers", "logs", "archive"]
 
 
 class RoleCreate(BaseModel):
@@ -283,3 +283,67 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+# ====================== AUDIT LOG ======================
+class AuditLogResponse(BaseModel):
+    id: int
+    action: str
+    entity_type: str
+    entity_id: int | None = None
+    entity_label: str | None = None
+    details: str | None = None
+    user_id: int | None = None
+    username: str | None = None
+    user_full_name: str | None = None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogResponse]
+    total: int
+
+
+# ====================== ARCHIVE (سجلات محذوفة/مؤرشفة) ======================
+class ArchivedWorkerResponse(BaseModel):
+    id: int
+    name: str
+    phone: str | None = None
+    deleted_by_username: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ArchivedUserResponse(BaseModel):
+    id: int
+    username: str
+    full_name: str | None = None
+    role_label: str | None = None
+    deleted_by_username: str | None = None
+
+    class Config:
+        from_attributes = True
+        
+
+class ArchivedCustomerResponse(BaseModel):
+    id: int
+    name: str
+    phone: str | None = None
+    address: str | None = None
+    deleted_by_username: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ArchivedBikeOptionResponse(BaseModel):
+    id: int
+    name: str
+    deleted_by_username: str | None = None
+
+    class Config:
+        from_attributes = True

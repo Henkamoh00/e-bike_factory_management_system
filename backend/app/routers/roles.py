@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db
-from .. import models, schemas
+from .. import models, schemas, audit_crud
 from ..security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])
@@ -53,6 +53,7 @@ def create_role(data: schemas.RoleCreate, db: Session = Depends(get_db), current
     db.add(role)
     db.commit()
     db.refresh(role)
+    audit_crud.log_action(db, "create", "role", role.id, current_user.id, entity_label=role.label)
     return _to_response(db, role)
 
 
@@ -77,6 +78,7 @@ def update_role(role_id: int, data: schemas.RoleUpdate, db: Session = Depends(ge
 
     db.commit()
     db.refresh(role)
+    audit_crud.log_action(db, "update", "role", role.id, current_user.id, entity_label=role.label)
     return _to_response(db, role)
 
 
@@ -97,4 +99,5 @@ def delete_role(role_id: int, db: Session = Depends(get_db), current_user: model
 
     db.delete(role)
     db.commit()
+    audit_crud.log_action(db, "delete", "role", role_id, current_user.id, entity_label=role.label)
     return {"message": "تم حذف الدور بنجاح", "status": "success"}

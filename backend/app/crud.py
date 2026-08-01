@@ -1,10 +1,9 @@
 from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from . import models, schemas
+from . import models, schemas, workshop_crud, audit_crud
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
-from . import workshop_crud
 
 # ====================== WORKERS (تقرير للوحة الإدارة) ======================
 def get_workers_with_records(db: Session):
@@ -54,9 +53,10 @@ def create_customer(db: Session, customer: schemas.CustomerCreate, current_user_
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
+    audit_crud.log_action(db, "create", "customer", db_customer.id, current_user_id, entity_label=db_customer.name)
     return db_customer
 
-def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate):
+def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate, current_user_id: int | None = None):
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
         raise ValueError("العميل غير موجود")
@@ -68,6 +68,7 @@ def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate)
         customer.address = data.address
     db.commit()
     db.refresh(customer)
+    audit_crud.log_action(db, "update", "customer", customer.id, current_user_id, entity_label=customer.name)
     return customer
 
 def soft_delete_customer(db: Session, customer_id: int, current_user_id: int):
@@ -77,6 +78,7 @@ def soft_delete_customer(db: Session, customer_id: int, current_user_id: int):
     customer.is_deleted = True
     customer.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(db, "delete", "customer", customer.id, current_user_id, entity_label=customer.name)
     return customer
 
 def get_customers_with_sales(db: Session):
@@ -111,16 +113,43 @@ def get_customers_with_sales(db: Session):
         })
     return result
 
+def get_archived_customers(db: Session):
+    customers = db.query(models.Customer)\
+                  .options(joinedload(models.Customer.deleted_by))\
+                  .filter(models.Customer.is_deleted == True)\
+                  .order_by(desc(models.Customer.id)).all()
+    for c in customers:
+        c.deleted_by_username = c.deleted_by.username if c.deleted_by else None
+    return customers
+
+
+def restore_customer(db: Session, customer_id: int, current_user_id: int):
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise ValueError("العميل غير موجود")
+    if not customer.is_deleted:
+        raise ValueError("العميل غير مؤرشف أصلاً")
+    customer.is_deleted = False
+    customer.deleted_by_id = None
+    db.commit()
+    audit_crud.log_action(db, "restore", "customer", customer.id, current_user_id, entity_label=customer.name)
+    return customer
+
 
 # ====================== BULK: WORKERS / CUSTOMERS ======================
 def bulk_soft_delete_workers(db: Session, ids: List[int], current_user_id: int):
     workers = db.query(models.Worker).filter(models.Worker.id.in_(ids)).all()
     found_ids = {w.id for w in workers}
     failed_ids = [i for i in ids if i not in found_ids]
+    names = [w.name for w in workers]
     for w in workers:
         w.is_deleted = True
         w.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(
+        db, "bulk_delete", "worker", None, current_user_id,
+        entity_label=f"{len(workers)} عامل", details="، ".join(names) if names else None
+    )
     return {"success_count": len(workers), "failed_ids": failed_ids, "message": f"تم حذف {len(workers)} عامل"}
 
 
@@ -128,12 +157,16 @@ def bulk_soft_delete_customers(db: Session, ids: List[int], current_user_id: int
     customers = db.query(models.Customer).filter(models.Customer.id.in_(ids)).all()
     found_ids = {c.id for c in customers}
     failed_ids = [i for i in ids if i not in found_ids]
+    names = [c.name for c in customers]
     for c in customers:
         c.is_deleted = True
         c.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(
+        db, "bulk_delete", "customer", None, current_user_id,
+        entity_label=f"{len(customers)} عميل", details="، ".join(names) if names else None
+    )
     return {"success_count": len(customers), "failed_ids": failed_ids, "message": f"تم حذف {len(customers)} عميل"}
-
 
 
 # ====================== SALES ======================
@@ -165,6 +198,10 @@ def create_sale(db: Session, sale: schemas.SaleCreate, current_user_id: int):
     db.add(db_sale)
     db.commit()
     db.refresh(db_sale)
+    audit_crud.log_action(
+        db, "create", "sale", db_sale.id, current_user_id,
+        entity_label=f"{sale.chassis_number} — {customer.name}"
+    )
     return db_sale
 
 
@@ -186,6 +223,10 @@ def cancel_sale(db: Session, sale_id: int, payload: schemas.SaleCancel, current_
     sale.cancelled_by_id = current_user_id
     db.commit()
     db.refresh(sale)
+    audit_crud.log_action(
+        db, "cancel", "sale", sale.id, current_user_id,
+        entity_label=sale.chassis_number, details=sale.cancel_reason
+    )
     return sale
 
 
@@ -220,6 +261,7 @@ def bulk_cancel_sales(db: Session, payload: schemas.BulkCancel, current_user_id:
 
     found_ids = {s.id for s in sales}
     failed_ids = [i for i in payload.ids if i not in found_ids]
+    chassis_numbers = [s.chassis_number for s in sales]
 
     for sale in sales:
         sale.status = "cancelled"
@@ -228,6 +270,15 @@ def bulk_cancel_sales(db: Session, payload: schemas.BulkCancel, current_user_id:
         sale.cancelled_by_id = current_user_id
 
     db.commit()
+    details_parts = []
+    if chassis_numbers:
+        details_parts.append("الهياكل: " + "، ".join(chassis_numbers))
+    if reason:
+        details_parts.append(f"السبب: {reason}")
+    audit_crud.log_action(
+        db, "bulk_cancel", "sale", None, current_user_id,
+        entity_label=f"{len(sales)} عملية بيع", details=" | ".join(details_parts) if details_parts else None
+    )
     return {
         "success_count": len(sales),
         "failed_ids": failed_ids,
@@ -355,6 +406,7 @@ def create_fault(db: Session, fault: schemas.FaultCreate, current_user_id: int):
     db.add(db_fault)
     db.commit()
     db.refresh(db_fault)
+    audit_crud.log_action(db, "create", "fault", db_fault.id, current_user_id, entity_label=db_fault.chassis_number)
     return db_fault
 
 
@@ -378,6 +430,10 @@ def cancel_fault(db: Session, fault_id: int, payload: schemas.FaultCancel, curre
     fault.cancelled_by_id = current_user_id
     db.commit()
     db.refresh(fault)
+    audit_crud.log_action(
+        db, "cancel", "fault", fault.id, current_user_id,
+        entity_label=fault.chassis_number, details=fault.cancel_reason
+    )
     return fault
 
 
@@ -459,6 +515,10 @@ def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairC
     db.commit()
     db.refresh(db_repair)
     db_repair.worker_name = worker.name
+    audit_crud.log_action(
+        db, "repair", "fault", db_fault.id, current_user_id,
+        entity_label=f"{db_fault.chassis_number} — بواسطة {worker.name}"
+    )
     return db_repair
 
 
@@ -494,6 +554,7 @@ def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel, current_user_id
 
     found_ids = {f.id for f in faults}
     failed_ids = [i for i in payload.ids if i not in found_ids]
+    chassis_numbers = [f.chassis_number for f in faults]
 
     for fault in faults:
         fault.status = "cancelled"
@@ -502,6 +563,15 @@ def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel, current_user_id
         fault.cancelled_by_id = current_user_id
 
     db.commit()
+    details_parts = []
+    if chassis_numbers:
+        details_parts.append("الهياكل: " + "، ".join(chassis_numbers))
+    if reason:
+        details_parts.append(f"السبب: {reason}")
+    audit_crud.log_action(
+        db, "bulk_cancel", "fault", None, current_user_id,
+        entity_label=f"{len(faults)} عطل", details=" | ".join(details_parts) if details_parts else None
+    )
     return {
         "success_count": len(faults),
         "failed_ids": failed_ids,
@@ -510,7 +580,6 @@ def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel, current_user_id
 
 
 def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, current_user_id: int):
-    """تصليح جماعي بنفس العامل"""
     worker = workshop_crud.get_or_create_worker(db, worker_name, current_user_id)
     faults = db.query(models.Fault).filter(
         models.Fault.id.in_(ids),
@@ -519,6 +588,7 @@ def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, curren
 
     found_ids = {f.id for f in faults}
     failed_ids = [i for i in ids if i not in found_ids]
+    chassis_numbers = [f.chassis_number for f in faults]
 
     for fault in faults:
         repair = models.FaultRepair(fault_id=fault.id, worker_id=worker.id, recorded_by_id=current_user_id)
@@ -527,6 +597,11 @@ def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, curren
         fault.resolved_at = func.now()
 
     db.commit()
+    audit_crud.log_action(
+        db, "bulk_repair", "fault", None, current_user_id,
+        entity_label=f"{len(faults)} عطل بواسطة {worker_name}",
+        details="الهياكل: " + "، ".join(chassis_numbers) if chassis_numbers else None
+    )
     return {
         "success_count": len(faults),
         "failed_ids": failed_ids,
@@ -650,10 +725,15 @@ def bulk_soft_delete_bike_types(db: Session, ids: List[int], current_user_id: in
     types = db.query(models.BikeType).filter(models.BikeType.id.in_(ids)).all()
     found_ids = {t.id for t in types}
     failed_ids = [i for i in ids if i not in found_ids]
+    names = [t.name for t in types]
     for t in types:
         t.is_deleted = True
         t.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(
+        db, "bulk_delete", "bike_type", None, current_user_id,
+        entity_label=f"{len(types)} نوع", details="، ".join(names) if names else None
+    )
     return {"success_count": len(types), "failed_ids": failed_ids, "message": f"تم حذف {len(types)} نوع"}
 
 
@@ -661,8 +741,13 @@ def bulk_soft_delete_bike_colors(db: Session, ids: List[int], current_user_id: i
     colors = db.query(models.BikeColor).filter(models.BikeColor.id.in_(ids)).all()
     found_ids = {c.id for c in colors}
     failed_ids = [i for i in ids if i not in found_ids]
+    names = [c.name for c in colors]
     for c in colors:
         c.is_deleted = True
         c.deleted_by_id = current_user_id
     db.commit()
+    audit_crud.log_action(
+        db, "bulk_delete", "bike_color", None, current_user_id,
+        entity_label=f"{len(colors)} لون", details="، ".join(names) if names else None
+    )
     return {"success_count": len(colors), "failed_ids": failed_ids, "message": f"تم حذف {len(colors)} لون"}

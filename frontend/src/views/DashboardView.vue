@@ -184,6 +184,16 @@
             v-else-if="activeTab === 'users'"
             ref="usersTabRef"
           />
+
+          <LogsTab
+            v-else-if="activeTab === 'logs'"
+            ref="logsTabRef"
+          />
+
+          <ArchiveTab
+            v-else-if="activeTab === 'archive'"
+            ref="archiveTabRef"
+          />
         </div>
       </main>
     </div>
@@ -290,6 +300,8 @@ import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
 import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
+import LogsTab from '../components/admin/tabs/LogsTab.vue'
+import ArchiveTab from '../components/admin/tabs/ArchiveTab.vue'
 
 // ── التبويبات المسموحة حسب صلاحيات المستخدم الحالي (allowed_tabs) ─────────────────
 const visibleTabs = computed(() => getAllowedTabs(user.value?.role, user.value?.allowed_tabs))
@@ -349,6 +361,8 @@ const faultsTabRef     = ref(null)
 const workersTabRef    = ref(null)
 const customersTabRef  = ref(null)
 const settingsTabRef   = ref(null)
+const logsTabRef       = ref(null)
+const archiveTabRef    = ref(null)
 
 const bikeTypesList = ref([])
 const bikeColorsList = ref([])
@@ -641,6 +655,8 @@ watch(activeTab, () => {
   faultsTabRef.value?.clearSelection?.()
   workersTabRef.value?.clearSelection?.()
   customersTabRef.value?.clearSelection?.()
+  logsTabRef.value?.clearSelection?.()
+  archiveTabRef.value?.clearSelection?.()
 })
 
 

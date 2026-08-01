@@ -87,3 +87,19 @@ def require_roles(*allowed_role_names: str):
             )
         return current_user
     return checker
+
+
+def require_tab(tab_id: str):
+    """
+    صلاحية ديناميكية: تسمح بالوصول لأي مستخدم يملك هذا التبويب ضمن allowed_tabs
+    (بغض النظر عن اسم دوره) — admin يملك كل التبويبات دائمًا تلقائيًا.
+    تُستخدم لموارد مثل سجل النشاط والأرشيف التي أصبحت قابلة للتخصيص من "الأدوار".
+    """
+    def checker(current_user: models.User = Depends(get_current_user)):
+        if tab_id not in (current_user.allowed_tabs or []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ليس لديك صلاحية الوصول لهذا التبويب",
+            )
+        return current_user
+    return checker

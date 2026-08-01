@@ -194,3 +194,26 @@ class User(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+
+    # 👇لمعرفة من قام بحذف/تعطيل هذا المستخدم (للأرشيف)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_by = relationship("User", remote_side=[id], foreign_keys=[deleted_by_id])
+
+
+class AuditLog(Base):
+    """
+    سجل تتبع شامل لكل عملية مهمة في النظام (من فعل ماذا ومتى)
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False)        # create / update / delete / cancel / restore / repair / login
+    entity_type = Column(String, nullable=False, index=True)  # worker / customer / sale / fault / assembly / user / role ...
+    entity_id = Column(Integer, nullable=True)
+    entity_label = Column(String, nullable=True)    # وصف مقروء (مثال: رقم الهيكل أو اسم العميل)
+    details = Column(String, nullable=True)         # تفاصيل إضافية اختيارية (نص حر)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User")
