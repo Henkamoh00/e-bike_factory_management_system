@@ -54,12 +54,33 @@ export function useAuth() {
     return res
   }
 
+
+   /**
+   * يُعيد جلب بيانات المستخدم الحالي من السيرفر (يشمل allowed_tabs المحدّثة)
+   * ويحدّث الحالة المشتركة + localStorage. يُستخدم في:
+   * - router guard عند التنقل
+   * - Polling دوري لاكتشاف تغيّر الصلاحيات في الوقت الفعلي تقريبًا
+   */
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await apiFetch('/api/auth/me')
+      if (res.ok) {
+        const data = await res.json()
+        user.value = data
+        localStorage.setItem(USER_KEY, JSON.stringify(data))
+      }
+    } catch (e) {
+      console.error('تحديث بيانات المستخدم', e)
+    }
+  }
+
   return {
     token,
     user,
     isAuthenticated,
     setSession,
     logout,
-    apiFetch
+    apiFetch,
+    fetchCurrentUser
   }
 }

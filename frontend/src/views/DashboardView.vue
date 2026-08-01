@@ -97,7 +97,22 @@
         </div>
       </header>
 
-      <main class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+      <!-- حالة: مستخدم بلا أي صلاحية وصول لأي تبويب -->
+      <main v-if="noAccess" class="p-4 sm:p-6 lg:p-8 max-w-xl mx-auto mt-16">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-10 text-center">
+          <div class="text-5xl mb-4">🔒</div>
+          <h2 class="text-xl font-bold text-slate-800 mb-2">لا تملك صلاحية الوصول لأي تبويب حاليًا</h2>
+          <p class="text-slate-500 mb-6">
+            يبدو أن حسابك بدون أي تبويبات مفعّلة. تواصل مع مدير النظام لمنحك الصلاحيات المناسبة،
+            وستظهر لك تلقائيًا فور تحديثها دون الحاجة لإعادة تسجيل الدخول.
+          </p>
+          <button @click="handleLogout" class="text-sm text-red-500 hover:text-red-700 underline">
+            تسجيل الخروج
+          </button>
+        </div>
+      </main>
+
+      <main v-else class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
         <div class="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8 transition-all duration-300">
           <DashboardStatsTab v-if="activeTab === 'stats'" :stats="stats" />
 
@@ -253,7 +268,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter, useRoute  } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { getAllowedTabs, getDefaultTab, isTabAllowed } from '../composables/useTabPermissions'
 
@@ -281,6 +296,9 @@ const visibleTabs = computed(() => getAllowedTabs(user.value?.role, user.value?.
 
 // ── دالة مساعدة: هل يملك المستخدم الحالي وصولاً لهذا التبويب؟ ─────────────────────
 const canAccessTab = (tabId) => isTabAllowed(tabId, user.value?.role, user.value?.allowed_tabs)
+
+
+const noAccess = computed(() => visibleTabs.value.length === 0)
 
 // ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
 const router = useRouter()
@@ -350,15 +368,6 @@ const switchTab = (tab) => {
   isSidebarOpen.value = false
 }
 
-// ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
-watch(activeTab, () => {
-  usersTabRef.value?.clearSelection?.()
-  settingsTabRef.value?.clearSelection?.()
-  salesTabRef.value?.clearSelection?.()
-  faultsTabRef.value?.clearSelection?.()
-  workersTabRef.value?.clearSelection?.()
-  customersTabRef.value?.clearSelection?.()
-})
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
@@ -622,6 +631,17 @@ const handleLogout = () => {
   logout()
   router.replace({ name: 'Login' })
 }
+
+
+// ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
+watch(activeTab, () => {
+  usersTabRef.value?.clearSelection?.()
+  settingsTabRef.value?.clearSelection?.()
+  salesTabRef.value?.clearSelection?.()
+  faultsTabRef.value?.clearSelection?.()
+  workersTabRef.value?.clearSelection?.()
+  customersTabRef.value?.clearSelection?.()
+})
 
 
 onMounted(() => {
