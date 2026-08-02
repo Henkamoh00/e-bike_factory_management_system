@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -16,7 +16,12 @@ def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db), curr
 
 
 @router.get("/", response_model=List[schemas.FaultResponse])
-def get_all_faults(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+def get_all_faults(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults)
+):
     """عرض كل الأعطال (معلقة، مصلَحة، وملغاة)"""
     return crud.get_all_faults(db, skip=skip, limit=limit)
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -23,7 +23,12 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db), current
 
 
 @router.get("/", response_model=List[schemas.SaleResponse])
-def get_all_sales(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_sales)):
+def get_all_sales(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_sales)
+):
     """عرض كل المبيعات (نشطة وملغاة)"""
     return crud.get_sales(db, skip=skip, limit=limit)
 
