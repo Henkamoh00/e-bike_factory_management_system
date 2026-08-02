@@ -6,6 +6,7 @@ from ..security import get_current_user, require_tab
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
 
+can_manage_workers = require_tab("workers")
 can_view_archive = require_tab("archive")
 
 
@@ -20,7 +21,8 @@ def get_workers_full(db: Session = Depends(get_db), current_user: models.User = 
 
 
 @router.post("/")
-def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # الإنشاء متاح لأي مستخدم مسجّل دخول (يُستدعى أيضًا من مودال التجميع في تبويب الورشة)
     existing = db.query(models.Worker).filter(models.Worker.name == worker.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="العامل موجود مسبقاً")
@@ -28,7 +30,7 @@ def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), c
 
 
 @router.put("/{worker_id}/")
-def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
     try:
         return workshop_crud.update_worker(db, worker_id, worker, current_user.id)
     except ValueError as e:
@@ -36,7 +38,7 @@ def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = De
 
 
 @router.delete("/{worker_id}/")
-def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
     try:
         workshop_crud.soft_delete_worker(db, worker_id, current_user.id)
         return {"message": "تم حذف العامل بنجاح", "status": "success"}
@@ -45,7 +47,7 @@ def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: m
 
 
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
     return crud.bulk_soft_delete_workers(db, payload.ids, current_user.id)
 
 

@@ -193,6 +193,7 @@
           <ArchiveTab
             v-else-if="activeTab === 'archive'"
             ref="archiveTabRef"
+            @restore-success="handleArchiveRestore"
           />
         </div>
       </main>
@@ -646,6 +647,27 @@ const handleLogout = () => {
   router.replace({ name: 'Login' })
 }
 
+// ── عند استعادة عنصر من الأرشيف: نُحدّث القائمة الأصلية المرتبطة بنوعه ─────
+const handleArchiveRestore = (subType) => {
+  switch (subType) {
+    case 'workers':
+      loadWorkers()
+      break
+    case 'customers':
+      loadCustomers()
+      break
+    case 'bike_types':
+      loadBikeTypes()
+      break
+    case 'bike_colors':
+      loadBikeColors()
+      break
+    case 'users':
+      usersTabRef.value?.refresh?.()
+      break
+  }
+}
+
 
 // ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
 watch(activeTab, () => {
@@ -667,12 +689,14 @@ onMounted(() => {
     router.replace({ query: { ...route.query, tab: getDefaultTab(user.value?.role, user.value?.allowed_tabs) } })
   }
 
-  // بيانات مشتركة يحتاجها الجميع (الورشة + الأعطال)
-  loadBikeTypes()
-  loadBikeColors()
-  loadWorkers()
-  loadFaults()
-  loadAllChassis()
+// بيانات مشتركة — تُحمَّل فقط إن كان المستخدم يملك أحد التبويبات التي تحتاجها فعليًا
+  if (canAccessTab('assembly') || canAccessTab('sales') || canAccessTab('faults')) {
+    loadBikeTypes()
+    loadBikeColors()
+    loadWorkers()
+    loadAllChassis()
+  }
+  if (canAccessTab('faults')) loadFaults()
 
   // بيانات حصرية حسب التبويبات المسموحة فعليًا لهذا المستخدم
   if (canAccessTab('stats')) loadStats()

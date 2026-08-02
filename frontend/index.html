@@ -8,6 +8,39 @@
   </head>
   <body>
     <div id="app"></div>
+
+    <!--
+      🆘 زر طوارئ ثابت (لا يعتمد على Vue إطلاقاً - جافاسكريبت خام)
+      يبقى يعمل حتى لو تعطلت واجهة التطبيق بالكامل أو فشل تحميلها.
+      يمسح بيانات الجلسة المحلية ويعيد التوجيه لصفحة تسجيل الدخول.
+    -->
+    <button
+      id="emergency-logout-btn"
+      onclick="if(confirm('سيتم تسجيل خروجك وإعادة تحميل الصفحة. هل تريد المتابعة؟')){localStorage.removeItem('ebike_token');localStorage.removeItem('ebike_user');window.location.href='/login';}"
+      style="
+        position: fixed;
+        bottom: 14px;
+        left: 14px;
+        z-index: 999999;
+        background: #ffffff;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-family: system-ui, sans-serif;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        cursor: pointer;
+        opacity: 0.55;
+        transition: opacity 0.2s;
+      "
+      onmouseover="this.style.opacity='1'"
+      onmouseout="this.style.opacity='0.55'"
+      title="استخدم هذا الزر فقط إذا تعطلت الواجهة ولم تستطع تسجيل الخروج بالطريقة العادية"
+    >
+      🆘 خروج طوارئ
+    </button>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

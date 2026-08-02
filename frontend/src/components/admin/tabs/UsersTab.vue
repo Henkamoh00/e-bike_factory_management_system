@@ -46,22 +46,15 @@
       <div v-else-if="filteredUsers.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد مستخدمون مطابقون</div>
 
       <template v-else>
-        <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
-          <input
-            type="checkbox"
-            :checked="bulk.allSelected.value"
-            :disabled="bulk.eligibleCount.value === 0"
-            @change="bulk.toggleAll"
-            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          />
-          <span class="text-xs text-gray-400">
-            تحديد الكل ({{ bulk.eligibleCount.value }} قابل للتحديد من {{ filteredUsers.length }})
-          </span>
-        </div>
+        <BulkSelectAllBar
+          :bulk="bulk"
+          :page-eligible-count="pageEligibleCount"
+          :page-total="pagination.paginatedItems.value.length"
+        />
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="u in filteredUsers"
+            v-for="u in pagination.paginatedItems.value"
             :key="u.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
             :class="{ 'opacity-50': !u.is_active }"
@@ -70,7 +63,7 @@
               <input
                 type="checkbox"
                 :checked="bulk.isSelected(u)"
-                :disabled="u.id === currentUser?.id"
+                :disabled="u.id === currentUser?.id || isTargetProtected(u)"
                 @change="bulk.toggleOne(u)"
                 class="w-4 h-4 accent-indigo-600 rounded shrink-0 disabled:opacity-20 disabled:cursor-not-allowed"
               />
@@ -98,7 +91,7 @@
                 ✏️
               </button>
               <button
-                v-if="u.id !== currentUser?.id"
+                v-if="u.id !== currentUser?.id && !isTargetProtected(u)"
                 @click="askDelete(u)"
                 class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
               >
@@ -109,6 +102,13 @@
         </div>
       </template>
     </div>
+
+    <PaginationControls
+      :page="pagination.page.value"
+      :total-pages="pagination.totalPages.value"
+      @prev="pagination.prevPage"
+      @next="pagination.nextPage"
+    />
 
     <div v-if="pendingDelete" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
@@ -169,13 +169,17 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { usePagination } from '../../../composables/usePagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
+import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
 import UserFormModal from '../modals/UserFormModal.vue'
+import PaginationControls from '../../shared/PaginationControls.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const { apiFetch, user: currentUser } = useAuth()
+const isTargetProtected = (u) => currentUser.value?.role !== 'admin' && u.role === 'admin'
 
 const usersList = ref([])
 const loading = ref(false)
@@ -198,7 +202,6 @@ const loadRoles = async () => {
 }
 
 const roleFilterOptions = roleOptions
-
 
 const statusOptions = [
   { label: 'مفعّل', value: 'active' },
@@ -233,7 +236,6 @@ const openEdit = (u) => { editingUser.value = u; showModal.value = true }
 const closeModal = () => { showModal.value = false; editingUser.value = null }
 const handleSuccess = () => { closeModal(); loadUsers() }
 
-// ── تعطيل فردي (يُعامل كـ "حذف" ضمن فلسفة Soft Delete) ───────────────
 const askDelete = (u) => { pendingDelete.value = u }
 
 const confirmDelete = async () => {
@@ -252,9 +254,20 @@ const confirmDelete = async () => {
   }
 }
 
+const pagination = usePagination(filteredUsers, 10)
+
 // ── التحديد المتعدد: يستبعد المستخدم الحالي دائمًا من كونه مؤهلاً ─────
-const bulk = useBulkSelection(filteredUsers, 'id', (u) => u.id !== currentUser.value?.id)
+const bulk = useBulkSelection(
+  filteredUsers,
+  pagination.paginatedItems,
+  'id',
+  (u) => u.id !== currentUser.value?.id && !isTargetProtected(u)
+)
 watch(filteredUsers, () => { bulk.clear() })
+
+const pageEligibleCount = computed(() =>
+  pagination.paginatedItems.value.filter(u => u.id !== currentUser.value?.id && !isTargetProtected(u)).length
+)
 
 const showBulkDeactivateModal = ref(false)
 const showBulkActivateModal = ref(false)

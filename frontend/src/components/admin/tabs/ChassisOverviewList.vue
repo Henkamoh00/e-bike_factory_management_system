@@ -72,7 +72,7 @@
 
       <div v-else class="divide-y divide-gray-100">
         <div
-          v-for="chassis in filteredChassis"
+          v-for="chassis in pagination.paginatedItems.value"
           :key="chassis.chassis_number"
           class="flex items-center justify-between gap-4 py-3 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl"
         >
@@ -104,6 +104,13 @@
         </div>
       </div>
     </div>
+
+    <PaginationControls
+      :page="pagination.page.value"
+      :total-pages="pagination.totalPages.value"
+      @prev="pagination.prevPage"
+      @next="pagination.nextPage"
+    />
 
     <!-- نافذة التفاصيل -->
     <div v-if="selectedChassis" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="selectedChassis = null">
@@ -213,8 +220,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
+import PaginationControls from '../../shared/PaginationControls.vue'
+import { useAuth } from '../../../composables/useAuth'
+import { usePagination } from '../../../composables/usePagination'
 
 // ── API calls ───────────────────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_BASE_URL
@@ -292,6 +301,8 @@ const filteredChassis = computed(() => {
     return true
   })
 })
+
+const pagination = usePagination(filteredChassis, 10)
 
 const resetFilters = () => {
   filters.value = { chassis_number: '', status: '', worker_name: '', stage: '', bike_type: '', bike_color: '' }

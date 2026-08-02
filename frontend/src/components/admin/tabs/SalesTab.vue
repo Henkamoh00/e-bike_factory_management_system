@@ -39,22 +39,15 @@
       <div v-if="filteredSales.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد مبيعات مطابقة</div>
 
       <template v-else>
-        <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
-          <input
-            type="checkbox"
-            :checked="bulk.allSelected.value"
-            :disabled="bulk.eligibleCount.value === 0"
-            @change="bulk.toggleAll"
-            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          />
-          <span class="text-xs text-gray-400">
-            تحديد الكل ({{ bulk.eligibleCount.value }} قابل للتحديد من {{ filteredSales.length }})
-          </span>
-        </div>
+        <BulkSelectAllBar
+          :bulk="bulk"
+          :page-eligible-count="pageEligibleCount"
+          :page-total="pagination.paginatedItems.value.length"
+        />
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="sale in filteredSales"
+            v-for="sale in pagination.paginatedItems.value"
             :key="sale.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
             :class="{ 'opacity-50': sale.status === 'cancelled' }"
@@ -106,6 +99,13 @@
       </template>
     </div>
 
+    <PaginationControls
+      :page="pagination.page.value"
+      :total-pages="pagination.totalPages.value"
+      @prev="pagination.prevPage"
+      @next="pagination.nextPage"
+    />
+
     <CancelReasonModal
       v-if="showBulkCancelModal"
       title="إلغاء عمليات البيع المحددة"
@@ -121,9 +121,12 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { usePagination } from '../../../composables/usePagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
+import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
+import PaginationControls from '../../shared/PaginationControls.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const emit = defineEmits(['open-sale-modal', 'cancel-sale', 'refresh-sales'])
@@ -133,7 +136,6 @@ const props = defineProps({
   customersList: { type: Array, default: () => [] }
 })
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const salesFilter = ref({ customer_name: '', status: '', date_from: '', date_to: '' })
@@ -157,9 +159,13 @@ const filteredSales = computed(() => {
 
 const resetFilter = () => { salesFilter.value = { customer_name: '', status: '', date_from: '', date_to: '' } }
 
+const pagination = usePagination(filteredSales, 10)
+
 // ── التحديد المتعدد: فقط المبيعات النشطة قابلة للتحديد ─────────────────
-const bulk = useBulkSelection(filteredSales, 'id', (sale) => sale.status === 'active')
+const bulk = useBulkSelection(filteredSales, pagination.paginatedItems, 'id', (sale) => sale.status === 'active')
 watch(filteredSales, () => { bulk.clear() })
+
+const pageEligibleCount = computed(() => pagination.paginatedItems.value.filter(s => s.status === 'active').length)
 
 const showBulkCancelModal = ref(false)
 const bulkLoading = ref(false)

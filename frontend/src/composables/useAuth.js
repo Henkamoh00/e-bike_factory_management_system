@@ -5,7 +5,6 @@ const TOKEN_KEY = 'ebike_token'
 const USER_KEY = 'ebike_user'
 const API = import.meta.env.VITE_API_BASE_URL
 
-// State مشترك بين كل استخدامات useAuth() في التطبيق (Singleton pattern)
 const token = ref(localStorage.getItem(TOKEN_KEY) || '')
 const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
 
@@ -38,6 +37,8 @@ export function useAuth() {
    * غلاف موحّد لكل طلبات الـ API:
    * - يضيف الهيدرز والتوكن تلقائيًا
    * - يعالج انتهاء الجلسة (401) تلقائيًا
+   * - 403: لا نُسجّل خطأ في الكونسول، فقط نُرجع الاستجابة كما هي
+   *   ليتعامل معها الكومبوننت المستدعي (silent by design)
    * path: يبدأ بـ '/' مثل '/api/workers/' (بدون ${API})
    */
   const apiFetch = async (path, options = {}) => {
@@ -54,13 +55,6 @@ export function useAuth() {
     return res
   }
 
-
-   /**
-   * يُعيد جلب بيانات المستخدم الحالي من السيرفر (يشمل allowed_tabs المحدّثة)
-   * ويحدّث الحالة المشتركة + localStorage. يُستخدم في:
-   * - router guard عند التنقل
-   * - Polling دوري لاكتشاف تغيّر الصلاحيات في الوقت الفعلي تقريبًا
-   */
   const fetchCurrentUser = async () => {
     try {
       const res = await apiFetch('/api/auth/me')

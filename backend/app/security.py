@@ -103,3 +103,20 @@ def require_tab(tab_id: str):
             )
         return current_user
     return checker
+
+
+def require_any_tab(*tab_ids: str):
+    """
+    صلاحية ديناميكية مرنة: تسمح بالوصول لأي مستخدم يملك تبويبًا واحدًا على الأقل
+    من التبويبات المُمرَّرة — تُستخدم للموارد المشتركة بين عدة تبويبات
+    (مثال: بيانات الهياكل تُستخدم من تبويب الورشة، المبيعات، والأعطال معًا).
+    """
+    def checker(current_user: models.User = Depends(get_current_user)):
+        allowed = current_user.allowed_tabs or []
+        if not any(t in allowed for t in tab_ids):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ليس لديك صلاحية الوصول لهذا المورد",
+            )
+        return current_user
+    return checker

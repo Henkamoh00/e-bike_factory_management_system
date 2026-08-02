@@ -28,14 +28,15 @@
       <div v-if="filteredCustomers.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد عملاء مطابقون</div>
 
       <template v-else>
-        <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
-          <input type="checkbox" :checked="bulk.allSelected.value" @change="bulk.toggleAll" class="w-4 h-4 accent-indigo-600 rounded" />
-          <span class="text-xs text-gray-400">تحديد الكل ({{ filteredCustomers.length }})</span>
-        </div>
+        <BulkSelectAllBar
+          :bulk="bulk"
+          :page-eligible-count="pagination.paginatedItems.value.length"
+          :page-total="pagination.paginatedItems.value.length"
+        />
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="customer in filteredCustomers"
+            v-for="customer in pagination.paginatedItems.value"
             :key="customer.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
           >
@@ -74,6 +75,13 @@
       </template>
     </div>
 
+    <PaginationControls
+      :page="pagination.page.value"
+      :total-pages="pagination.totalPages.value"
+      @prev="pagination.prevPage"
+      @next="pagination.nextPage"
+    />
+
     <div v-if="pendingDelete" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
@@ -98,9 +106,12 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { usePagination } from '../../../composables/usePagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
+import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
+import PaginationControls from '../../shared/PaginationControls.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const emit = defineEmits(['open-customer-modal', 'edit-customer', 'delete-customer', 'refresh-customers'])
@@ -109,7 +120,6 @@ const props = defineProps({
   customersList: { type: Array, default: () => [] }
 })
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const customersFilter = ref({ name: '' })
@@ -132,8 +142,8 @@ const confirmDelete = () => {
   pendingDelete.value = null
 }
 
-// ── التحديد المتعدد ──────────────────────────────────────────────
-const bulk = useBulkSelection(filteredCustomers)
+const pagination = usePagination(filteredCustomers, 10)
+const bulk = useBulkSelection(filteredCustomers, pagination.paginatedItems)
 watch(filteredCustomers, () => { bulk.clear() })
 
 const showBulkDeleteModal = ref(false)

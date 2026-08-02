@@ -2,20 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import crud, schemas, models
-from ..security import require_roles, require_tab
+from ..security import require_tab
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
+can_access_customers = require_tab("customers")
 can_view_archive = require_tab("archive")
 
 
 @router.get("/")
-def get_customers(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def get_customers(db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     return crud.get_customers_with_sales(db)
 
 
 @router.post("/")
-def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     existing = db.query(models.Customer).filter(models.Customer.name == customer.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="العميل موجود مسبقاً")
@@ -23,7 +24,7 @@ def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_
 
 
 @router.put("/{customer_id}/")
-def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     try:
         return crud.update_customer(db, customer_id, customer, current_user.id)
     except ValueError as e:
@@ -31,7 +32,7 @@ def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Sess
 
 
 @router.delete("/{customer_id}/")
-def delete_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def delete_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     try:
         crud.soft_delete_customer(db, customer_id, current_user.id)
         return {"message": "تم حذف العميل بنجاح", "status": "success"}
@@ -40,7 +41,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-def bulk_delete_customers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def bulk_delete_customers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     return crud.bulk_soft_delete_customers(db, payload.ids, current_user.id)
 
 

@@ -50,21 +50,28 @@
       <div v-if="filteredFaults.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
 
       <template v-else>
-        <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
+        <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 flex-wrap">
           <input
             type="checkbox"
-            :checked="bulk.allSelected.value"
-            :disabled="bulk.eligibleCount.value === 0"
-            @change="bulk.toggleAll"
+            :checked="bulk.pageAllSelected.value"
+            :disabled="pageEligibleCount === 0"
+            @change="bulk.toggleAllOnPage"
             class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
           />
           <span class="text-xs text-gray-400">
-            تحديد الكل ({{ bulk.eligibleCount.value }} معلق قابل للتحديد من {{ filteredFaults.length }})
+            تحديد الكل بالصفحة ({{ pageEligibleCount }} معلق قابل للتحديد بهذه الصفحة)
           </span>
+          <button
+            v-if="bulk.hasMoreToSelect.value"
+            @click="bulk.selectAllAcrossPages"
+            class="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium"
+          >
+            تحديد كل {{ bulk.eligibleCount.value }} عطل معلق (عبر كل الصفحات)
+          </button>
         </div>
 
         <div class="divide-y divide-gray-100">
-          <div v-for="fault in filteredFaults" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
+          <div v-for="fault in pagination.paginatedItems.value" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
             <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
               <div class="flex items-center gap-3 min-w-0 flex-1">
                 <input
@@ -125,6 +132,13 @@
       </template>
     </div>
 
+    <PaginationControls
+      :page="pagination.page.value"
+      :total-pages="pagination.totalPages.value"
+      @prev="pagination.prevPage"
+      @next="pagination.nextPage"
+    />
+
     <FaultRepairModal
       v-if="repairingFault"
       :fault="repairingFault"
@@ -157,11 +171,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { usePagination } from '../../../composables/usePagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
 import FaultRepairModal from '../modals/FaultRepairModal.vue'
 import BulkRepairModal from '../modals/BulkRepairModal.vue'
+import PaginationControls from '../../shared/PaginationControls.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const emit = defineEmits(['open-fault-modal', 'refresh-faults', 'cancel-fault'])
@@ -171,7 +187,6 @@ const props = defineProps({
   workersList: { type: Array, default: () => [] }
 })
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const faultsFilter = ref({ chassis_number: '', status: '', repaired_by: '', responsible_worker: '' })
@@ -224,9 +239,13 @@ const handleRepairSuccess = () => {
   emit('refresh-faults')
 }
 
+const pagination = usePagination(filteredFaults, 10)
+
 // ── التحديد المتعدد: فقط الأعطال المعلقة قابلة للتحديد ──────────────────
-const bulk = useBulkSelection(filteredFaults, 'id', (fault) => fault.status === 'pending')
+const bulk = useBulkSelection(filteredFaults, pagination.paginatedItems, 'id', (fault) => fault.status === 'pending')
 watch(filteredFaults, () => { bulk.clear() })
+
+const pageEligibleCount = computed(() => pagination.paginatedItems.value.filter(f => f.status === 'pending').length)
 
 const showBulkRepairModal = ref(false)
 const showBulkCancelModal = ref(false)

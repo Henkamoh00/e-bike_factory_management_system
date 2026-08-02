@@ -2,7 +2,7 @@
   <div>
     <div class="flex gap-2 mb-6 border-b border-gray-100 pb-4">
       <button
-        v-for="sub in subTabs"
+        v-for="sub in visibleSubTabs"
         :key="sub.id"
         @click="activeSub = sub.id"
         :class="activeSub === sub.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'"
@@ -65,19 +65,28 @@ import PaginationControls from '../../shared/PaginationControls.vue'
 
 const displayName = (item) => item.name || item.full_name || item.username || '—'
 
-const { apiFetch } = useAuth()
+const { apiFetch, user: currentUser } = useAuth()
 
-const subTabs = [
-  { id: 'users',      label: 'المستخدمون',     icon: '👤', endpoint: '/api/users' },
+// 🆕 نُصدر حدثًا للأب (DashboardView) عند نجاح الاستعادة، ليُحدّث القائمة الأصلية للتبويب المعني
+const emit = defineEmits(['restore-success'])
+
+const allSubTabs = [
+  { id: 'users',      label: 'المستخدمون',     icon: '👤', endpoint: '/api/users', adminOnly: true },
   { id: 'workers',    label: 'العمال',         icon: '👷', endpoint: '/api/workers' },
   { id: 'customers',  label: 'العملاء',        icon: '🧑‍🤝‍🧑', endpoint: '/api/customers' },
   { id: 'bike_types', label: 'أنواع الدراجات', icon: '🚲', endpoint: '/api/bike-types' },
   { id: 'bike_colors',label: 'ألوان الدراجات', icon: '🎨', endpoint: '/api/bike-colors' },
 ]
 
-const activeSub = ref('users')
-const currentSubLabel = computed(() => subTabs.find(s => s.id === activeSub.value)?.label || '')
-const currentEndpoint = computed(() => subTabs.find(s => s.id === activeSub.value)?.endpoint || '')
+// 🛡️ أرشيف المستخدمين حساس ومحصور بالأدمن فقط في الـ backend،
+// لذا نُخفيه من الواجهة عن أي دور آخر لمنع محاولة وصول تُرفض بـ 403
+const visibleSubTabs = computed(() =>
+  allSubTabs.filter(sub => !sub.adminOnly || currentUser.value?.role === 'admin')
+)
+
+const activeSub = ref(visibleSubTabs.value[0]?.id || 'workers')
+const currentSubLabel = computed(() => allSubTabs.find(s => s.id === activeSub.value)?.label || '')
+const currentEndpoint = computed(() => allSubTabs.find(s => s.id === activeSub.value)?.endpoint || '')
 
 const items = ref([])
 const loading = ref(false)
@@ -89,9 +98,15 @@ const loadItems = async () => {
   loading.value = true
   try {
     const res = await apiFetch(`${currentEndpoint.value}/archived/`)
-    if (res.ok) items.value = await res.json()
+    if (res.ok) {
+      items.value = await res.json()
+    } else {
+      // 403 أو أي خطأ آخر: لا نُظهر بيانات خاطئة، فقط نُفرغ القائمة بهدوء
+      items.value = []
+    }
   } catch (e) {
     console.error('archive', e)
+    items.value = []
   } finally {
     loading.value = false
   }
@@ -104,6 +119,8 @@ const restore = async (item) => {
     const data = await res.json()
     if (res.ok) {
       items.value = items.value.filter(i => i.id !== item.id)
+      // 🆕 نُبلّغ الأب بنوع القسم الذي حدثت فيه الاستعادة، ليُحدّث القائمة الأصلية (workersList مثلاً)
+      emit('restore-success', activeSub.value)
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ الاستعادة'))
     }
