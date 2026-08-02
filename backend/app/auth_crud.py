@@ -80,6 +80,9 @@ def update_user(db: Session, user_id: int, data: schemas.UserUpdate, current_use
     if not user:
         raise ValueError("المستخدم غير موجود")
 
+    if user.is_deleted:
+        raise ValueError("لا يمكن تعديل مستخدم مؤرشف، يجب استعادته أولاً")
+
     changes = []
     if data.full_name is not None and data.full_name != user.full_name:
         changes.append(f"الاسم الكامل → {data.full_name}")
@@ -134,7 +137,13 @@ def bulk_deactivate_users(db: Session, ids: list[int], current_user_id: int):
 
 
 def bulk_activate_users(db: Session, ids: list[int], current_user_id: int | None = None):
-    users = db.query(models.User).filter(models.User.id.in_(ids)).all()
+    # 🛡️ إصلاح: استبعاد المستخدمين المؤرشفين (is_deleted=True) من التفعيل الجماعي
+    # حتى لا تنتج حالة بيانات متضاربة (is_deleted=True مع is_active=True)
+    # ولا يتم تفعيلهم إلا عبر مسار /restore/ المحصور بالأدمن فقط
+    users = db.query(models.User).filter(
+        models.User.id.in_(ids),
+        models.User.is_deleted == False
+    ).all()
     found_ids = {u.id for u in users}
     failed_ids = [i for i in ids if i not in found_ids]
     names = [u.username for u in users]

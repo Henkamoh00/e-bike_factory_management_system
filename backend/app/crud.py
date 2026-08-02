@@ -66,6 +66,9 @@ def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate,
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
         raise ValueError("العميل غير موجود")
+    # 🛡️ إصلاح: منع تعديل عميل مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
+    if customer.is_deleted:
+        raise ValueError("لا يمكن تعديل عميل مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
         customer.name = data.name
     if data.phone is not None:

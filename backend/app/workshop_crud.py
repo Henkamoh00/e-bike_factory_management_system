@@ -41,6 +41,9 @@ def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate, curre
     worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
     if not worker:
         raise ValueError("العامل غير موجود")
+    # 🛡️ إصلاح: منع تعديل عامل مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
+    if worker.is_deleted:
+        raise ValueError("لا يمكن تعديل عامل مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
         worker.name = data.name
     if data.phone is not None:
@@ -284,6 +287,9 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, cu
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
     if not bike_type:
         raise ValueError("نوع الدراجة غير موجود")
+    # 🛡️ إصلاح: منع تعديل نوع دراجة مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
+    if bike_type.is_deleted:
+        raise ValueError("لا يمكن تعديل نوع دراجة مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
         bike_type.name = data.name
     try:
@@ -379,6 +385,9 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate,
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
     if not bike_color:
         raise ValueError("لون الدراجة غير موجود")
+    # 🛡️ إصلاح: منع تعديل لون دراجة مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
+    if bike_color.is_deleted:
+        raise ValueError("لا يمكن تعديل لون دراجة مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
         bike_color.name = data.name
     try:
