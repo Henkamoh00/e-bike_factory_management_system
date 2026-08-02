@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -56,7 +56,22 @@ def bulk_cancel_faults(payload: schemas.BulkCancel, db: Session = Depends(get_db
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# أظنها غير مستخدمة قط اطلاقا
+
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
-def bulk_repair_faults(ids: schemas.BulkIds, worker_name: str, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
-    return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name, current_user.id)
+def bulk_repair_faults(
+    ids: schemas.BulkIds,
+    worker_name: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults)
+):
+    """
+    🛠️ إصلاح: كانت worker_name تُقرأ كـ Query Parameter افتراضيًا (لأنها str بسيط
+    خارج الـ Pydantic model)، بينما الفرونت إند (FaultsTab.vue) يرسلها ضمن الـ JSON body.
+    الآن مع Body(..., embed=True) تُقرأ بشكل صحيح من body: { ids: [...], worker_name: "..." }
+    كما تم إضافة try/except لتحويل أي ValueError (مثل تضارب اسم عامل مؤرشف) لرسالة عربية واضحة
+    بدل خطأ 500 غير معالَج.
+    """
+    try:
+        return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

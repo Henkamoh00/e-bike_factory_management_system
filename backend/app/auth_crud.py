@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from sqlalchemy.sql import func
+from sqlalchemy.exc import IntegrityError
 from . import models, schemas, audit_crud
 from .security import hash_password, verify_password
 
@@ -25,7 +26,12 @@ def _attach_role(user: models.User) -> models.User:
 
 
 def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | None = None):
-    existing = db.query(models.User).filter(models.User.username == data.username).first()
+    # 🛡️ فحص مسبق بالكود: يستثني المستخدمين المؤرشفين (is_deleted=True)
+    # حتى لا يبقى اسم المستخدم "محجوزًا للأبد" بعد الحذف الناعم
+    existing = db.query(models.User).filter(
+        models.User.username == data.username,
+        models.User.is_deleted == False
+    ).first()
     if existing:
         raise ValueError("اسم المستخدم موجود مسبقاً")
 
@@ -38,7 +44,12 @@ def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | No
         role_id=role.id,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        db.rollback()
+        raise ValueError("اسم المستخدم موجود مسبقاً")
     db.refresh(user)
     audit_crud.log_action(db, "create", "user", user.id, current_user_id, entity_label=user.username)
     return _attach_role(user)
@@ -173,8 +184,26 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
         raise ValueError("المستخدم غير موجود")
     if not user.is_deleted:
         raise ValueError("المستخدم غير مؤرشف أصلاً")
+
+    # 🛡️ فحص مسبق بالكود: منع الاستعادة لو يوجد مستخدم نشط حاليًا بنفس اسم المستخدم
+    duplicate = db.query(models.User).filter(
+        models.User.username == user.username,
+        models.User.is_deleted == False,
+        models.User.id != user.id
+    ).first()
+    if duplicate:
+        raise ValueError(
+            f"لا يمكن استعادة المستخدم، يوجد مستخدم نشط حاليًا بنفس اسم المستخدم '{user.username}'. "
+            f"يرجى تعديل اسم أحدهما أو حذف المكرر أولاً."
+        )
+
     user.is_deleted = False
     user.deleted_by_id = None
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        db.rollback()
+        raise ValueError(f"لا يمكن استعادة المستخدم، يوجد مستخدم نشط حاليًا بنفس اسم المستخدم '{user.username}'")
     audit_crud.log_action(db, "restore", "user", user.id, current_user_id, entity_label=user.username)
     return user

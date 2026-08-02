@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from . import models, schemas, audit_crud
 
@@ -10,7 +11,15 @@ def get_or_create_worker(db: Session, name: str, current_user_id: int | None = N
     if not worker:
         worker = models.Worker(name=name, created_by_id=current_user_id)
         db.add(worker)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            # 🛡️ شبكة أمان لحالات التزامن النادرة (سباق بين طلبين متزامنين بنفس الاسم)
+            worker = db.query(models.Worker).filter(models.Worker.name == name).first()
+            if not worker:
+                raise ValueError("تعذر إنشاء العامل، يرجى المحاولة مجدداً")
+            return worker
         db.refresh(worker)
         audit_crud.log_action(db, "create", "worker", worker.id, current_user_id, entity_label=worker.name)
     elif worker.is_deleted:
@@ -36,7 +45,11 @@ def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate, curre
         worker.name = data.name
     if data.phone is not None:
         worker.phone = data.phone
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"يوجد عامل آخر بنفس الاسم '{data.name}' مسبقاً")
     db.refresh(worker)
     audit_crud.log_action(db, "update", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
@@ -68,9 +81,29 @@ def restore_worker(db: Session, worker_id: int, current_user_id: int):
         raise ValueError("العامل غير موجود")
     if not worker.is_deleted:
         raise ValueError("العامل غير مؤرشف أصلاً")
+
+    # 🛡️ فحص مسبق بالكود: منع الاستعادة لو يوجد عامل نشط حاليًا بنفس الاسم
+    # (مستقل عن قيد unique بقاعدة البيانات، لإعطاء رسالة عربية واضحة بدل خطأ تقني)
+    duplicate = db.query(models.Worker).filter(
+        models.Worker.name == worker.name,
+        models.Worker.is_deleted == False,
+        models.Worker.id != worker.id
+    ).first()
+    if duplicate:
+        raise ValueError(
+            f"لا يمكن استعادة العامل، يوجد عامل نشط حاليًا بنفس الاسم '{worker.name}'. "
+            f"يرجى تعديل اسم أحدهما أو حذف المكرر أولاً."
+        )
+
     worker.is_deleted = False
     worker.deleted_by_id = None
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        db.rollback()
+        raise ValueError(f"لا يمكن استعادة العامل، يوجد عامل نشط حاليًا بنفس الاسم '{worker.name}'")
+    db.refresh(worker)
     audit_crud.log_action(db, "restore", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
 
@@ -225,7 +258,14 @@ def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None 
     if not bike_type:
         bike_type = models.BikeType(name=name, created_by_id=current_user_id)
         db.add(bike_type)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
+            if not bike_type:
+                raise ValueError("تعذر إنشاء نوع الدراجة، يرجى المحاولة مجدداً")
+            return bike_type
         audit_crud.log_action(db, "create", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
         db.refresh(bike_type)
     elif bike_type.is_deleted:
@@ -246,7 +286,11 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, cu
         raise ValueError("نوع الدراجة غير موجود")
     if data.name is not None:
         bike_type.name = data.name
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"يوجد نوع آخر بنفس الاسم '{data.name}' مسبقاً")
     db.refresh(bike_type)
     audit_crud.log_action(db, "update", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
@@ -277,9 +321,27 @@ def restore_bike_type(db: Session, type_id: int, current_user_id: int):
         raise ValueError("نوع الدراجة غير موجود")
     if not bike_type.is_deleted:
         raise ValueError("النوع غير مؤرشف أصلاً")
+
+    # 🛡️ فحص مسبق بالكود لإعطاء رسالة عربية واضحة (نفس نمط العملاء/العمال)
+    duplicate = db.query(models.BikeType).filter(
+        models.BikeType.name == bike_type.name,
+        models.BikeType.is_deleted == False,
+        models.BikeType.id != bike_type.id
+    ).first()
+    if duplicate:
+        raise ValueError(
+            f"لا يمكن استعادة النوع، يوجد نوع نشط حاليًا بنفس الاسم '{bike_type.name}'. "
+            f"يرجى تعديل اسم أحدهما أو حذف المكرر أولاً."
+        )
+
     bike_type.is_deleted = False
     bike_type.deleted_by_id = None
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"لا يمكن استعادة النوع، يوجد نوع نشط حاليًا بنفس الاسم '{bike_type.name}'")
+    db.refresh(bike_type)
     audit_crud.log_action(db, "restore", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
@@ -290,7 +352,14 @@ def get_or_create_bike_color(db: Session, name: str, current_user_id: int | None
     if not bike_color:
         bike_color = models.BikeColor(name=name, created_by_id=current_user_id)
         db.add(bike_color)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            bike_color = db.query(models.BikeColor).filter(models.BikeColor.name == name).first()
+            if not bike_color:
+                raise ValueError("تعذر إنشاء لون الدراجة، يرجى المحاولة مجدداً")
+            return bike_color
         audit_crud.log_action(db, "create", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
         db.refresh(bike_color)
     elif bike_color.is_deleted:
@@ -312,7 +381,11 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate,
         raise ValueError("لون الدراجة غير موجود")
     if data.name is not None:
         bike_color.name = data.name
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"يوجد لون آخر بنفس الاسم '{data.name}' مسبقاً")
     db.refresh(bike_color)
     audit_crud.log_action(db, "update", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color
@@ -343,8 +416,26 @@ def restore_bike_color(db: Session, color_id: int, current_user_id: int):
         raise ValueError("لون الدراجة غير موجود")
     if not bike_color.is_deleted:
         raise ValueError("اللون غير مؤرشف أصلاً")
+
+    # 🛡️ فحص مسبق بالكود لإعطاء رسالة عربية واضحة (نفس نمط العملاء/العمال)
+    duplicate = db.query(models.BikeColor).filter(
+        models.BikeColor.name == bike_color.name,
+        models.BikeColor.is_deleted == False,
+        models.BikeColor.id != bike_color.id
+    ).first()
+    if duplicate:
+        raise ValueError(
+            f"لا يمكن استعادة اللون، يوجد لون نشط حاليًا بنفس الاسم '{bike_color.name}'. "
+            f"يرجى تعديل اسم أحدهما أو حذف المكرر أولاً."
+        )
+
     bike_color.is_deleted = False
     bike_color.deleted_by_id = None
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"لا يمكن استعادة اللون، يوجد لون نشط حاليًا بنفس الاسم '{bike_color.name}'")
+    db.refresh(bike_color)
     audit_crud.log_action(db, "restore", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color

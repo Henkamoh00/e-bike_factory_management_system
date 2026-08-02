@@ -17,7 +17,12 @@ def get_customers(db: Session = Depends(get_db), current_user: models.User = Dep
 
 @router.post("/")
 def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
-    existing = db.query(models.Customer).filter(models.Customer.name == customer.name).first()
+    # 🛡️ فحص التكرار يستثني العملاء المؤرشفين (is_deleted=True)
+    # حتى لا يبقى اسم العميل "محجوزًا للأبد" بعد الحذف الناعم — نفس سلوك Worker/BikeType/BikeColor
+    existing = db.query(models.Customer).filter(
+        models.Customer.name == customer.name,
+        models.Customer.is_deleted == False
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العميل موجود مسبقاً")
     return crud.create_customer(db, customer, current_user.id)

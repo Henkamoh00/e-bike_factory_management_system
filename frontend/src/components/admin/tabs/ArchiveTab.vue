@@ -17,6 +17,17 @@
       <span class="text-sm text-gray-400">{{ items.length }} عنصر</span>
     </div>
 
+    <!-- 🆕 توست بدل alert() لعرض نتيجة الاستعادة (نجاح/فشل) -->
+    <transition name="fade">
+      <div
+        v-if="toast.show"
+        class="fixed top-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl text-sm font-medium shadow-lg z-[80] max-w-md text-center"
+        :class="toast.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+      >
+        {{ toast.message }}
+      </div>
+    </transition>
+
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
       <div v-if="loading" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
       <div v-else-if="items.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد عناصر مؤرشفة</div>
@@ -94,6 +105,15 @@ const restoringId = ref(null)
 
 const pagination = usePagination(items, 10)
 
+// 🆕 حالة التوست (نفس نمط UserRolesSubTab.vue / WorkerFormModal.vue)
+const toast = ref({ show: false, type: 'success', message: '' })
+let toastTimer = null
+const showToast = (type, message, duration = 3000) => {
+  clearTimeout(toastTimer)
+  toast.value = { show: true, type, message }
+  toastTimer = setTimeout(() => { toast.value.show = false }, duration)
+}
+
 const loadItems = async () => {
   loading.value = true
   try {
@@ -119,13 +139,14 @@ const restore = async (item) => {
     const data = await res.json()
     if (res.ok) {
       items.value = items.value.filter(i => i.id !== item.id)
+      showToast('success', `✅ ${data.message || 'تمت الاستعادة بنجاح'}`)
       // 🆕 نُبلّغ الأب بنوع القسم الذي حدثت فيه الاستعادة، ليُحدّث القائمة الأصلية (workersList مثلاً)
       emit('restore-success', activeSub.value)
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الاستعادة'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الاستعادة'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     restoringId.value = null
   }
@@ -139,3 +160,8 @@ onMounted(() => {
   loadItems()
 })
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

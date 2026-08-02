@@ -107,7 +107,9 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    # 🛡️ unique=True لضمان استحالة وجود عميلين نشطين بنفس الاسم على مستوى قاعدة البيانات
+    # (بنفس نمط Worker/BikeType/BikeColor) — يمنع تضارب "الاستعادة من الأرشيف" جذريًا
+    name = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False)

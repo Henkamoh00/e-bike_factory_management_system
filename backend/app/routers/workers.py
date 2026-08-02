@@ -23,7 +23,13 @@ def get_workers_full(db: Session = Depends(get_db), current_user: models.User = 
 @router.post("/")
 def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     # الإنشاء متاح لأي مستخدم مسجّل دخول (يُستدعى أيضًا من مودال التجميع في تبويب الورشة)
-    existing = db.query(models.Worker).filter(models.Worker.name == worker.name).first()
+    # 🛡️ فحص التكرار يستثني العمال المؤرشفين (is_deleted=True)
+    # حتى لا يبقى اسم العامل "محجوزًا للأبد" بعد الحذف الناعم — متسق مع get_or_create_worker
+    # الذي يعيد تفعيل العامل تلقائيًا لو استُدعي من مسار آخر (مثل مودال التجميع)
+    existing = db.query(models.Worker).filter(
+        models.Worker.name == worker.name,
+        models.Worker.is_deleted == False
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العامل موجود مسبقاً")
     return workshop_crud.get_or_create_worker(db, worker.name, current_user.id)

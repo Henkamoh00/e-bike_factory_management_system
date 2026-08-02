@@ -1,6 +1,7 @@
 from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
+from sqlalchemy.exc import IntegrityError
 from . import models, schemas, workshop_crud, audit_crud
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
@@ -51,7 +52,12 @@ def create_customer(db: Session, customer: schemas.CustomerCreate, current_user_
         created_by_id=current_user_id,
     )
     db.add(db_customer)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها فحص customers.py المسبق
+        db.rollback()
+        raise ValueError("العميل موجود مسبقاً")
     db.refresh(db_customer)
     audit_crud.log_action(db, "create", "customer", db_customer.id, current_user_id, entity_label=db_customer.name)
     return db_customer
@@ -66,7 +72,11 @@ def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate,
         customer.phone = data.phone
     if data.address is not None:
         customer.address = data.address
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"يوجد عميل آخر بنفس الاسم '{data.name}' مسبقاً")
     db.refresh(customer)
     audit_crud.log_action(db, "update", "customer", customer.id, current_user_id, entity_label=customer.name)
     return customer
@@ -129,9 +139,28 @@ def restore_customer(db: Session, customer_id: int, current_user_id: int):
         raise ValueError("العميل غير موجود")
     if not customer.is_deleted:
         raise ValueError("العميل غير مؤرشف أصلاً")
+
+    # 🛡️ منع الاستعادة لو يوجد عميل نشط حاليًا بنفس الاسم
+    # (قد يكون أُنشئ عميل جديد بنفس الاسم بعد أرشفة هذا السجل)
+    duplicate = db.query(models.Customer).filter(
+        models.Customer.name == customer.name,
+        models.Customer.is_deleted == False,
+        models.Customer.id != customer.id
+    ).first()
+    if duplicate:
+        raise ValueError(
+            f"لا يمكن استعادة العميل، يوجد عميل نشط حاليًا بنفس الاسم '{customer.name}'. "
+            f"يرجى تعديل اسم أحدهما أو حذف المكرر أولاً."
+        )
+
     customer.is_deleted = False
     customer.deleted_by_id = None
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        db.rollback()
+        raise ValueError(f"لا يمكن استعادة العميل، يوجد عميل نشط حاليًا بنفس الاسم '{customer.name}'")
     audit_crud.log_action(db, "restore", "customer", customer.id, current_user_id, entity_label=customer.name)
     return customer
 
