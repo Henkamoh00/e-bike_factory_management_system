@@ -8,7 +8,20 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from . import models, schemas
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-dev-key-change-me")
+# 🛡️ إجبار تعيين JWT_SECRET_KEY من متغيرات البيئة — لا قيمة افتراضية إطلاقًا.
+# أي قيمة افتراضية مكتوبة بالكود (حتى لو "سرية الشكل") تصبح معروفة لأي شخص
+# يقرأ المصدر (GitHub مثلاً)، مما يسمح بتزوير توكنات JWT صالحة لأي مستخدم
+# (بما فيهم admin) دون الحاجة لكلمة المرور. لذلك نوقف تشغيل السيرفر فورًا
+# عند غياب المتغير، بدل السماح بتشغيله بمفتاح ضعيف بصمت.
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "❌ متغير البيئة JWT_SECRET_KEY غير مُعرَّف. "
+        "يجب تعيين قيمة عشوائية قوية وسرية لهذا المتغير قبل تشغيل السيرفر "
+        "(مثال للتوليد: python -c \"import secrets; print(secrets.token_hex(32))\"). "
+        "تم إيقاف التشغيل عمدًا لمنع استخدام مفتاح افتراضي غير آمن في الإنتاج."
+    )
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 12  # 12 ساعة
 
