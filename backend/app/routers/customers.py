@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import crud, schemas, models
@@ -10,15 +10,32 @@ can_access_customers = require_tab("customers")
 can_view_archive = require_tab("archive")
 
 
-@router.get("/")
-def get_customers(db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
-    return crud.get_customers_with_sales(db)
+@router.get("/simple/")
+def search_customers(
+    q: str | None = Query(default=None, description="بحث باسم العميل"),
+    limit: int = Query(default=20, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_customers)
+):
+    """🆕 بحث خفيف للقوائم المنسدلة (SaleModal مثلاً)"""
+    customers = crud.search_customers_simple(db, q=q, limit=limit)
+    return [{"id": c.id, "name": c.name} for c in customers]
+
+
+@router.get("/", response_model=schemas.PaginatedCustomers)
+def get_customers(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    search: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_customers)
+):
+    items, total = crud.get_customers_with_sales(db, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total}
 
 
 @router.post("/")
 def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
-    # 🛡️ فحص التكرار يستثني العملاء المؤرشفين (is_deleted=True)
-    # حتى لا يبقى اسم العميل "محجوزًا للأبد" بعد الحذف الناعم — نفس سلوك Worker/BikeType/BikeColor
     existing = db.query(models.Customer).filter(
         models.Customer.name == customer.name,
         models.Customer.is_deleted == False
@@ -50,9 +67,15 @@ def bulk_delete_customers(payload: schemas.BulkIds, db: Session = Depends(get_db
     return crud.bulk_soft_delete_customers(db, payload.ids, current_user.id)
 
 
-@router.get("/archived/", response_model=list[schemas.ArchivedCustomerResponse])
-def get_archived_customers(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
-    return crud.get_archived_customers(db)
+@router.get("/archived/", response_model=schemas.PaginatedArchivedCustomers)
+def get_archived_customers(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive)
+):
+    items, total = crud.get_archived_customers(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.post("/{customer_id}/restore/")

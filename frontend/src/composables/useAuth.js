@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import router from '../router'
 
 const TOKEN_KEY = 'ebike_token'
 const USER_KEY = 'ebike_user'
@@ -9,7 +9,15 @@ const token = ref(localStorage.getItem(TOKEN_KEY) || '')
 const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
 
 export function useAuth() {
-  const router = useRouter()
+  // 🛡️ إصلاح: تمت إزالة useRouter() من هنا نهائياً.
+  // useRouter() يعتمد على inject() الذي يعمل فقط داخل setup() لمكوّن Vue،
+  // بينما useAuth() يُستدعى أيضاً من أماكن خارج سياق المكوّنات مثل:
+  // - router.beforeEach() في index.js (Navigation Guards)
+  // - الدالة redirect لمسار الجذر '/'
+  // عند فشل inject() بصمت، كانت apiFetch تنهار داخلياً عند محاولة استخدام
+  // router.replace() عند 401، مما يسبب تعليق تسجيل الدخول بلا أي خطأ ظاهر.
+  // الحل: استيراد نسخة الـ router (singleton) مباشرة من '../router' بدل useRouter().
+  // هذا آمن تماماً لأن router هنا هو نفس الكائن دائماً، بغض النظر عن مكان الاستدعاء.
 
   const isAuthenticated = computed(() => !!token.value)
 

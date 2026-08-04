@@ -9,12 +9,14 @@
 
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
-        <SearchableSelect v-model="filters.role" :options="roleFilterOptions" label="تصفية بالدور" empty-label="كل الأدوار" />
+        <label class="block text-sm text-gray-500 mb-1">بحث باسم المستخدم</label>
+        <input
+          v-model="pg.search.value"
+          type="text"
+          placeholder="اكتب اسم المستخدم..."
+          class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none"
+        />
       </div>
-      <div>
-        <SearchableSelect v-model="filters.status" :options="statusOptions" label="تصفية بالحالة" empty-label="الكل" />
-      </div>
-      <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
     <BulkActionsBar :count="bulk.selectedCount.value" @clear="bulk.clear">
@@ -42,19 +44,24 @@
     </BulkActionsBar>
 
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-      <div v-if="loading" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
-      <div v-else-if="filteredUsers.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد مستخدمون مطابقون</div>
+      <div v-if="pg.loading.value" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد مستخدمون مطابقون</div>
 
       <template v-else>
-        <BulkSelectAllBar
-          :bulk="bulk"
-          :page-eligible-count="pageEligibleCount"
-          :page-total="pagination.paginatedItems.value.length"
-        />
+        <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
+          <input
+            type="checkbox"
+            :checked="bulk.pageAllSelected.value"
+            :disabled="pageEligibleCount === 0"
+            @change="bulk.toggleAllOnPage"
+            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          />
+          <span class="text-xs text-gray-400">تحديد الكل بهذه الصفحة ({{ pageEligibleCount }} من {{ pg.items.value.length }})</span>
+        </div>
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="u in pagination.paginatedItems.value"
+            v-for="u in pg.items.value"
             :key="u.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
             :class="{ 'opacity-50': !u.is_active }"
@@ -103,12 +110,11 @@
       </template>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }} ({{ pg.total.value }} مستخدم)</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
 
     <div v-if="pendingDelete" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
@@ -169,25 +175,18 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
-import SearchableSelect from '../../shared/SearchableSelect.vue'
+import { useServerPagination } from '../../../composables/useServerPagination'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
-import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
 import UserFormModal from '../modals/UserFormModal.vue'
-import PaginationControls from '../../shared/PaginationControls.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const { apiFetch, user: currentUser } = useAuth()
 const isTargetProtected = (u) => currentUser.value?.role !== 'admin' && u.role === 'admin'
 
-const usersList = ref([])
-const loading = ref(false)
 const showModal = ref(false)
 const editingUser = ref(null)
 const pendingDelete = ref(null)
-
-const filters = ref({ role: '', status: '' })
 
 const roleOptions = ref([])
 
@@ -201,40 +200,20 @@ const loadRoles = async () => {
   } catch (e) { console.error('أدوار', e) }
 }
 
-const roleFilterOptions = roleOptions
-
-const statusOptions = [
-  { label: 'مفعّل', value: 'active' },
-  { label: 'معطّل', value: 'inactive' },
-]
-
-const filteredUsers = computed(() => {
-  return usersList.value.filter(u => {
-    if (filters.value.role && u.role !== filters.value.role) return false
-    if (filters.value.status === 'active' && !u.is_active) return false
-    if (filters.value.status === 'inactive' && u.is_active) return false
-    return true
-  })
-})
-
-const resetFilter = () => { filters.value = { role: '', status: '' } }
-
-const loadUsers = async () => {
-  loading.value = true
-  try {
-    const res = await apiFetch('/api/users/')
-    if (res.ok) usersList.value = await res.json()
-  } catch (e) {
-    console.error('مستخدمون', e)
-  } finally {
-    loading.value = false
-  }
+const fetchUsersPage = async ({ skip, limit, search }) => {
+  const params = new URLSearchParams({ skip, limit })
+  if (search) params.set('search', search)
+  const res = await apiFetch(`/api/users/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
 }
+
+const pg = useServerPagination(fetchUsersPage, 10)
 
 const openAdd = () => { editingUser.value = null; showModal.value = true }
 const openEdit = (u) => { editingUser.value = u; showModal.value = true }
 const closeModal = () => { showModal.value = false; editingUser.value = null }
-const handleSuccess = () => { closeModal(); loadUsers() }
+const handleSuccess = () => { closeModal(); pg.load() }
 
 const askDelete = (u) => { pendingDelete.value = u }
 
@@ -245,7 +224,7 @@ const confirmDelete = async () => {
     const data = await res.json()
     if (res.ok) {
       pendingDelete.value = null
-      loadUsers()
+      pg.load()
     } else {
       alert('❌ ' + (data.detail || 'تعذر تعطيل المستخدم'))
     }
@@ -254,19 +233,16 @@ const confirmDelete = async () => {
   }
 }
 
-const pagination = usePagination(filteredUsers, 10)
-
-// ── التحديد المتعدد: يستبعد المستخدم الحالي دائمًا من كونه مؤهلاً ─────
 const bulk = useBulkSelection(
-  filteredUsers,
-  pagination.paginatedItems,
+  pg.items,
+  pg.items,
   'id',
   (u) => u.id !== currentUser.value?.id && !isTargetProtected(u)
 )
-watch(filteredUsers, () => { bulk.clear() })
+watch(pg.items, () => { bulk.clear() })
 
 const pageEligibleCount = computed(() =>
-  pagination.paginatedItems.value.filter(u => u.id !== currentUser.value?.id && !isTargetProtected(u)).length
+  pg.items.value.filter(u => u.id !== currentUser.value?.id && !isTargetProtected(u)).length
 )
 
 const showBulkDeactivateModal = ref(false)
@@ -299,7 +275,7 @@ const runBulkAction = async (endpoint, closeModalRef) => {
     if (res.ok) {
       closeModalRef.value = false
       bulk.clear()
-      loadUsers()
+      pg.load()
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ الإجراء الجماعي'))
     }
@@ -314,10 +290,10 @@ const confirmBulkDeactivate = () => runBulkAction('bulk-deactivate', showBulkDea
 const confirmBulkActivate = () => runBulkAction('bulk-activate', showBulkActivateModal)
 const confirmBulkDelete = () => runBulkAction('bulk-delete', showBulkDeleteModal)
 
-defineExpose({ refresh: loadUsers, clearSelection: bulk.clear })
+defineExpose({ refresh: pg.load, clearSelection: bulk.clear })
 
 onMounted(() => {
-  loadUsers()
+  pg.load()
   loadRoles()
 })
 </script>

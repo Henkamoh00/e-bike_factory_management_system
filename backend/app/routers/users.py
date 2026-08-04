@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import schemas, auth_crud, models
 from ..security import require_roles, require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -19,16 +20,24 @@ def _ensure_not_targeting_admin(db: Session, current_user: models.User, target_i
         raise HTTPException(status_code=403, detail="لا يمكن التأثير على حساب مدير إلا من قِبل مدير آخر")
 
 
-@router.get("/", response_model=list[schemas.UserResponse])
+@router.get("/", response_model=schemas.PaginatedUsers)
 def get_users(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    search: str | None = Query(default=None, description="بحث باسم المستخدم"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_users_tab)
 ):
-    return auth_crud.get_users(db)
+    items, total = auth_crud.get_users(db, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total}
 
 
+# 🛡️ حد على إنشاء المستخدمين: يمنع سكربت آلي (حتى لو بتوكن مسروق) من
+# إغراق النظام بحسابات وهمية دفعة واحدة
 @router.post("/", response_model=schemas.UserResponse)
+@limiter.limit("10/minute")
 def create_user(
+    request: Request,
     user: schemas.UserCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_users_tab)
@@ -120,12 +129,15 @@ def bulk_delete_users(
     return auth_crud.bulk_soft_delete_users(db, ids, current_user.id)
 
 
-@router.get("/archived/", response_model=list[schemas.ArchivedUserResponse])
+@router.get("/archived/", response_model=schemas.PaginatedArchivedUsers)
 def get_archived_users(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(admin_only)
 ):
-    return auth_crud.get_archived_users(db)
+    items, total = auth_crud.get_archived_users(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.post("/{user_id}/restore/")

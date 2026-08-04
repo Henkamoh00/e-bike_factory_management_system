@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import schemas, models, workshop_crud, crud
@@ -11,9 +11,28 @@ can_view_archive = require_tab("archive")
 
 
 # ====================== BIKE TYPES ======================
-@router.get("/bike-types/")
-def get_bike_types(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return crud.get_bike_types_with_usage(db)
+@router.get("/bike-types/simple/")
+def search_bike_types(
+    q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """🆕 بحث خفيف للقوائم المنسدلة"""
+    types = workshop_crud.search_bike_types_simple(db, q=q, limit=limit)
+    return [{"id": t.id, "name": t.name} for t in types]
+
+
+@router.get("/bike-types/", response_model=schemas.PaginatedBikeTypes)
+def get_bike_types(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    search: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    items, total = crud.get_bike_types_with_usage(db, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total}
 
 
 @router.post("/bike-types/")
@@ -50,9 +69,28 @@ def bulk_delete_bike_types(payload: schemas.BulkIds, db: Session = Depends(get_d
 
 
 # ====================== BIKE COLORS ======================
-@router.get("/bike-colors/")
-def get_bike_colors(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return crud.get_bike_colors_with_usage(db)
+@router.get("/bike-colors/simple/")
+def search_bike_colors(
+    q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """🆕 بحث خفيف للقوائم المنسدلة"""
+    colors = workshop_crud.search_bike_colors_simple(db, q=q, limit=limit)
+    return [{"id": c.id, "name": c.name} for c in colors]
+
+
+@router.get("/bike-colors/", response_model=schemas.PaginatedBikeColors)
+def get_bike_colors(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    search: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    items, total = crud.get_bike_colors_with_usage(db, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total}
 
 
 @router.post("/bike-colors/")
@@ -78,7 +116,7 @@ def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session 
 def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
     try:
         workshop_crud.soft_delete_bike_color(db, color_id, current_user.id)
-        return {"message": "تم حذف لون الدراجة بنجاح", "status": "success"}
+        return {"message": "تم حذف اللون بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -88,9 +126,15 @@ def bulk_delete_bike_colors(payload: schemas.BulkIds, db: Session = Depends(get_
     return crud.bulk_soft_delete_bike_colors(db, payload.ids, current_user.id)
 
 
-@router.get("/bike-types/archived/")
-def get_archived_bike_types(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
-    return workshop_crud.get_archived_bike_types(db)
+@router.get("/bike-types/archived/", response_model=schemas.PaginatedArchivedBikeOptions)
+def get_archived_bike_types(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive)
+):
+    items, total = workshop_crud.get_archived_bike_types(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.post("/bike-types/{type_id}/restore/")
@@ -102,9 +146,15 @@ def restore_bike_type(type_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/bike-colors/archived/")
-def get_archived_bike_colors(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
-    return workshop_crud.get_archived_bike_colors(db)
+@router.get("/bike-colors/archived/", response_model=schemas.PaginatedArchivedBikeOptions)
+def get_archived_bike_colors(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive)
+):
+    items, total = workshop_crud.get_archived_bike_colors(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.post("/bike-colors/{color_id}/restore/")

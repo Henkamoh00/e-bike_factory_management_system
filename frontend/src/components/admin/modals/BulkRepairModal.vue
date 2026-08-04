@@ -7,7 +7,7 @@
 
         <SearchableSelect
           v-model="workerName"
-          :options="workerOptions"
+          :async-search="searchWorkers"
           label="العامل الذي قام بالتصليح"
           placeholder="اختر العامل"
           :allow-empty="false"
@@ -25,19 +25,29 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
+
+const { apiFetch } = useAuth()
 
 const props = defineProps({
   count: { type: Number, default: 0 },
-  workersList: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close', 'confirm'])
 
 const workerName = ref('')
-const workerOptions = computed(() => props.workersList.map(w => ({ label: w.name, value: w.name })))
+
+const searchWorkers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/workers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(w => ({ label: w.name, value: w.name }))
+}
 
 const confirm = () => {
   if (!workerName.value) return

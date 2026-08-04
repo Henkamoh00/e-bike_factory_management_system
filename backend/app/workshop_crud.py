@@ -31,17 +31,35 @@ def get_or_create_worker(db: Session, name: str, current_user_id: int | None = N
     return worker
 
 
-def get_workers(db: Session):
-    return db.query(models.Worker)\
-              .filter(models.Worker.is_deleted == False)\
-              .order_by(models.Worker.name).all()
+def get_workers(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    """
+    🆕 نسخة مُصفَّحة (Paginated) من قائمة العمال البسيطة.
+    تُرجع Tuple: (العناصر، الإجمالي) بدل قائمة كاملة.
+    """
+    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    if search:
+        query = query.filter(models.Worker.name.ilike(f"%{search}%"))
+    total = query.count()
+    items = query.order_by(models.Worker.name).offset(skip).limit(limit).all()
+    return items, total
+
+
+def search_workers_simple(db: Session, q: str | None = None, limit: int = 20):
+    """
+    🆕 بحث خفيف للقوائم المنسدلة (SearchableSelect):
+    يرجع فقط id/name، بدون سجلات، ومحدود بـ limit صارم.
+    لا يُستخدم للعرض الجدولي، بل لتغذية الـ dropdowns ديناميكيًا.
+    """
+    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    if q:
+        query = query.filter(models.Worker.name.ilike(f"%{q}%"))
+    return query.order_by(models.Worker.name).limit(limit).all()
 
 
 def update_worker(db: Session, worker_id: int, data: schemas.WorkerUpdate, current_user_id: int | None = None):
     worker = db.query(models.Worker).filter(models.Worker.id == worker_id).first()
     if not worker:
         raise ValueError("العامل غير موجود")
-    # 🛡️ إصلاح: منع تعديل عامل مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
     if worker.is_deleted:
         raise ValueError("لا يمكن تعديل عامل مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
@@ -68,14 +86,16 @@ def soft_delete_worker(db: Session, worker_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
 
-def get_archived_workers(db: Session):
-    workers = db.query(models.Worker)\
-                .options(joinedload(models.Worker.deleted_by))\
-                .filter(models.Worker.is_deleted == True)\
-                .order_by(desc(models.Worker.id)).all()
+def get_archived_workers(db: Session, skip: int = 0, limit: int = 20):
+    query = db.query(models.Worker)\
+              .options(joinedload(models.Worker.deleted_by))\
+              .filter(models.Worker.is_deleted == True)\
+              .order_by(desc(models.Worker.id))
+    total = query.count()
+    workers = query.offset(skip).limit(limit).all()
     for w in workers:
         w.deleted_by_username = w.deleted_by.username if w.deleted_by else None
-    return workers
+    return workers, total
 
 
 def restore_worker(db: Session, worker_id: int, current_user_id: int):
@@ -278,10 +298,19 @@ def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None 
         db.refresh(bike_type)
     return bike_type
 
-def get_bike_types(db: Session):
-    return db.query(models.BikeType)\
-              .filter(models.BikeType.is_deleted == False)\
-              .order_by(models.BikeType.name).all()
+def get_bike_types(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.BikeType).filter(models.BikeType.is_deleted == False)
+    if search:
+        query = query.filter(models.BikeType.name.ilike(f"%{search}%"))
+    total = query.count()
+    items = query.order_by(models.BikeType.name).offset(skip).limit(limit).all()
+    return items, total
+
+def search_bike_types_simple(db: Session, q: str | None = None, limit: int = 20):
+    query = db.query(models.BikeType).filter(models.BikeType.is_deleted == False)
+    if q:
+        query = query.filter(models.BikeType.name.ilike(f"%{q}%"))
+    return query.order_by(models.BikeType.name).limit(limit).all()
 
 def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, current_user_id: int | None = None):
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
@@ -311,14 +340,16 @@ def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
-def get_archived_bike_types(db: Session):
-    types = db.query(models.BikeType)\
+def get_archived_bike_types(db: Session, skip: int = 0, limit: int = 20):
+    query = db.query(models.BikeType)\
               .options(joinedload(models.BikeType.deleted_by))\
               .filter(models.BikeType.is_deleted == True)\
-              .order_by(desc(models.BikeType.id)).all()
+              .order_by(desc(models.BikeType.id))
+    total = query.count()
+    types = query.offset(skip).limit(limit).all()
     for t in types:
         t.deleted_by_username = t.deleted_by.username if t.deleted_by else None
-    return types
+    return types, total
 
 
 def restore_bike_type(db: Session, type_id: int, current_user_id: int):
@@ -376,10 +407,19 @@ def get_or_create_bike_color(db: Session, name: str, current_user_id: int | None
     return bike_color
 
 
-def get_bike_colors(db: Session):
-    return db.query(models.BikeColor)\
-              .filter(models.BikeColor.is_deleted == False)\
-              .order_by(models.BikeColor.name).all()
+def get_bike_colors(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted == False)
+    if search:
+        query = query.filter(models.BikeColor.name.ilike(f"%{search}%"))
+    total = query.count()
+    items = query.order_by(models.BikeColor.name).offset(skip).limit(limit).all()
+    return items, total
+
+def search_bike_colors_simple(db: Session, q: str | None = None, limit: int = 20):
+    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted == False)
+    if q:
+        query = query.filter(models.BikeColor.name.ilike(f"%{q}%"))
+    return query.order_by(models.BikeColor.name).limit(limit).all()
 
 def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate, current_user_id: int | None = None):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
@@ -409,14 +449,16 @@ def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color
 
-def get_archived_bike_colors(db: Session):
-    colors = db.query(models.BikeColor)\
-               .options(joinedload(models.BikeColor.deleted_by))\
-               .filter(models.BikeColor.is_deleted == True)\
-               .order_by(desc(models.BikeColor.id)).all()
+def get_archived_bike_colors(db: Session, skip: int = 0, limit: int = 20):
+    query = db.query(models.BikeColor)\
+              .options(joinedload(models.BikeColor.deleted_by))\
+              .filter(models.BikeColor.is_deleted == True)\
+              .order_by(desc(models.BikeColor.id))
+    total = query.count()
+    colors = query.offset(skip).limit(limit).all()
     for c in colors:
         c.deleted_by_username = c.deleted_by.username if c.deleted_by else None
-    return colors
+    return colors, total
 
 
 def restore_bike_color(db: Session, color_id: int, current_user_id: int):

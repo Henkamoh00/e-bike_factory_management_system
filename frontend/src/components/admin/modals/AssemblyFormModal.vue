@@ -17,7 +17,7 @@
         <div class="mb-2">
           <SearchableSelect
             v-model="form.worker_name"
-            :options="workerOptions"
+            :async-search="searchWorkers"
             label="اسم العامل"
             placeholder="اختر العامل"
             :allow-empty="false"
@@ -72,7 +72,7 @@
         <div v-if="showTypeField" class="mb-2 mt-4">
           <SearchableSelect
             v-model="form.bike_type_name"
-            :options="typeOptions"
+            :async-search="searchBikeTypes"
             label="نوع الدراجة"
             placeholder="اختر النوع"
             :allow-empty="false"
@@ -90,7 +90,7 @@
         <div v-if="showColorField" class="mb-2 mt-2">
           <SearchableSelect
             v-model="form.bike_color_name"
-            :options="colorOptions"
+            :async-search="searchBikeColors"
             label="لون الدراجة"
             placeholder="اختر اللون"
             :allow-empty="false"
@@ -114,7 +114,6 @@
       </div>
     </div>
 
-    <!-- تأكيد الكتابة فوق عامل مختلف -->
     <div v-if="pendingConfirm" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
@@ -126,7 +125,6 @@
       </div>
     </div>
 
-    <!-- مودالات متداخلة -->
     <WorkerFormModal
       v-if="showWorkerForm"
       @close="showWorkerForm = false"
@@ -153,7 +151,6 @@ import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
 import BikeTypeFormModal from '../../admin/modals/BikeTypeFormModal.vue'
 import BikeColorFormModal from '../../admin/modals/BikeColorFormModal.vue'
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success', 'worker-added', 'type-added', 'color-added'])
@@ -163,21 +160,32 @@ const showWorkerForm = ref(false)
 const showTypeForm = ref(false)
 const showColorForm = ref(false)
 
-const props = defineProps({
-  workersList: { type: Array, default: () => [] },
-  bikeTypesList: { type: Array, default: () => [] },
-  bikeColorsList: { type: Array, default: () => [] }
-})
+const searchWorkers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/workers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(w => ({ label: w.name, value: w.name }))
+}
 
-const workerOptions = computed(() =>
-  props.workersList.map(w => ({ label: w.name, value: w.name }))
-)
-const typeOptions = computed(() =>
-  props.bikeTypesList.map(t => ({ label: t.name, value: t.name }))
-)
-const colorOptions = computed(() =>
-  props.bikeColorsList.map(c => ({ label: c.name, value: c.name }))
-)
+const searchBikeTypes = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/bike-types/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(t => ({ label: t.name, value: t.name }))
+}
+
+const searchBikeColors = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/bike-colors/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(c => ({ label: c.name, value: c.name }))
+}
 
 const form = ref({
   chassis_number: '',

@@ -2,16 +2,21 @@
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-3xl font-bold">العمال</h2>
-      <button @click="$emit('open-worker-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-medium">
+      <button @click="openAdd" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-medium">
         + إضافة عامل جديد
       </button>
     </div>
 
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
-        <SearchableSelect v-model="workersFilter.stage" :options="stageOptions" label="تصفية بنوع المرحلة" empty-label="كل المراحل" />
+        <label class="block text-sm text-gray-500 mb-1">بحث باسم العامل</label>
+        <input
+          v-model="pg.search.value"
+          type="text"
+          placeholder="اكتب اسم العامل..."
+          class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none"
+        />
       </div>
-      <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
     <BulkActionsBar :count="bulk.selectedCount.value" @clear="bulk.clear">
@@ -25,18 +30,23 @@
     </BulkActionsBar>
 
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-      <div v-if="filteredWorkers.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد عمال مطابقون</div>
+      <div v-if="pg.loading.value" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-16 text-gray-400 text-lg">لا يوجد عمال مطابقون</div>
 
       <template v-else>
-        <BulkSelectAllBar
-          :bulk="bulk"
-          :page-eligible-count="pagination.paginatedItems.value.length"
-          :page-total="pagination.paginatedItems.value.length"
-        />
+        <div class="flex items-center gap-3 px-5 py-2 bg-gray-50 border-b border-gray-100">
+          <input
+            type="checkbox"
+            :checked="bulk.pageAllSelected.value"
+            @change="bulk.toggleAllOnPage"
+            class="w-4 h-4 accent-indigo-600 rounded"
+          />
+          <span class="text-xs text-gray-400">تحديد الكل بهذه الصفحة ({{ pg.items.value.length }})</span>
+        </div>
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="worker in pagination.paginatedItems.value"
+            v-for="worker in pg.items.value"
             :key="worker.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
           >
@@ -54,12 +64,9 @@
 
             <div class="flex items-center gap-4 shrink-0">
               <span class="text-xs text-gray-500">{{ worker.total_records ?? 0 }} عملية</span>
-              <div v-if="workersFilter.stage" class="text-xs text-indigo-600 font-medium">
-                {{ worker.filtered_records?.length ?? 0 }} بهذه المرحلة
-              </div>
 
               <div class="flex items-center gap-1 shrink-0">
-                <button @click="$emit('edit-worker', worker)" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
+                <button @click="openEdit(worker)" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition">
                   ✏️
                 </button>
                 <button @click="askDelete(worker)" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition">
@@ -72,12 +79,11 @@
       </template>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }} ({{ pg.total.value }} عامل)</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
 
     <div v-if="pendingDelete" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[70]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
@@ -97,59 +103,74 @@
       @close="showBulkDeleteModal = false"
       @confirm="confirmBulkDelete"
     />
+
+    <WorkerFormModal
+      v-if="showModal"
+      :worker="editingWorker"
+      @close="closeModal"
+      @success="handleSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
-import SearchableSelect from '../../shared/SearchableSelect.vue'
+import { useServerPagination } from '../../../composables/useServerPagination'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
-import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
-import PaginationControls from '../../shared/PaginationControls.vue'
+import WorkerFormModal from '../modals/WorkerFormModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
-const emit = defineEmits(['open-worker-modal', 'edit-worker', 'delete-worker', 'refresh-workers'])
-
-const props = defineProps({
-  workersList: { type: Array, default: () => [] }
-})
+const emit = defineEmits(['worker-changed'])
 
 const { apiFetch } = useAuth()
 
-const workersFilter = ref({ stage: '' })
 const pendingDelete = ref(null)
+const showModal = ref(false)
+const editingWorker = ref(null)
 
-const stageOptions = [
-  { label: 'تجميع الهيكل', value: 'تجميع_الهيكل' },
-  { label: 'توصيل الكهرباء والغلاف', value: 'توصيل_الكهرباء_والغلاف' },
-  { label: 'تجميع كامل', value: 'تجميع_كامل' },
-]
+const fetchWorkersPage = async ({ skip, limit, search }) => {
+  const params = new URLSearchParams({ skip, limit })
+  if (search) params.set('search', search)
+  const res = await apiFetch(`/api/workers/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
+}
 
-const filteredWorkers = computed(() => {
-  if (!workersFilter.value.stage) return props.workersList
-  return props.workersList
-    .map(w => ({ ...w, filtered_records: (w.records || []).filter(r => r.stage === workersFilter.value.stage) }))
-    .filter(w => w.filtered_records.length > 0)
-})
+const pg = useServerPagination(fetchWorkersPage, 10)
 
-const resetFilter = () => { workersFilter.value = { stage: '' } }
+const openAdd = () => { editingWorker.value = null; showModal.value = true }
+const openEdit = (w) => { editingWorker.value = w; showModal.value = true }
+const closeModal = () => { showModal.value = false; editingWorker.value = null }
+const handleSuccess = () => {
+  closeModal()
+  pg.load()
+  emit('worker-changed')
+}
 
 const askDelete = (worker) => { pendingDelete.value = worker }
 
-const confirmDelete = () => {
-  emit('delete-worker', pendingDelete.value.id)
-  pendingDelete.value = null
+const confirmDelete = async () => {
+  if (!pendingDelete.value) return
+  try {
+    const res = await apiFetch(`/api/workers/${pendingDelete.value.id}/`, { method: 'DELETE' })
+    const data = await res.json()
+    if (res.ok) {
+      pendingDelete.value = null
+      pg.load()
+      emit('worker-changed')
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر حذف العامل'))
+      pendingDelete.value = null
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  }
 }
 
-// ── الباجينيشن ──────────────────────────────────────────────
-const pagination = usePagination(filteredWorkers, 10)
-
-// ── التحديد المتعدد: مصفوفة الكل المفلترة + مصفوفة الصفحة الحالية ────
-const bulk = useBulkSelection(filteredWorkers, pagination.paginatedItems)
-watch(filteredWorkers, () => { bulk.clear() })
+const bulk = useBulkSelection(pg.items, pg.items)
+watch(pg.items, () => { bulk.clear() })
 
 const showBulkDeleteModal = ref(false)
 const bulkLoading = ref(false)
@@ -167,7 +188,8 @@ const confirmBulkDelete = async () => {
     if (res.ok) {
       showBulkDeleteModal.value = false
       bulk.clear()
-      emit('refresh-workers')
+      pg.load()
+      emit('worker-changed')
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ الحذف الجماعي'))
     }
@@ -178,5 +200,12 @@ const confirmBulkDelete = async () => {
   }
 }
 
-defineExpose({ clearSelection: bulk.clear })
+defineExpose({
+  clearSelection: bulk.clear,
+  refresh: pg.load
+})
+
+onMounted(() => {
+  pg.load()
+})
 </script>

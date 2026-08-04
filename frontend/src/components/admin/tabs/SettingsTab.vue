@@ -14,20 +14,14 @@
 
     <BikeTypeSubTab
       v-if="activeSub === 'bike_types'"
-      :bike-types-list="bikeTypesList"
-      @open-bike-type-modal="$emit('open-bike-type-modal')"
-      @edit-bike-type="$emit('edit-bike-type', $event)"
-      @delete-bike-type="$emit('delete-bike-type', $event)"
-      @refresh-bike-types="$emit('refresh-bike-types')"
+      ref="bikeTypeSubTabRef"
+      @bike-type-changed="$emit('bike-type-changed')"
     />
 
     <BikeColorSubTab
       v-else-if="activeSub === 'bike_colors'"
-      :bike-colors-list="bikeColorsList"
-      @open-bike-color-modal="$emit('open-bike-color-modal')"
-      @edit-bike-color="$emit('edit-bike-color', $event)"
-      @delete-bike-color="$emit('delete-bike-color', $event)"
-      @refresh-bike-colors="$emit('refresh-bike-colors')"
+      ref="bikeColorSubTabRef"
+      @bike-color-changed="$emit('bike-color-changed')"
     />
 
     <UserRolesSubTab v-else-if="activeSub === 'roles'" />
@@ -40,15 +34,7 @@ import BikeTypeSubTab from './BikeTypeSubTab.vue'
 import BikeColorSubTab from './BikeColorSubTab.vue'
 import UserRolesSubTab from './UserRolesSubTab.vue'
 
-defineProps({
-  bikeTypesList: { type: Array, default: () => [] },
-  bikeColorsList: { type: Array, default: () => [] }
-})
-
-defineEmits([
-  'open-bike-type-modal', 'edit-bike-type', 'delete-bike-type', 'refresh-bike-types',
-  'open-bike-color-modal', 'edit-bike-color', 'delete-bike-color', 'refresh-bike-colors'
-])
+defineEmits(['bike-type-changed', 'bike-color-changed'])
 
 const subTabs = [
   { id: 'bike_types', label: 'أنواع الدراجات', icon: '🚲' },
@@ -58,5 +44,15 @@ const subTabs = [
 
 const activeSub = ref('bike_types')
 
-defineExpose({ clearSelection: () => {} })
+const bikeTypeSubTabRef = ref(null)
+const bikeColorSubTabRef = ref(null)
+
+defineExpose({
+  clearSelection: () => {
+    bikeTypeSubTabRef.value?.clearSelection?.()
+    bikeColorSubTabRef.value?.clearSelection?.()
+  },
+  refreshBikeTypes: () => bikeTypeSubTabRef.value?.refresh?.(),
+  refreshBikeColors: () => bikeColorSubTabRef.value?.refresh?.()
+})
 </script>

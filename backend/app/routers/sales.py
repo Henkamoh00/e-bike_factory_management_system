@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from datetime import datetime
 from ..database import get_db
 from .. import crud, schemas, models
 from ..security import require_tab
@@ -22,20 +22,28 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db), current
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/", response_model=List[schemas.SaleResponse])
+@router.get("/", response_model=schemas.PaginatedSales)
 def get_all_sales(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    customer_name: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_sales)
 ):
-    """عرض كل المبيعات (نشطة وملغاة)"""
-    return crud.get_sales(db, skip=skip, limit=limit)
+    """عرض المبيعات (نشطة وملغاة) مُصفَّحة ومُفلتَرة من السيرفر"""
+    items, total = crud.get_sales(
+        db, skip=skip, limit=limit,
+        customer_name=customer_name, status=status,
+        date_from=date_from, date_to=date_to
+    )
+    return {"items": items, "total": total}
 
 
 @router.post("/{sale_id}/cancel/", response_model=schemas.SaleResponse)
 def cancel_sale(sale_id: int, payload: schemas.SaleCancel, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_sales)):
-    """إلغاء عملية بيع (لا يحذف السجل، فقط يعلّمه كملغى مع الاحتفاظ بالسبب)"""
     try:
         sale = crud.cancel_sale(db, sale_id, payload, current_user.id)
         sale.customer_name = sale.customer.name if sale.customer else "غير معروف"

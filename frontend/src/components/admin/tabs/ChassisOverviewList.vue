@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- فلاتر -->
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
         <label class="block text-sm text-gray-500 mb-1">بحث برقم الهيكل</label>
@@ -24,7 +23,7 @@
       <div>
         <SearchableSelect
           v-model="filters.worker_name"
-          :options="workerOptions"
+          :async-search="searchWorkers"
           label="تصفية بالعامل"
           empty-label="كل العمال"
         />
@@ -42,7 +41,7 @@
       <div>
         <SearchableSelect
           v-model="filters.bike_type"
-          :options="bikeTypeOptions"
+          :async-search="searchBikeTypes"
           label="تصفية بنوع الدراجة"
           empty-label="كل الأنواع"
         />
@@ -51,7 +50,7 @@
       <div>
         <SearchableSelect
           v-model="filters.bike_color"
-          :options="bikeColorOptions"
+          :async-search="searchBikeColors"
           label="تصفية بلون الدراجة"
           empty-label="كل الألوان"
         />
@@ -60,19 +59,19 @@
       <button @click="resetFilters" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
 
-    <!-- القائمة -->
     <div class="bg-white rounded-3xl shadow p-6">
       <h3 class="font-bold text-xl mb-4">
-        الهياكل <span class="text-indigo-600">({{ filteredChassis.length }})</span>
+        الهياكل <span class="text-indigo-600">({{ pg.total.value }})</span>
       </h3>
 
-      <div v-if="filteredChassis.length === 0" class="text-center py-12 text-gray-400">
+      <div v-if="pg.loading.value" class="text-center py-12 text-gray-400">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-12 text-gray-400">
         لا توجد نتائج مطابقة
       </div>
 
       <div v-else class="divide-y divide-gray-100">
         <div
-          v-for="chassis in pagination.paginatedItems.value"
+          v-for="chassis in pg.items.value"
           :key="chassis.chassis_number"
           class="flex items-center justify-between gap-4 py-3 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl"
         >
@@ -97,22 +96,17 @@
               {{ chassis.pending_faults_count }} عطل
             </span>
             <span class="text-xs text-gray-400">{{ new Date(chassis.last_updated).toLocaleDateString('ar-EG') }}</span>
-
-            <!-- مكان محجوز لأزرار تعديل/حذف مستقبلية -->
-            <div class="flex items-center gap-1 shrink-0"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }}</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
 
-    <!-- نافذة التفاصيل -->
     <div v-if="selectedChassis" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="selectedChassis = null">
       <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto p-8">
         <div class="flex justify-between items-start mb-6">
@@ -219,22 +213,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
-import PaginationControls from '../../shared/PaginationControls.vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
+import { useServerPagination } from '../../../composables/useServerPagination'
 
-// ── API calls ───────────────────────────────────────────────────────────────
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
-
-const props = defineProps({
-  workersList: { type: Array, default: () => [] }
-})
-
-const chassisList = ref([])
 const filters = ref({
   chassis_number: '',
   status: '',
@@ -260,49 +245,56 @@ const stageOptions = [
   { label: 'تجميع كامل', value: 'تجميع_كامل' },
 ]
 
-const workerOptions = computed(() =>
-  props.workersList.map(w => ({ label: w.name, value: w.name }))
-)
+const searchWorkers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/workers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(w => ({ label: w.name, value: w.name }))
+}
 
-const bikeTypeOptions = computed(() => {
-  const names = [...new Set(chassisList.value.map(c => c.bike_type).filter(Boolean))]
-  return names.map(n => ({ label: n, value: n }))
-})
+const searchBikeTypes = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/bike-types/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(t => ({ label: t.name, value: t.name }))
+}
 
-const bikeColorOptions = computed(() => {
-  const names = [...new Set(chassisList.value.map(c => c.bike_color).filter(Boolean))]
-  return names.map(n => ({ label: n, value: n }))
-})
+const searchBikeColors = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/bike-colors/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(c => ({ label: c.name, value: c.name }))
+}
 
-const filteredChassis = computed(() => {
-  return chassisList.value.filter(c => {
-    if (filters.value.chassis_number && !c.chassis_number.toLowerCase().includes(filters.value.chassis_number.toLowerCase())) return false
-    if (filters.value.status === 'available' && (!c.is_complete || c.is_sold)) return false
-    if (filters.value.status === 'sold' && !c.is_sold) return false
-    if (filters.value.status === 'in_progress' && c.is_complete) return false
-    if (filters.value.status === 'has_fault' && c.pending_faults_count === 0) return false
+const fetchChassisPage = async ({ skip, limit }) => {
+  const params = new URLSearchParams({ skip, limit })
+  if (filters.value.chassis_number) params.set('chassis_number', filters.value.chassis_number)
+  if (filters.value.status) params.set('status', filters.value.status)
+  if (filters.value.worker_name) params.set('worker_name', filters.value.worker_name)
+  if (filters.value.stage) params.set('stage', filters.value.stage)
+  if (filters.value.bike_type) params.set('bike_type', filters.value.bike_type)
+  if (filters.value.bike_color) params.set('bike_color', filters.value.bike_color)
+  const res = await apiFetch(`/api/chassis/summary/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
+}
 
-    const stageWorkers = c.stage_workers || {}
+const pg = useServerPagination(fetchChassisPage, 10)
 
-    if (filters.value.worker_name && filters.value.stage) {
-      const directMatch = stageWorkers[filters.value.stage] === filters.value.worker_name
-      const coveredByFullAssembly =
-        (filters.value.stage === 'تجميع_الهيكل' || filters.value.stage === 'توصيل_الكهرباء_والغلاف') &&
-        stageWorkers['تجميع_كامل'] === filters.value.worker_name
-      if (!directMatch && !coveredByFullAssembly) return false
-    } else if (filters.value.worker_name) {
-      if (!(c.workers || []).includes(filters.value.worker_name)) return false
-    } else if (filters.value.stage) {
-      if (!(c.stages || []).includes(filters.value.stage)) return false
-    }
-
-    if (filters.value.bike_type && c.bike_type !== filters.value.bike_type) return false
-    if (filters.value.bike_color && c.bike_color !== filters.value.bike_color) return false
-    return true
-  })
-})
-
-const pagination = usePagination(filteredChassis, 10)
+let debounceTimer = null
+watch(filters, () => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    pg.page.value = 1
+    pg.load()
+  }, 300)
+}, { deep: true })
 
 const resetFilters = () => {
   filters.value = { chassis_number: '', status: '', worker_name: '', stage: '', bike_type: '', bike_color: '' }
@@ -330,13 +322,6 @@ const currentStageLabel = (chassis) => {
   return 'لم تبدأ بعد'
 }
 
-const loadChassisSummary = async () => {
-  try {
-    const res = await apiFetch(`/api/chassis/summary/`)
-    if (res.ok) chassisList.value = await res.json()
-  } catch (e) { console.error('ملخص الهياكل', e) }
-}
-
 const openDetails = async (chassisNumber) => {
   loadingDetails.value = true
   selectedChassis.value = { chassis_number: chassisNumber }
@@ -356,9 +341,9 @@ const openDetails = async (chassisNumber) => {
   }
 }
 
-defineExpose({ loadChassisSummary })
+defineExpose({ refresh: pg.load })
 
 onMounted(() => {
-  loadChassisSummary()
+  pg.load()
 })
 </script>

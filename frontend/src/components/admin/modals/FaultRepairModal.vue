@@ -8,7 +8,8 @@
         <div class="mb-2">
           <SearchableSelect
             v-model="form.worker_name"
-            :options="workerOptions"
+            :async-search="searchWorkers"
+            :initial-selected-label="form.worker_name"
             label="العامل الذي قام بالتصليح"
             placeholder="اختر العامل"
             :allow-empty="false"
@@ -36,7 +37,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success'])
@@ -44,13 +44,17 @@ const loading = ref(false)
 const suggestedWorkerName = ref('')
 
 const props = defineProps({
-  fault: { type: Object, required: true },
-  workersList: { type: Array, default: () => [] }
+  fault: { type: Object, required: true }
 })
 
-const workerOptions = computed(() =>
-  props.workersList.map(w => ({ label: w.name, value: w.name }))
-)
+const searchWorkers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/workers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(w => ({ label: w.name, value: w.name }))
+}
 
 const stageNames = {
   'تجميع_الهيكل':           'تجميع الهيكل',

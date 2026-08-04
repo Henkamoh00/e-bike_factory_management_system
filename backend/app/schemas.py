@@ -347,3 +347,74 @@ class ArchivedBikeOptionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ====================== PAGINATION ======================
+MAX_PAGE_LIMIT = 100          # سقف أقصى صارم لأي limit قادم من العميل
+DEFAULT_PAGE_LIMIT = 20
+
+
+class PaginatedWorkers(BaseModel):
+    items: list[dict]
+    total: int
+
+class PaginatedCustomers(BaseModel):
+    items: list[dict]
+    total: int
+
+class PaginatedBikeTypes(BaseModel):
+    items: list[dict]
+    total: int
+
+class PaginatedBikeColors(BaseModel):
+    items: list[dict]
+    total: int
+
+class PaginatedUsers(BaseModel):
+    items: list[UserResponse]
+    total: int
+
+
+class WorkerSimpleResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class CustomerSimpleResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedSales(BaseModel):
+    items: list[SaleResponse]
+    total: int
+
+class PaginatedFaults(BaseModel):
+    items: list[FaultResponse]
+    total: int
+
+class PaginatedChassisSummary(BaseModel):
+    items: list[dict]
+    total: int
+
+class PaginatedArchivedWorkers(BaseModel):
+    items: list[ArchivedWorkerResponse]
+    total: int
+
+class PaginatedArchivedCustomers(BaseModel):
+    items: list[ArchivedCustomerResponse]
+    total: int
+
+class PaginatedArchivedBikeOptions(BaseModel):
+    items: list[ArchivedBikeOptionResponse]
+    total: int
+
+class PaginatedArchivedUsers(BaseModel):
+    items: list[ArchivedUserResponse]
+    total: int

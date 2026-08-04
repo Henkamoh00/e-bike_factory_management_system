@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session
-from typing import List
 from ..database import get_db
 from .. import crud, schemas, models
 from ..security import require_tab
@@ -15,15 +14,24 @@ def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db), curr
     return crud._attach_fault_extras(db, [db_fault])[0]
 
 
-@router.get("/", response_model=List[schemas.FaultResponse])
+@router.get("/", response_model=schemas.PaginatedFaults)
 def get_all_faults(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=200),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    chassis_number: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    repaired_by: str | None = Query(default=None),
+    responsible_worker: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_faults)
 ):
-    """عرض كل الأعطال (معلقة، مصلَحة، وملغاة)"""
-    return crud.get_all_faults(db, skip=skip, limit=limit)
+    """عرض الأعطال (معلقة، مصلَحة، وملغاة) مُصفَّحة ومُفلتَرة من السيرفر"""
+    items, total = crud.get_all_faults(
+        db, skip=skip, limit=limit,
+        chassis_number=chassis_number, status=status,
+        repaired_by=repaired_by, responsible_worker=responsible_worker
+    )
+    return {"items": items, "total": total}
 
 
 @router.post("/{fault_id}/repair/", response_model=schemas.FaultRepairResponse)
@@ -38,7 +46,6 @@ def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session =
 
 @router.post("/{fault_id}/cancel/", response_model=schemas.FaultResponse)
 def cancel_fault(fault_id: int, payload: schemas.FaultCancel, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
-    """إلغاء عطل (لا يُحذف، يبقى ظاهراً بالسجل مع علامة إلغاء وسبب)"""
     try:
         fault = crud.cancel_fault(db, fault_id, payload, current_user.id)
         return crud._attach_fault_extras(db, [fault])[0]
@@ -69,13 +76,6 @@ def bulk_repair_faults(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_faults)
 ):
-    """
-    🛠️ إصلاح: كانت worker_name تُقرأ كـ Query Parameter افتراضيًا (لأنها str بسيط
-    خارج الـ Pydantic model)، بينما الفرونت إند (FaultsTab.vue) يرسلها ضمن الـ JSON body.
-    الآن مع Body(..., embed=True) تُقرأ بشكل صحيح من body: { ids: [...], worker_name: "..." }
-    كما تم إضافة try/except لتحويل أي ValueError (مثل تضارب اسم عامل مؤرشف) لرسالة عربية واضحة
-    بدل خطأ 500 غير معالَج.
-    """
     try:
         return crud.bulk_mark_faults_fixed(db, ids.ids, worker_name, current_user.id)
     except ValueError as e:

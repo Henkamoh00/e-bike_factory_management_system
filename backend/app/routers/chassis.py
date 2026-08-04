@@ -1,18 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import crud, models
+from .. import crud, schemas, models
 from ..security import require_any_tab
 
 router = APIRouter(prefix="/api/chassis", tags=["chassis"])
 
-# 🛡️ بيانات الهياكل مشتركة بين 3 تبويبات (الورشة/المبيعات/الأعطال)
-# لذا يكفي امتلاك أيٍّ منها للوصول، بدل تبويب واحد محدد
 can_view_chassis = require_any_tab("assembly", "sales", "faults")
 
-@router.get("/summary/")
-def get_chassis_summary_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
-    return crud.get_chassis_summary(db)
+@router.get("/summary/", response_model=schemas.PaginatedChassisSummary)
+def get_chassis_summary_list(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    chassis_number: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    worker_name: str | None = Query(default=None),
+    stage: str | None = Query(default=None),
+    bike_type: str | None = Query(default=None),
+    bike_color: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_chassis)
+):
+    items, total = crud.get_chassis_summary(
+        db, skip=skip, limit=limit,
+        chassis_number=chassis_number, status=status,
+        worker_name=worker_name, stage=stage,
+        bike_type=bike_type, bike_color=bike_color
+    )
+    return {"items": items, "total": total}
 
 @router.get("/available/")
 def get_available_chassis_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):

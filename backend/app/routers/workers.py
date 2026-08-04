@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import crud, schemas, workshop_crud, models
@@ -11,21 +11,34 @@ can_view_archive = require_tab("archive")
 
 
 @router.get("/simple/")
-def get_workers(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    workers = workshop_crud.get_workers(db)
+def get_workers_simple(
+    q: str | None = Query(default=None, description="بحث باسم العامل"),
+    limit: int = Query(default=20, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    🆕 نقطة نهاية خفيفة مخصصة للقوائم المنسدلة (SearchableSelect)
+    تدعم بحثًا ديناميكيًا بدل تحميل كل العمال دفعة واحدة.
+    """
+    workers = workshop_crud.search_workers_simple(db, q=q, limit=limit)
     return [{"id": w.id, "name": w.name} for w in workers]
 
-@router.get("/")
-def get_workers_full(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return crud.get_workers_with_records(db)
+
+@router.get("/", response_model=schemas.PaginatedWorkers)
+def get_workers_full(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    search: str | None = Query(default=None, description="بحث باسم العامل"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    items, total = crud.get_workers_with_records(db, skip=skip, limit=limit, search=search)
+    return {"items": items, "total": total}
 
 
 @router.post("/")
 def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # الإنشاء متاح لأي مستخدم مسجّل دخول (يُستدعى أيضًا من مودال التجميع في تبويب الورشة)
-    # 🛡️ فحص التكرار يستثني العمال المؤرشفين (is_deleted=True)
-    # حتى لا يبقى اسم العامل "محجوزًا للأبد" بعد الحذف الناعم — متسق مع get_or_create_worker
-    # الذي يعيد تفعيل العامل تلقائيًا لو استُدعي من مسار آخر (مثل مودال التجميع)
     existing = db.query(models.Worker).filter(
         models.Worker.name == worker.name,
         models.Worker.is_deleted == False
@@ -57,9 +70,15 @@ def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db),
     return crud.bulk_soft_delete_workers(db, payload.ids, current_user.id)
 
 
-@router.get("/archived/", response_model=list[schemas.ArchivedWorkerResponse])
-def get_archived_workers(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
-    return workshop_crud.get_archived_workers(db)
+@router.get("/archived/", response_model=schemas.PaginatedArchivedWorkers)
+def get_archived_workers(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=schemas.DEFAULT_PAGE_LIMIT, ge=1, le=schemas.MAX_PAGE_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive)
+):
+    items, total = workshop_crud.get_archived_workers(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.post("/{worker_id}/restore/")

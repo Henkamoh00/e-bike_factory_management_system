@@ -2,7 +2,7 @@
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-3xl font-bold">الأعطال</h2>
-      <button @click="$emit('open-fault-modal')" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-medium">
+      <button @click="showFaultModal = true" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-medium">
         + تسجيل عطل جديد
       </button>
     </div>
@@ -11,20 +11,20 @@
       <div>
         <label class="block text-sm text-gray-500 mb-1">بحث برقم الهيكل</label>
         <input
-          v-model="faultsFilter.chassis_number"
+          v-model="filters.chassis_number"
           type="text"
           placeholder="EB-2026-..."
           class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none font-mono"
         />
       </div>
       <div>
-        <SearchableSelect v-model="faultsFilter.status" :options="statusOptions" label="تصفية بالحالة" empty-label="كل الحالات" />
+        <SearchableSelect v-model="filters.status" :options="statusOptions" label="تصفية بالحالة" empty-label="كل الحالات" />
       </div>
       <div>
-        <SearchableSelect v-model="faultsFilter.repaired_by" :options="workerOptions" label="تصفية بالعامل (المصلّح)" empty-label="كل العمال" />
+        <SearchableSelect v-model="filters.repaired_by" :async-search="searchWorkers" label="تصفية بالعامل (المصلّح)" empty-label="كل العمال" />
       </div>
       <div>
-        <SearchableSelect v-model="faultsFilter.responsible_worker" :options="workerOptions" label="تصفية بالعامل المتسبب في العطل" empty-label="كل العمال" />
+        <SearchableSelect v-model="filters.responsible_worker" :async-search="searchWorkers" label="تصفية بالعامل المتسبب في العطل" empty-label="كل العمال" />
       </div>
       <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
@@ -47,7 +47,8 @@
     </BulkActionsBar>
 
     <div class="bg-white rounded-3xl shadow-xl p-6">
-      <div v-if="filteredFaults.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
+      <div v-if="pg.loading.value" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد أعطال مطابقة</div>
 
       <template v-else>
         <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 flex-wrap">
@@ -59,19 +60,12 @@
             class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
           />
           <span class="text-xs text-gray-400">
-            تحديد الكل بالصفحة ({{ pageEligibleCount }} معلق قابل للتحديد بهذه الصفحة)
+            تحديد الكل بهذه الصفحة ({{ pageEligibleCount }} معلق قابل للتحديد)
           </span>
-          <button
-            v-if="bulk.hasMoreToSelect.value"
-            @click="bulk.selectAllAcrossPages"
-            class="text-xs text-indigo-600 hover:text-indigo-800 underline font-medium"
-          >
-            تحديد كل {{ bulk.eligibleCount.value }} عطل معلق (عبر كل الصفحات)
-          </button>
         </div>
 
         <div class="divide-y divide-gray-100">
-          <div v-for="fault in pagination.paginatedItems.value" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
+          <div v-for="fault in pg.items.value" :key="fault.id" class="py-3" :class="{ 'opacity-50': fault.status === 'cancelled' }">
             <div class="flex items-center justify-between gap-4 hover:bg-gray-50 transition px-2 -mx-2 rounded-xl py-1">
               <div class="flex items-center gap-3 min-w-0 flex-1">
                 <input
@@ -111,7 +105,7 @@
                   <button @click="openRepairModal(fault)" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full font-medium">
                     ✅ تصليح
                   </button>
-                  <button @click="$emit('cancel-fault', fault)" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium">
+                  <button @click="openCancelFault(fault)" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium">
                     إلغاء
                   </button>
                 </template>
@@ -132,17 +126,15 @@
       </template>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }} ({{ pg.total.value }} عطل)</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
 
     <FaultRepairModal
       v-if="repairingFault"
       :fault="repairingFault"
-      :workers-list="workersList"
       @close="repairingFault = null"
       @success="handleRepairSuccess"
     />
@@ -150,7 +142,6 @@
     <BulkRepairModal
       v-if="showBulkRepairModal"
       :count="bulk.selectedCount.value"
-      :workers-list="workersList"
       :loading="bulkLoading"
       @close="showBulkRepairModal = false"
       @confirm="confirmBulkRepair"
@@ -165,31 +156,41 @@
       @close="showBulkCancelModal = false"
       @confirm="confirmBulkCancel"
     />
+
+    <CancelReasonModal
+      v-if="cancellingFault"
+      title="إلغاء العطل"
+      :subtitle="`الهيكل: ${cancellingFault.chassis_number} — ${cancellingFault.description}`"
+      icon="⚠️"
+      :loading="cancelLoading"
+      @close="cancellingFault = null"
+      @confirm="confirmCancelFault"
+    />
+
+    <FaultModal
+      v-if="showFaultModal"
+      :chassis-list="allChassisList"
+      @close="showFaultModal = false"
+      @success="handleFaultSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
+import { useServerPagination } from '../../../composables/useServerPagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
 import FaultRepairModal from '../modals/FaultRepairModal.vue'
 import BulkRepairModal from '../modals/BulkRepairModal.vue'
-import PaginationControls from '../../shared/PaginationControls.vue'
+import FaultModal from '../modals/FaultModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
-
-const emit = defineEmits(['open-fault-modal', 'refresh-faults', 'cancel-fault'])
-
-const props = defineProps({
-  faultsList: { type: Array, default: () => [] },
-  workersList: { type: Array, default: () => [] }
-})
 
 const { apiFetch } = useAuth()
 
-const faultsFilter = ref({ chassis_number: '', status: '', repaired_by: '', responsible_worker: '' })
+const filters = ref({ chassis_number: '', status: '', repaired_by: '', responsible_worker: '' })
 const repairingFault = ref(null)
 const expandedFaultId = ref(null)
 
@@ -199,20 +200,39 @@ const statusOptions = [
   { label: 'ملغى', value: 'cancelled' },
 ]
 
-const workerOptions = computed(() => props.workersList.map(w => ({ label: w.name, value: w.name })))
+const searchWorkers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/workers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(w => ({ label: w.name, value: w.name }))
+}
 
-const filteredFaults = computed(() => {
-  return props.faultsList.filter(f => {
-    if (faultsFilter.value.chassis_number && !f.chassis_number.toLowerCase().includes(faultsFilter.value.chassis_number.toLowerCase())) return false
-    if (faultsFilter.value.status && f.status !== faultsFilter.value.status) return false
-    if (faultsFilter.value.repaired_by && !(f.repairs || []).some(r => r.worker_name === faultsFilter.value.repaired_by)) return false
-    if (faultsFilter.value.responsible_worker && f.responsible_worker_name !== faultsFilter.value.responsible_worker) return false
-    return true
-  })
-})
+const fetchFaultsPage = async ({ skip, limit }) => {
+  const params = new URLSearchParams({ skip, limit })
+  if (filters.value.chassis_number) params.set('chassis_number', filters.value.chassis_number)
+  if (filters.value.status) params.set('status', filters.value.status)
+  if (filters.value.repaired_by) params.set('repaired_by', filters.value.repaired_by)
+  if (filters.value.responsible_worker) params.set('responsible_worker', filters.value.responsible_worker)
+  const res = await apiFetch(`/api/faults/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
+}
+
+const pg = useServerPagination(fetchFaultsPage, 10)
+
+let debounceTimer = null
+watch(filters, () => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    pg.page.value = 1
+    pg.load()
+  }, 300)
+}, { deep: true })
 
 const resetFilter = () => {
-  faultsFilter.value = { chassis_number: '', status: '', repaired_by: '', responsible_worker: '' }
+  filters.value = { chassis_number: '', status: '', repaired_by: '', responsible_worker: '' }
 }
 
 const getStageName = (stage) => {
@@ -236,16 +256,14 @@ const openRepairModal = (fault) => { repairingFault.value = fault }
 
 const handleRepairSuccess = () => {
   repairingFault.value = null
-  emit('refresh-faults')
+  pg.load()
+  loadAvailableChassis()
 }
 
-const pagination = usePagination(filteredFaults, 10)
+const bulk = useBulkSelection(pg.items, pg.items, 'id', (fault) => fault.status === 'pending')
+watch(pg.items, () => { bulk.clear() })
 
-// ── التحديد المتعدد: فقط الأعطال المعلقة قابلة للتحديد ──────────────────
-const bulk = useBulkSelection(filteredFaults, pagination.paginatedItems, 'id', (fault) => fault.status === 'pending')
-watch(filteredFaults, () => { bulk.clear() })
-
-const pageEligibleCount = computed(() => pagination.paginatedItems.value.filter(f => f.status === 'pending').length)
+const pageEligibleCount = computed(() => pg.items.value.filter(f => f.status === 'pending').length)
 
 const showBulkRepairModal = ref(false)
 const showBulkCancelModal = ref(false)
@@ -265,7 +283,6 @@ const confirmBulkRepair = async (workerName) => {
   bulkLoading.value = true
   try {
     const ids = bulk.selectedIdsArray.value
-
     const res = await apiFetch(`/api/faults/bulk-repair/`, {
       method: 'POST',
       body: JSON.stringify({ ids, worker_name: workerName })
@@ -275,7 +292,7 @@ const confirmBulkRepair = async (workerName) => {
     if (res.ok) {
       showBulkRepairModal.value = false
       bulk.clear()
-      emit('refresh-faults')
+      pg.load()
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ التصليح الجماعي'))
     }
@@ -290,7 +307,6 @@ const confirmBulkCancel = async (payload) => {
   bulkLoading.value = true
   try {
     const ids = bulk.selectedIdsArray.value
-
     const res = await apiFetch(`/api/faults/bulk-cancel/`, {
       method: 'POST',
       body: JSON.stringify({ ids, ...payload })
@@ -300,7 +316,7 @@ const confirmBulkCancel = async (payload) => {
     if (res.ok) {
       showBulkCancelModal.value = false
       bulk.clear()
-      emit('refresh-faults')
+      pg.load()
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
     }
@@ -311,5 +327,61 @@ const confirmBulkCancel = async (payload) => {
   }
 }
 
-defineExpose({ clearSelection: bulk.clear })
+const cancellingFault = ref(null)
+const cancelLoading = ref(false)
+const openCancelFault = (fault) => { cancellingFault.value = fault }
+
+const confirmCancelFault = async (payload) => {
+  if (!cancellingFault.value) return
+  cancelLoading.value = true
+  try {
+    const res = await apiFetch(`/api/faults/${cancellingFault.value.id}/cancel/`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (res.ok) {
+      cancellingFault.value = null
+      pg.load()
+      loadAvailableChassis()
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر إلغاء العطل'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+const showFaultModal = ref(false)
+const allChassisList = ref([])
+const availableChassisList = ref([])
+
+const loadAllChassis = async () => {
+  try {
+    const res = await apiFetch(`/api/chassis/all/`)
+    if (res.ok) allChassisList.value = await res.json()
+  } catch (e) { console.error('كل الهياكل', e) }
+}
+
+const loadAvailableChassis = async () => {
+  try {
+    const res = await apiFetch(`/api/chassis/available/`)
+    if (res.ok) availableChassisList.value = await res.json()
+  } catch (e) { console.error('هياكل متاحة', e) }
+}
+
+const handleFaultSuccess = () => {
+  showFaultModal.value = false
+  pg.load()
+  loadAvailableChassis()
+}
+
+defineExpose({ clearSelection: bulk.clear, refresh: pg.load })
+
+onMounted(() => {
+  pg.load()
+  loadAllChassis()
+})
 </script>

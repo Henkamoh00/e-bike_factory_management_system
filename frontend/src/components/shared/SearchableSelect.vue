@@ -17,8 +17,7 @@
       v-if="isOpen"
       class="absolute z-20 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg"
     >
-      <!-- خانة البحث تظهر فقط إذا searchable -->
-      <div v-if="showSearch" class="p-2 border-b border-gray-100">
+      <div v-if="isAsync || showSearch" class="p-2 border-b border-gray-100">
         <input
           ref="searchInput"
           v-model="query"
@@ -29,37 +28,42 @@
         />
       </div>
 
-      <!-- القائمة: 4 عناصر ظاهرة والباقي تمرير -->
       <div class="overflow-y-auto" style="max-height: 168px;">
-        <div
-          v-if="allowEmpty"
-          @click="select('')"
-          class="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
-          :class="{ 'bg-indigo-100': modelValue === '' }"
-        >
-          {{ emptyLabel }}
+        <div v-if="isAsync && loadingOptions" class="px-4 py-3 text-sm text-gray-400 text-center">
+          جاري البحث...
         </div>
 
-        <div
-          v-for="opt in filteredOptions"
-          :key="opt.value"
-          @click="select(opt.value)"
-          class="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
-          :class="{ 'bg-indigo-100': modelValue === opt.value }"
-        >
-          {{ opt.label }}
-        </div>
+        <template v-else>
+          <div
+            v-if="allowEmpty"
+            @click="select('')"
+            class="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
+            :class="{ 'bg-indigo-100': modelValue === '' }"
+          >
+            {{ emptyLabel }}
+          </div>
 
-        <div v-if="filteredOptions.length === 0" class="px-4 py-3 text-sm text-gray-400 text-center">
-          لا توجد نتائج
-        </div>
+          <div
+            v-for="opt in displayedOptions"
+            :key="opt.value"
+            @click="select(opt.value)"
+            class="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
+            :class="{ 'bg-indigo-100': modelValue === opt.value }"
+          >
+            {{ opt.label }}
+          </div>
+
+          <div v-if="displayedOptions.length === 0" class="px-4 py-3 text-sm text-gray-400 text-center">
+            لا توجد نتائج
+          </div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
@@ -68,34 +72,72 @@ const props = defineProps({
   placeholder: { type: String, default: 'اختر...' },
   emptyLabel: { type: String, default: 'الكل' },
   allowEmpty: { type: Boolean, default: true },
+  asyncSearch: { type: Function, default: null },
+  initialSelectedLabel: { type: String, default: '' },
 })
 
-// يقرر تلقائيًا: إذا الخيارات 3 أو أقل ما نعرض خانة البحث
-const showSearch = computed(() => props.options.length > 3)
-
 const emit = defineEmits(['update:modelValue'])
+
+const isAsync = computed(() => typeof props.asyncSearch === 'function')
 
 const isOpen = ref(false)
 const query = ref('')
 const rootEl = ref(null)
 const searchInput = ref(null)
 
-const filteredOptions = computed(() => {
+const asyncOptions = ref([])
+const loadingOptions = ref(false)
+
+const showSearch = computed(() => props.options.length > 3)
+
+let debounceTimer = null
+const runAsyncSearch = async () => {
+  if (!isAsync.value) return
+  loadingOptions.value = true
+  try {
+    asyncOptions.value = await props.asyncSearch(query.value)
+  } catch (e) {
+    console.error('بحث ديناميكي', e)
+    asyncOptions.value = []
+  } finally {
+    loadingOptions.value = false
+  }
+}
+
+watch(query, () => {
+  if (!isAsync.value) return
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(runAsyncSearch, 300)
+})
+
+const filteredStaticOptions = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return props.options
   return props.options.filter(o => o.label.toLowerCase().includes(q))
 })
 
+const displayedOptions = computed(() =>
+  isAsync.value ? asyncOptions.value : filteredStaticOptions.value
+)
+
 const selectedLabel = computed(() => {
   if (!props.modelValue) return ''
+  if (isAsync.value) {
+    const found = asyncOptions.value.find(o => o.value === props.modelValue)
+    if (found) return found.label
+    return props.initialSelectedLabel || String(props.modelValue)
+  }
   const found = props.options.find(o => o.value === props.modelValue)
   return found ? found.label : props.modelValue
 })
 
 const toggleOpen = () => {
   isOpen.value = !isOpen.value
-  if (isOpen.value && showSearch.value) {
+  if (isOpen.value) {
     query.value = ''
+    if (isAsync.value) {
+      runAsyncSearch()
+    }
     nextTick(() => searchInput.value?.focus())
   }
 }

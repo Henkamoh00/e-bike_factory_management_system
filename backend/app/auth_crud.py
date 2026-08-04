@@ -67,12 +67,18 @@ def authenticate_user(db: Session, username: str, password: str):
     return _attach_role(user)
 
 
-def get_users(db: Session):
-    users = db.query(models.User)\
+def get_users(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    """🆕 مُصفَّحة الآن: تُرجع Tuple (items, total)"""
+    query = db.query(models.User)\
               .options(joinedload(models.User.role_obj))\
-              .filter(models.User.is_deleted == False)\
-              .order_by(models.User.id.desc()).all()
-    return [_attach_role(u) for u in users]
+              .filter(models.User.is_deleted == False)
+
+    if search:
+        query = query.filter(models.User.username.ilike(f"%{search}%"))
+
+    total = query.count()
+    users = query.order_by(models.User.id.desc()).offset(skip).limit(limit).all()
+    return [_attach_role(u) for u in users], total
 
 
 def update_user(db: Session, user_id: int, data: schemas.UserUpdate, current_user_id: int | None = None):
@@ -176,15 +182,17 @@ def bulk_soft_delete_users(db: Session, ids: list[int], current_user_id: int):
 
 
 # ====================== أرشيف المستخدمين ======================
-def get_archived_users(db: Session):
-    users = db.query(models.User)\
+def get_archived_users(db: Session, skip: int = 0, limit: int = 20):
+    query = db.query(models.User)\
               .options(joinedload(models.User.role_obj), joinedload(models.User.deleted_by))\
               .filter(models.User.is_deleted == True)\
-              .order_by(desc(models.User.id)).all()
+              .order_by(desc(models.User.id))
+    total = query.count()
+    users = query.offset(skip).limit(limit).all()
     for u in users:
         u.role_label = u.role_obj.label if u.role_obj else None
         u.deleted_by_username = u.deleted_by.username if u.deleted_by else None
-    return users
+    return users, total
 
 
 def restore_user(db: Session, user_id: int, current_user_id: int):

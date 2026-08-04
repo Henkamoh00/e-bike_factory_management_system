@@ -7,14 +7,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 
 # ====================== WORKERS (تقرير للوحة الإدارة) ======================
-def get_workers_with_records(db: Session):
-    """
-    يرجع كل العمال غير المحذوفين (الأحدث أولاً) مع ملخص سجلات التجميع الخاصة بكل عامل.
-    """
-    workers = db.query(models.Worker)\
-                .filter(models.Worker.is_deleted == False)\
-                .order_by(desc(models.Worker.id))\
-                .all()
+def get_workers_with_records(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    if search:
+        query = query.filter(models.Worker.name.ilike(f"%{search}%"))
+
+    total = query.count()
+    workers = query.order_by(desc(models.Worker.id)).offset(skip).limit(limit).all()
 
     result = []
     for w in workers:
@@ -41,7 +40,7 @@ def get_workers_with_records(db: Session):
                 for r in records
             ],
         })
-    return result
+    return result, total
 
 # ====================== CUSTOMERS ======================
 def create_customer(db: Session, customer: schemas.CustomerCreate, current_user_id: int):
@@ -55,7 +54,6 @@ def create_customer(db: Session, customer: schemas.CustomerCreate, current_user_
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها فحص customers.py المسبق
         db.rollback()
         raise ValueError("العميل موجود مسبقاً")
     db.refresh(db_customer)
@@ -66,7 +64,6 @@ def update_customer(db: Session, customer_id: int, data: schemas.CustomerUpdate,
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
         raise ValueError("العميل غير موجود")
-    # 🛡️ إصلاح: منع تعديل عميل مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
     if customer.is_deleted:
         raise ValueError("لا يمكن تعديل عميل مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
@@ -94,14 +91,20 @@ def soft_delete_customer(db: Session, customer_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "customer", customer.id, current_user_id, entity_label=customer.name)
     return customer
 
-def get_customers_with_sales(db: Session):
-    """
-    يرجع كل العملاء غير المحذوفين (الأحدث أولاً) مع تفاصيل مشترياتهم (النشطة فقط).
-    """
-    customers = db.query(models.Customer)\
-                  .filter(models.Customer.is_deleted == False)\
-                  .order_by(models.Customer.id.desc())\
-                  .all()
+def search_customers_simple(db: Session, q: str | None = None, limit: int = 20):
+    query = db.query(models.Customer).filter(models.Customer.is_deleted == False)
+    if q:
+        query = query.filter(models.Customer.name.ilike(f"%{q}%"))
+    return query.order_by(models.Customer.name).limit(limit).all()
+
+
+def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.Customer).filter(models.Customer.is_deleted == False)
+    if search:
+        query = query.filter(models.Customer.name.ilike(f"%{search}%"))
+
+    total = query.count()
+    customers = query.order_by(models.Customer.id.desc()).offset(skip).limit(limit).all()
 
     result = []
     for c in customers:
@@ -124,16 +127,18 @@ def get_customers_with_sales(db: Session):
                 for s in sales
             ],
         })
-    return result
+    return result, total
 
-def get_archived_customers(db: Session):
-    customers = db.query(models.Customer)\
-                  .options(joinedload(models.Customer.deleted_by))\
-                  .filter(models.Customer.is_deleted == True)\
-                  .order_by(desc(models.Customer.id)).all()
+def get_archived_customers(db: Session, skip: int = 0, limit: int = 20):
+    query = db.query(models.Customer)\
+              .options(joinedload(models.Customer.deleted_by))\
+              .filter(models.Customer.is_deleted == True)\
+              .order_by(desc(models.Customer.id))
+    total = query.count()
+    customers = query.offset(skip).limit(limit).all()
     for c in customers:
         c.deleted_by_username = c.deleted_by.username if c.deleted_by else None
-    return customers
+    return customers, total
 
 
 def restore_customer(db: Session, customer_id: int, current_user_id: int):
@@ -143,8 +148,6 @@ def restore_customer(db: Session, customer_id: int, current_user_id: int):
     if not customer.is_deleted:
         raise ValueError("العميل غير مؤرشف أصلاً")
 
-    # 🛡️ منع الاستعادة لو يوجد عميل نشط حاليًا بنفس الاسم
-    # (قد يكون أُنشئ عميل جديد بنفس الاسم بعد أرشفة هذا السجل)
     duplicate = db.query(models.Customer).filter(
         models.Customer.name == customer.name,
         models.Customer.is_deleted == False,
@@ -161,7 +164,6 @@ def restore_customer(db: Session, customer_id: int, current_user_id: int):
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
         db.rollback()
         raise ValueError(f"لا يمكن استعادة العميل، يوجد عميل نشط حاليًا بنفس الاسم '{customer.name}'")
     audit_crud.log_action(db, "restore", "customer", customer.id, current_user_id, entity_label=customer.name)
@@ -203,7 +205,6 @@ def bulk_soft_delete_customers(db: Session, ids: List[int], current_user_id: int
 
 # ====================== SALES ======================
 def create_sale(db: Session, sale: schemas.SaleCreate, current_user_id: int):
-    """تسجيل بيع جديد لعميل موجود مسبقاً (يُحدَّد عبر customer_id)"""
     existing_active_sale = db.query(models.Sale).filter(
         models.Sale.chassis_number == sale.chassis_number,
         models.Sale.status == "active"
@@ -238,7 +239,6 @@ def create_sale(db: Session, sale: schemas.SaleCreate, current_user_id: int):
 
 
 def cancel_sale(db: Session, sale_id: int, payload: schemas.SaleCancel, current_user_id: int):
-    """إلغاء عملية بيع (Soft Cancel) - لا يُحذف السجل، فقط يُعلَّم كملغى"""
     sale = db.query(models.Sale).filter(models.Sale.id == sale_id).first()
     if not sale:
         raise ValueError("عملية البيع غير موجودة")
@@ -262,22 +262,39 @@ def cancel_sale(db: Session, sale_id: int, payload: schemas.SaleCancel, current_
     return sale
 
 
-def get_sales(db: Session, skip: int = 0, limit: int = 50):
-    """عرض المبيعات (نشطة وملغاة) مع تحميل بيانات العميل بطريقة فعالة"""
-    sales = db.query(models.Sale)\
+def get_sales(
+    db: Session,
+    skip: int = 0,
+    limit: int = 50,
+    customer_name: str | None = None,
+    status: str | None = None,
+    date_from=None,
+    date_to=None,
+):
+    """🆕 مُصفَّحة الآن مع فلاتر من جهة السيرفر: تُرجع Tuple (items, total)"""
+    query = db.query(models.Sale)\
               .options(joinedload(models.Sale.customer))\
               .options(joinedload(models.Sale.created_by))\
-              .options(joinedload(models.Sale.cancelled_by))\
-              .order_by(desc(models.Sale.sale_date))\
-              .offset(skip).limit(limit).all()
+              .options(joinedload(models.Sale.cancelled_by))
 
-    # إضافة اسم العميل + بيانات المستخدمين
+    if customer_name:
+        query = query.join(models.Customer).filter(models.Customer.name == customer_name)
+    if status:
+        query = query.filter(models.Sale.status == status)
+    if date_from:
+        query = query.filter(models.Sale.sale_date >= date_from)
+    if date_to:
+        query = query.filter(models.Sale.sale_date <= date_to)
+
+    total = query.count()
+    sales = query.order_by(desc(models.Sale.sale_date)).offset(skip).limit(limit).all()
+
     for sale in sales:
         sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
         sale.created_by_username = sale.created_by.username if sale.created_by else None
         sale.cancelled_by_username = sale.cancelled_by.username if sale.cancelled_by else None
 
-    return sales
+    return sales, total
 
 
 # ====================== BULK: SALES ======================
@@ -320,11 +337,6 @@ def bulk_cancel_sales(db: Session, payload: schemas.BulkCancel, current_user_id:
 
 # ====================== CHASSIS (متاح للبيع) ======================
 def get_available_chassis(db: Session):
-    """
-    يرجع أرقام الهياكل المكتملة التجميع (سواء عبر 'تجميع_كامل'
-    أو عبر 'تجميع_الهيكل' + 'توصيل_الكهرباء_والغلاف' معًا)
-    ولم تُباع بعد ولا يوجد عليها أي عطل معلّق.
-    """
     sold_numbers = {
         s[0] for s in db.query(models.Sale.chassis_number)
         .filter(models.Sale.status == "active")
@@ -340,7 +352,6 @@ def get_available_chassis(db: Session):
 
     all_records = db.query(models.AssemblyRecord).all()
 
-    # تجميع السجلات حسب رقم الهيكل
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
@@ -358,10 +369,6 @@ def get_available_chassis(db: Session):
 
 # ====================== CHASSIS (كل الهياكل) ======================
 def get_all_chassis_numbers(db: Session):
-    """
-    يرجع كل أرقام الهياكل التي دخلت النظام (لها سجل تجميع واحد على الأقل)
-    بغض النظر عن حالة البيع أو اكتمال التجميع.
-    """
     chassis_numbers = (
         db.query(models.AssemblyRecord.chassis_number)
         .distinct()
@@ -370,14 +377,30 @@ def get_all_chassis_numbers(db: Session):
     )
     return [c[0] for c in chassis_numbers]
 
-# ====================== CHASSIS (ملخص شامل للوحة الإدارة) ======================
-def get_chassis_summary(db: Session):
+# ====================== CHASSIS (ملخص شامل للوحة الإدارة - مُصفَّح ومُفلتَر) ======================
+def get_chassis_summary(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    chassis_number: str | None = None,
+    status: str | None = None,
+    worker_name: str | None = None,
+    stage: str | None = None,
+    bike_type: str | None = None,
+    bike_color: str | None = None,
+):
+    """
+    🆕 مُصفَّحة ومُفلتَرة من جهة السيرفر الآن.
+    ملاحظة: البيانات مُجمَّعة (aggregated) من سجلات التجميع، لذا يتم بناء
+    الملخص الكامل أولاً بالذاكرة ثم تُطبَّق الفلاتر والتصفيح على النتيجة،
+    لأن التجميع (حسب رقم الهيكل) لا يمكن أن يتم مباشرة عبر offset/limit في SQL
+    بسبب طبيعة العلاقة (سجل واحد أو أكثر لكل هيكل).
+    """
     all_records = db.query(models.AssemblyRecord).all()
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
 
-    # فقط المبيعات النشطة تُحتسب "مباعة" في الملخص
     active_sold_map = {
         s.chassis_number: s
         for s in db.query(models.Sale)
@@ -392,10 +415,10 @@ def get_chassis_summary(db: Session):
         faults_by_chassis.setdefault(f.chassis_number, []).append(f)
 
     summary = []
-    for chassis_number, records in records_by_chassis.items():
+    for chassis_num, records in records_by_chassis.items():
         is_complete = workshop_crud.is_chassis_complete(records)
-        sale = active_sold_map.get(chassis_number)
-        faults = faults_by_chassis.get(chassis_number, [])
+        sale = active_sold_map.get(chassis_num)
+        faults = faults_by_chassis.get(chassis_num, [])
         pending_faults = [f for f in faults if f.status == "pending"]
 
         worker_names = list({r.worker.name for r in records if r.worker})
@@ -409,7 +432,7 @@ def get_chassis_summary(db: Session):
         }
 
         summary.append({
-            "chassis_number": chassis_number,
+            "chassis_number": chassis_num,
             "is_complete": is_complete,
             "is_sold": sale is not None,
             "workers": worker_names,
@@ -423,7 +446,47 @@ def get_chassis_summary(db: Session):
             "last_updated": max(r.timestamp for r in records),
         })
 
-    return sorted(summary, key=lambda x: x["chassis_number"])
+    # ── تطبيق الفلاتر (بنفس منطق الفرونت إند القديم) ──────────────────
+    def matches(item):
+        if chassis_number and chassis_number.lower() not in item["chassis_number"].lower():
+            return False
+        if status == "available" and (not item["is_complete"] or item["is_sold"]):
+            return False
+        if status == "sold" and not item["is_sold"]:
+            return False
+        if status == "in_progress" and item["is_complete"]:
+            return False
+        if status == "has_fault" and item["pending_faults_count"] == 0:
+            return False
+
+        stage_workers = item["stage_workers"]
+        if worker_name and stage:
+            direct_match = stage_workers.get(stage) == worker_name
+            covered_by_full = (
+                stage in (workshop_crud.STAGE_ASSEMBLY, workshop_crud.STAGE_COVER)
+                and stage_workers.get(workshop_crud.STAGE_COMPLETE) == worker_name
+            )
+            if not direct_match and not covered_by_full:
+                return False
+        elif worker_name:
+            if worker_name not in item["workers"]:
+                return False
+        elif stage:
+            if stage not in item["stages"]:
+                return False
+
+        if bike_type and item["bike_type"] != bike_type:
+            return False
+        if bike_color and item["bike_color"] != bike_color:
+            return False
+        return True
+
+    filtered = [s for s in summary if matches(s)]
+    filtered.sort(key=lambda x: x["chassis_number"])
+
+    total = len(filtered)
+    paginated = filtered[skip:skip + limit]
+    return paginated, total
 
 
 # ====================== FAULTS ======================
@@ -443,7 +506,6 @@ def create_fault(db: Session, fault: schemas.FaultCreate, current_user_id: int):
 
 
 def cancel_fault(db: Session, fault_id: int, payload: schemas.FaultCancel, current_user_id: int):
-    """إلغاء عطل مسجَّل بالخطأ أو لم يعد قائماً - لا يُحذف، فقط يُعلَّم كملغى"""
     fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
     if not fault:
         raise ValueError("العطل غير موجود")
@@ -489,8 +551,6 @@ def _attach_fault_extras(db: Session, faults):
                 .first()
             )
             if not record:
-                # لم يُسجَّل للمرحلة المحددة سجل منفصل — تحقق إن كان العامل قد سجّل "تجميع كامل"
-                # يشمل هذه المرحلة ضمنيًا (تجميع الهيكل + توصيل الكهرباء والغلاف معًا)
                 record = (
                     db.query(models.AssemblyRecord)
                     .filter(
@@ -513,13 +573,36 @@ def get_faults_by_chassis(db: Session, chassis_number: str):
     return _attach_fault_extras(db, faults)
 
 
-def get_all_faults(db: Session, skip: int = 0, limit: int = 100):
-    faults = (
-        db.query(models.Fault)
-        .order_by(desc(models.Fault.reported_date))
-        .offset(skip).limit(limit).all()
-    )
-    return _attach_fault_extras(db, faults)
+def get_all_faults(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    chassis_number: str | None = None,
+    status: str | None = None,
+    repaired_by: str | None = None,
+    responsible_worker: str | None = None,
+):
+    """🆕 مُصفَّحة ومُفلتَرة من جهة السيرفر"""
+    query = db.query(models.Fault)
+
+    if chassis_number:
+        query = query.filter(models.Fault.chassis_number.ilike(f"%{chassis_number}%"))
+    if status:
+        query = query.filter(models.Fault.status == status)
+
+    total_query_ids = [f.id for f in query.with_entities(models.Fault.id).all()]
+
+    faults = query.order_by(desc(models.Fault.reported_date)).all()
+    faults = _attach_fault_extras(db, faults)
+
+    if repaired_by:
+        faults = [f for f in faults if any(r.worker_name == repaired_by for r in f.repairs)]
+    if responsible_worker:
+        faults = [f for f in faults if f.responsible_worker_name == responsible_worker]
+
+    total = len(faults)
+    paginated = faults[skip:skip + limit]
+    return paginated, total
 
 
 def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairCreate, current_user_id: int):
@@ -555,7 +638,6 @@ def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairC
 
 
 def get_suggested_worker_for_fault(db: Session, fault_id: int):
-    """يقترح عامل التصليح بناءً على من قام بمرحلة التجميع المرتبطة بالعطل"""
     db_fault = db.query(models.Fault).filter(models.Fault.id == fault_id).first()
     if not db_fault or not db_fault.related_stage:
         return None
@@ -643,11 +725,8 @@ def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, curren
 
 # ====================== DASHBOARD ======================
 def get_dashboard_stats(db: Session):
-    """إحصائيات لوحة الإدارة - نسخة محسنة وأكثر دقة"""
-
     all_records = db.query(models.AssemblyRecord).all()
 
-    # تجميع السجلات حسب رقم الهيكل
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
@@ -659,12 +738,10 @@ def get_dashboard_stats(db: Session):
         if workshop_crud.is_chassis_complete(records)
     )
 
-    # عدد المبيعات النشطة فقط
     sold = db.query(func.count(models.Sale.id)).filter(
         models.Sale.status == "active"
     ).scalar() or 0
 
-    # الأعطال المعلقة
     pending_faults = db.query(func.count(models.Fault.id)).filter(
         models.Fault.status == "pending"
     ).scalar() or 0
@@ -685,17 +762,12 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         chassis_number
     )
 
-    # إضافة اسم العامل
     for record in assembly_records:
-
         if record.worker:
             record.worker_name = record.worker.name
-
         else:
             record.worker_name = "غير معروف"
 
-
-    # نعرض كل عمليات البيع المرتبطة بهذا الهيكل (نشطة وملغاة) - الأحدث أولاً
     sales = (
         db.query(models.Sale)
         .filter(
@@ -705,7 +777,6 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         .all()
     )
 
-    # إضافة اسم العميل لكل عملية بيع
     for sale in sales:
         sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
 
@@ -728,28 +799,36 @@ def get_full_chassis_history(db: Session, chassis_number: str):
 
 
 # ====================== BIKE TYPES / COLORS (تقرير للوحة الإدارة) ======================
-def get_bike_types_with_usage(db: Session):
-    types = db.query(models.BikeType)\
-              .filter(models.BikeType.is_deleted == False)\
-              .order_by(desc(models.BikeType.id)).all()
+def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.BikeType).filter(models.BikeType.is_deleted == False)
+    if search:
+        query = query.filter(models.BikeType.name.ilike(f"%{search}%"))
+
+    total = query.count()
+    types = query.order_by(desc(models.BikeType.id)).offset(skip).limit(limit).all()
+
     result = []
     for t in types:
         count = db.query(func.count(models.AssemblyRecord.id))\
                    .filter(models.AssemblyRecord.bike_type_id == t.id).scalar() or 0
         result.append({"id": t.id, "name": t.name, "usage_count": count})
-    return result
+    return result, total
 
 
-def get_bike_colors_with_usage(db: Session):
-    colors = db.query(models.BikeColor)\
-               .filter(models.BikeColor.is_deleted == False)\
-               .order_by(desc(models.BikeColor.id)).all()
+def get_bike_colors_with_usage(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
+    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted == False)
+    if search:
+        query = query.filter(models.BikeColor.name.ilike(f"%{search}%"))
+
+    total = query.count()
+    colors = query.order_by(desc(models.BikeColor.id)).offset(skip).limit(limit).all()
+
     result = []
     for c in colors:
         count = db.query(func.count(models.AssemblyRecord.id))\
                    .filter(models.AssemblyRecord.bike_color_id == c.id).scalar() or 0
         result.append({"id": c.id, "name": c.name, "usage_count": count})
-    return result
+    return result, total
 
 
 # ====================== BULK: BIKE TYPES / COLORS ======================

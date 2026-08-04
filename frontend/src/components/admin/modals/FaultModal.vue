@@ -68,7 +68,6 @@ import { ref, computed } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success'])

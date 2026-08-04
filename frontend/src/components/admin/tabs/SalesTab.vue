@@ -2,25 +2,25 @@
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-3xl font-bold">المبيعات</h2>
-      <button @click="$emit('open-sale-modal')" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl font-medium">
+      <button @click="showSaleModal = true" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl font-medium">
         + تسجيل بيع جديد
       </button>
     </div>
 
     <div class="bg-white rounded-2xl shadow p-5 mb-6 flex flex-wrap gap-4 items-end">
       <div>
-        <SearchableSelect v-model="salesFilter.customer_name" :options="customerOptions" label="تصفية بالعميل" empty-label="كل العملاء" />
+        <SearchableSelect v-model="filters.customer_name" :async-search="searchCustomers" label="تصفية بالعميل" empty-label="كل العملاء" />
       </div>
       <div>
-        <SearchableSelect v-model="salesFilter.status" :options="statusOptions" label="تصفية بالحالة" empty-label="كل الحالات" />
+        <SearchableSelect v-model="filters.status" :options="statusOptions" label="تصفية بالحالة" empty-label="كل الحالات" />
       </div>
       <div>
         <label class="block text-sm text-gray-500 mb-1">من تاريخ</label>
-        <input type="date" v-model="salesFilter.date_from" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+        <input type="date" v-model="filters.date_from" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
       </div>
       <div>
         <label class="block text-sm text-gray-500 mb-1">إلى تاريخ</label>
-        <input type="date" v-model="salesFilter.date_to" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+        <input type="date" v-model="filters.date_to" class="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
       </div>
       <button @click="resetFilter" class="px-4 py-2 text-gray-500 hover:text-gray-700 underline text-sm">إعادة تعيين</button>
     </div>
@@ -36,18 +36,24 @@
     </BulkActionsBar>
 
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-      <div v-if="filteredSales.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد مبيعات مطابقة</div>
+      <div v-if="pg.loading.value" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد مبيعات مطابقة</div>
 
       <template v-else>
-        <BulkSelectAllBar
-          :bulk="bulk"
-          :page-eligible-count="pageEligibleCount"
-          :page-total="pagination.paginatedItems.value.length"
-        />
+        <div class="flex items-center gap-3 pb-3 mb-3 px-5 py-2 bg-gray-50 border-b border-gray-100 flex-wrap">
+          <input
+            type="checkbox"
+            :checked="bulk.pageAllSelected.value"
+            :disabled="pageEligibleCount === 0"
+            @change="bulk.toggleAllOnPage"
+            class="w-4 h-4 accent-indigo-600 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          />
+          <span class="text-xs text-gray-400">تحديد الكل بهذه الصفحة ({{ pageEligibleCount }} من {{ pg.items.value.length }})</span>
+        </div>
 
         <div class="divide-y divide-gray-100">
           <div
-            v-for="sale in pagination.paginatedItems.value"
+            v-for="sale in pg.items.value"
             :key="sale.id"
             class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition"
             :class="{ 'opacity-50': sale.status === 'cancelled' }"
@@ -88,7 +94,7 @@
               </div>
               <button
                 v-if="sale.status === 'active'"
-                @click="$emit('cancel-sale', sale)"
+                @click="openCancelSale(sale)"
                 class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full font-medium"
               >
                 إلغاء البيع
@@ -99,12 +105,11 @@
       </template>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }} ({{ pg.total.value }} عملية)</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
 
     <CancelReasonModal
       v-if="showBulkCancelModal"
@@ -115,57 +120,78 @@
       @close="showBulkCancelModal = false"
       @confirm="confirmBulkCancel"
     />
+
+    <CancelReasonModal
+      v-if="cancellingSale"
+      title="إلغاء عملية البيع"
+      :subtitle="`الهيكل: ${cancellingSale.chassis_number} — العميل: ${cancellingSale.customer_name}`"
+      icon="💰"
+      :loading="cancelLoading"
+      @close="cancellingSale = null"
+      @confirm="confirmCancelSale"
+    />
+
+    <SaleModal
+      v-if="showSaleModal"
+      :chassis-list="availableChassisList"
+      @close="showSaleModal = false"
+      @success="handleSaleSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
+import { useServerPagination } from '../../../composables/useServerPagination'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
-import BulkSelectAllBar from '../../shared/BulkSelectAllBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
-import PaginationControls from '../../shared/PaginationControls.vue'
+import SaleModal from '../modals/SaleModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
-
-const emit = defineEmits(['open-sale-modal', 'cancel-sale', 'refresh-sales'])
-
-const props = defineProps({
-  salesList: { type: Array, default: () => [] },
-  customersList: { type: Array, default: () => [] }
-})
 
 const { apiFetch } = useAuth()
 
-const salesFilter = ref({ customer_name: '', status: '', date_from: '', date_to: '' })
+const filters = ref({ customer_name: '', status: '', date_from: '', date_to: '' })
 
 const statusOptions = [
   { label: 'نشط', value: 'active' },
   { label: 'ملغى', value: 'cancelled' },
 ]
 
-const customerOptions = computed(() => props.customersList.map(c => ({ label: c.name, value: c.name })))
+const searchCustomers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/customers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(c => ({ label: c.name, value: c.name }))
+}
 
-const filteredSales = computed(() => {
-  return props.salesList.filter(s => {
-    if (salesFilter.value.customer_name && s.customer_name !== salesFilter.value.customer_name) return false
-    if (salesFilter.value.status && s.status !== salesFilter.value.status) return false
-    if (salesFilter.value.date_from && new Date(s.sale_date) < new Date(salesFilter.value.date_from)) return false
-    if (salesFilter.value.date_to && new Date(s.sale_date) > new Date(salesFilter.value.date_to)) return false
-    return true
-  })
-})
+const fetchSalesPage = async ({ skip, limit }) => {
+  const params = new URLSearchParams({ skip, limit })
+  if (filters.value.customer_name) params.set('customer_name', filters.value.customer_name)
+  if (filters.value.status) params.set('status', filters.value.status)
+  if (filters.value.date_from) params.set('date_from', filters.value.date_from)
+  if (filters.value.date_to) params.set('date_to', filters.value.date_to)
+  const res = await apiFetch(`/api/sales/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
+}
 
-const resetFilter = () => { salesFilter.value = { customer_name: '', status: '', date_from: '', date_to: '' } }
+const pg = useServerPagination(fetchSalesPage, 10)
 
-const pagination = usePagination(filteredSales, 10)
+watch(filters, () => {
+  pg.page.value = 1
+  pg.load()
+}, { deep: true })
 
-// ── التحديد المتعدد: فقط المبيعات النشطة قابلة للتحديد ─────────────────
-const bulk = useBulkSelection(filteredSales, pagination.paginatedItems, 'id', (sale) => sale.status === 'active')
-watch(filteredSales, () => { bulk.clear() })
+const resetFilter = () => { filters.value = { customer_name: '', status: '', date_from: '', date_to: '' } }
 
-const pageEligibleCount = computed(() => pagination.paginatedItems.value.filter(s => s.status === 'active').length)
+const bulk = useBulkSelection(pg.items, pg.items, 'id', (sale) => sale.status === 'active')
+watch(pg.items, () => { bulk.clear() })
+
+const pageEligibleCount = computed(() => pg.items.value.filter(s => s.status === 'active').length)
 
 const showBulkCancelModal = ref(false)
 const bulkLoading = ref(false)
@@ -182,7 +208,6 @@ const confirmBulkCancel = async (payload) => {
   bulkLoading.value = true
   try {
     const ids = bulk.selectedIdsArray.value
-
     const res = await apiFetch(`/api/sales/bulk-cancel/`, {
       method: 'POST',
       body: JSON.stringify({ ids, ...payload })
@@ -192,7 +217,7 @@ const confirmBulkCancel = async (payload) => {
     if (res.ok) {
       showBulkCancelModal.value = false
       bulk.clear()
-      emit('refresh-sales')
+      pg.load()
     } else {
       alert('❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
     }
@@ -203,5 +228,53 @@ const confirmBulkCancel = async (payload) => {
   }
 }
 
-defineExpose({ clearSelection: bulk.clear })
+const cancellingSale = ref(null)
+const cancelLoading = ref(false)
+const openCancelSale = (sale) => { cancellingSale.value = sale }
+
+const confirmCancelSale = async (payload) => {
+  if (!cancellingSale.value) return
+  cancelLoading.value = true
+  try {
+    const res = await apiFetch(`/api/sales/${cancellingSale.value.id}/cancel/`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (res.ok) {
+      cancellingSale.value = null
+      pg.load()
+      loadAvailableChassis()
+    } else {
+      alert('❌ ' + (data.detail || 'تعذر إلغاء عملية البيع'))
+    }
+  } catch (e) {
+    alert('تعذر الاتصال بالسيرفر')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+const showSaleModal = ref(false)
+const availableChassisList = ref([])
+
+const loadAvailableChassis = async () => {
+  try {
+    const res = await apiFetch(`/api/chassis/available/`)
+    if (res.ok) availableChassisList.value = await res.json()
+  } catch (e) { console.error('هياكل متاحة', e) }
+}
+
+const handleSaleSuccess = () => {
+  showSaleModal.value = false
+  pg.load()
+  loadAvailableChassis()
+}
+
+defineExpose({ clearSelection: bulk.clear, refresh: pg.load })
+
+onMounted(() => {
+  pg.load()
+  loadAvailableChassis()
+})
 </script>

@@ -7,6 +7,14 @@ import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
 
 const routes = [
   {
+    // مسار الجذر: يُعيد التوجيه فورًا حسب حالة تسجيل الدخول
+    path: '/',
+    redirect: () => {
+      const { isAuthenticated } = useAuth()
+      return isAuthenticated.value ? { name: 'Dashboard' } : { name: 'Login' }
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: LoginView

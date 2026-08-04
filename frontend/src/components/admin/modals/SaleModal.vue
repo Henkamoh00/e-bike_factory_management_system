@@ -17,7 +17,7 @@
         <div class="mb-2">
           <SearchableSelect
             v-model="form.customer_id"
-            :options="customerOptions"
+            :async-search="searchCustomers"
             label="العميل"
             placeholder="اختر العميل"
             :allow-empty="false"
@@ -53,7 +53,6 @@
       </div>
     </div>
 
-    <!-- مودال إضافة عميل متداخل -->
     <CustomerFormModal
       v-if="showCustomerForm"
       @close="showCustomerForm = false"
@@ -68,7 +67,6 @@ import { useAuth } from '../../../composables/useAuth'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import CustomerFormModal from '../../admin/modals/CustomerFormModal.vue'
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const emit = defineEmits(['close', 'success', 'customer-added'])
@@ -76,17 +74,21 @@ const loading = ref(false)
 const showCustomerForm = ref(false)
 
 const props = defineProps({
-  customersList: { type: Array, default: () => [] },
   chassisList: { type: Array, default: () => [] }
 })
-
-const customerOptions = computed(() =>
-  props.customersList.map(c => ({ label: c.name, value: c.id }))
-)
 
 const chassisOptions = computed(() =>
   props.chassisList.map(cn => ({ label: cn, value: cn }))
 )
+
+const searchCustomers = async (query) => {
+  const params = new URLSearchParams({ limit: 20 })
+  if (query) params.set('q', query)
+  const res = await apiFetch(`/api/customers/simple/?${params.toString()}`)
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.map(c => ({ label: c.name, value: c.id }))
+}
 
 const today = new Date().toISOString().split('T')[0]
 

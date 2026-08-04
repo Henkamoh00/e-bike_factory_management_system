@@ -4,7 +4,7 @@
       <button
         v-for="sub in visibleSubTabs"
         :key="sub.id"
-        @click="activeSub = sub.id"
+        @click="switchSub(sub.id)"
         :class="activeSub === sub.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-500 hover:bg-gray-50'"
         class="px-4 py-2 rounded-xl text-sm transition"
       >
@@ -14,10 +14,9 @@
 
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold">{{ currentSubLabel }} المؤرشفون</h2>
-      <span class="text-sm text-gray-400">{{ items.length }} عنصر</span>
+      <span class="text-sm text-gray-400">{{ pg.total.value }} عنصر</span>
     </div>
 
-    <!-- 🆕 توست بدل alert() لعرض نتيجة الاستعادة (نجاح/فشل) -->
     <transition name="fade">
       <div
         v-if="toast.show"
@@ -29,11 +28,11 @@
     </transition>
 
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-      <div v-if="loading" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
-      <div v-else-if="items.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد عناصر مؤرشفة</div>
+      <div v-if="pg.loading.value" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
+      <div v-else-if="pg.items.value.length === 0" class="text-center py-16 text-gray-400 text-lg">لا توجد عناصر مؤرشفة</div>
 
       <div v-else class="divide-y divide-gray-100">
-        <div v-for="item in pagination.paginatedItems.value" :key="item.id" class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition">
+        <div v-for="item in pg.items.value" :key="item.id" class="flex items-center justify-between gap-4 px-5 py-3 hover:bg-gray-50 transition">
           <div class="flex items-center gap-3 min-w-0 flex-1">
             <div class="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center font-bold text-sm shrink-0">
               {{ displayName(item).charAt(0) }}
@@ -59,26 +58,23 @@
       </div>
     </div>
 
-    <PaginationControls
-      :page="pagination.page.value"
-      :total-pages="pagination.totalPages.value"
-      @prev="pagination.prevPage"
-      @next="pagination.nextPage"
-    />
+    <div v-if="pg.totalPages.value > 1" class="flex justify-center items-center gap-3 mt-6">
+      <button @click="pg.prevPage" :disabled="pg.page.value === 1" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">السابق</button>
+      <span class="text-sm text-gray-500">صفحة {{ pg.page.value }} من {{ pg.totalPages.value }}</span>
+      <button @click="pg.nextPage" :disabled="pg.page.value === pg.totalPages.value" class="px-4 py-2 rounded-xl bg-white shadow disabled:opacity-40 text-sm">التالي</button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { usePagination } from '../../../composables/usePagination'
-import PaginationControls from '../../shared/PaginationControls.vue'
+import { useServerPagination } from '../../../composables/useServerPagination'
 
 const displayName = (item) => item.name || item.full_name || item.username || '—'
 
 const { apiFetch, user: currentUser } = useAuth()
 
-// 🆕 نُصدر حدثًا للأب (DashboardView) عند نجاح الاستعادة، ليُحدّث القائمة الأصلية للتبويب المعني
 const emit = defineEmits(['restore-success'])
 
 const allSubTabs = [
@@ -89,8 +85,6 @@ const allSubTabs = [
   { id: 'bike_colors',label: 'ألوان الدراجات', icon: '🎨', endpoint: '/api/bike-colors' },
 ]
 
-// 🛡️ أرشيف المستخدمين حساس ومحصور بالأدمن فقط في الـ backend،
-// لذا نُخفيه من الواجهة عن أي دور آخر لمنع محاولة وصول تُرفض بـ 403
 const visibleSubTabs = computed(() =>
   allSubTabs.filter(sub => !sub.adminOnly || currentUser.value?.role === 'admin')
 )
@@ -99,13 +93,8 @@ const activeSub = ref(visibleSubTabs.value[0]?.id || 'workers')
 const currentSubLabel = computed(() => allSubTabs.find(s => s.id === activeSub.value)?.label || '')
 const currentEndpoint = computed(() => allSubTabs.find(s => s.id === activeSub.value)?.endpoint || '')
 
-const items = ref([])
-const loading = ref(false)
 const restoringId = ref(null)
 
-const pagination = usePagination(items, 10)
-
-// 🆕 حالة التوست (نفس نمط UserRolesSubTab.vue / WorkerFormModal.vue)
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 const showToast = (type, message, duration = 3000) => {
@@ -114,22 +103,19 @@ const showToast = (type, message, duration = 3000) => {
   toastTimer = setTimeout(() => { toast.value.show = false }, duration)
 }
 
-const loadItems = async () => {
-  loading.value = true
-  try {
-    const res = await apiFetch(`${currentEndpoint.value}/archived/`)
-    if (res.ok) {
-      items.value = await res.json()
-    } else {
-      // 403 أو أي خطأ آخر: لا نُظهر بيانات خاطئة، فقط نُفرغ القائمة بهدوء
-      items.value = []
-    }
-  } catch (e) {
-    console.error('archive', e)
-    items.value = []
-  } finally {
-    loading.value = false
-  }
+const fetchArchivedPage = async ({ skip, limit }) => {
+  const params = new URLSearchParams({ skip, limit })
+  const res = await apiFetch(`${currentEndpoint.value}/archived/?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0 }
+  return res.json()
+}
+
+const pg = useServerPagination(fetchArchivedPage, 10)
+
+const switchSub = (id) => {
+  activeSub.value = id
+  pg.page.value = 1
+  pg.load()
 }
 
 const restore = async (item) => {
@@ -138,9 +124,8 @@ const restore = async (item) => {
     const res = await apiFetch(`${currentEndpoint.value}/${item.id}/restore/`, { method: 'POST' })
     const data = await res.json()
     if (res.ok) {
-      items.value = items.value.filter(i => i.id !== item.id)
       showToast('success', `✅ ${data.message || 'تمت الاستعادة بنجاح'}`)
-      // 🆕 نُبلّغ الأب بنوع القسم الذي حدثت فيه الاستعادة، ليُحدّث القائمة الأصلية (workersList مثلاً)
+      pg.load()
       emit('restore-success', activeSub.value)
     } else {
       showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الاستعادة'))
@@ -152,12 +137,10 @@ const restore = async (item) => {
   }
 }
 
-watch(activeSub, loadItems)
-
-defineExpose({ clearSelection: () => {} })
+defineExpose({ clearSelection: () => {}, refresh: pg.load })
 
 onMounted(() => {
-  loadItems()
+  pg.load()
 })
 </script>
 

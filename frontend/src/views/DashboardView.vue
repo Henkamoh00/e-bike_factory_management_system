@@ -97,7 +97,6 @@
         </div>
       </header>
 
-      <!-- حالة: مستخدم بلا أي صلاحية وصول لأي تبويب -->
       <main v-if="noAccess" class="p-4 sm:p-6 lg:p-8 max-w-xl mx-auto mt-16">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-10 text-center">
           <div class="text-5xl mb-4">🔒</div>
@@ -119,65 +118,31 @@
           <AssemblyTab
             v-else-if="activeTab === 'assembly'"
             ref="assemblyTabRef"
-            :workers-list="workersList"
-            :bike-types-list="bikeTypesList"
-            :bike-colors-list="bikeColorsList"
-            @open-assembly-modal="showAssemblyModal = true"
           />
 
           <SalesTab
             v-else-if="activeTab === 'sales'"
             ref="salesTabRef"
-            :sales-list="salesList"
-            :customers-list="customersList"
-            @open-sale-modal="showSaleModal = true"
-            @cancel-sale="openCancelSale"
-            @refresh-sales="handleRefreshSales"
           />
 
           <FaultsTab
             v-else-if="activeTab === 'faults'"
             ref="faultsTabRef"
-            :faults-list="faultsList"
-            :workers-list="workersList"
-            @open-fault-modal="showFaultModal = true"
-            @refresh-faults="handleRefreshFaults"
-            @cancel-fault="openCancelFault"
           />
 
           <WorkersTab
             v-else-if="activeTab === 'workers'"
             ref="workersTabRef"
-            :workers-list="workersList"
-            @open-worker-modal="openAddWorker"
-            @edit-worker="openEditWorker"
-            @delete-worker="handleDeleteWorker"
-            @refresh-workers="loadWorkers"
           />
 
           <CustomersTab
             v-else-if="activeTab === 'customers'"
             ref="customersTabRef"
-            :customers-list="customersList"
-            @open-customer-modal="openAddCustomer"
-            @edit-customer="openEditCustomer"
-            @delete-customer="handleDeleteCustomer"
-            @refresh-customers="loadCustomers"
           />
 
           <SettingsTab
             v-else-if="activeTab === 'settings'"
             ref="settingsTabRef"
-            :bike-types-list="bikeTypesList"
-            :bike-colors-list="bikeColorsList"
-            @open-bike-type-modal="openAddBikeType"
-            @edit-bike-type="openEditBikeType"
-            @delete-bike-type="handleDeleteBikeType"
-            @refresh-bike-types="loadBikeTypes"
-            @open-bike-color-modal="openAddBikeColor"
-            @edit-bike-color="openEditBikeColor"
-            @delete-bike-color="handleDeleteBikeColor"
-            @refresh-bike-colors="loadBikeColors"
           />
 
           <UsersTab
@@ -198,82 +163,6 @@
         </div>
       </main>
     </div>
-
-    <AssemblyFormModal
-      v-if="showAssemblyModal"
-      :workers-list="workersList"
-      :bike-types-list="bikeTypesList"
-      :bike-colors-list="bikeColorsList"
-      @close="showAssemblyModal = false"
-      @success="handleAssemblySuccess"
-      @worker-added="loadWorkers"
-      @type-added="loadBikeTypes"
-      @color-added="loadBikeColors"
-    />
-
-    <WorkerFormModal
-      v-if="showWorkerModal"
-      :worker="editingWorker"
-      @close="closeWorkerModal"
-      @success="handleWorkerFormSuccess"
-    />
-
-    <CustomerFormModal
-      v-if="showCustomerModal"
-      :customer="editingCustomer"
-      @close="closeCustomerModal"
-      @success="handleCustomerFormSuccess"
-    />
-
-    <BikeTypeFormModal
-      v-if="showBikeTypeModal"
-      :bike-type="editingBikeType"
-      @close="closeBikeTypeModal"
-      @success="handleBikeTypeFormSuccess"
-    />
-
-    <BikeColorFormModal
-      v-if="showBikeColorModal"
-      :bike-color="editingBikeColor"
-      @close="closeBikeColorModal"
-      @success="handleBikeColorFormSuccess"
-    />
-
-    <SaleModal
-      v-if="showSaleModal"
-      :customers-list="customersList"
-      :chassis-list="availableChassisList"
-      @close="showSaleModal = false"
-      @success="handleSaleSuccess"
-      @customer-added="loadCustomers"
-    />
-
-    <FaultModal
-      v-if="showFaultModal"
-      :chassis-list="allChassisList"
-      @close="showFaultModal = false"
-      @success="handleFaultSuccess"
-    />
-
-    <CancelReasonModal
-      v-if="cancellingSale"
-      title="إلغاء عملية البيع"
-      :subtitle="`الهيكل: ${cancellingSale.chassis_number} — العميل: ${cancellingSale.customer_name}`"
-      icon="💰"
-      :loading="cancelLoading"
-      @close="cancellingSale = null"
-      @confirm="confirmCancelSale"
-    />
-
-    <CancelReasonModal
-      v-if="cancellingFault"
-      title="إلغاء العطل"
-      :subtitle="`الهيكل: ${cancellingFault.chassis_number} — ${cancellingFault.description}`"
-      icon="⚠️"
-      :loading="cancelLoading"
-      @close="cancellingFault = null"
-      @confirm="confirmCancelFault"
-    />
   </div>
 </template>
 
@@ -282,16 +171,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { getAllowedTabs, getDefaultTab, isTabAllowed } from '../composables/useTabPermissions'
-
-
-import AssemblyFormModal from '../components/admin/modals/AssemblyFormModal.vue'
-import SaleModal from '../components/admin/modals/SaleModal.vue'
-import FaultModal from '../components/admin/modals/FaultModal.vue'
-import CustomerFormModal from '../components/admin/modals/CustomerFormModal.vue'
-import WorkerFormModal from '../components/admin/modals/WorkerFormModal.vue'
-import BikeTypeFormModal from '../components/admin/modals/BikeTypeFormModal.vue'
-import BikeColorFormModal from '../components/admin/modals/BikeColorFormModal.vue'
-import CancelReasonModal from '../components/shared/CancelReasonModal.vue'
 
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
 import UsersTab from '../components/admin/tabs/UsersTab.vue'
@@ -304,16 +183,10 @@ import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 import LogsTab from '../components/admin/tabs/LogsTab.vue'
 import ArchiveTab from '../components/admin/tabs/ArchiveTab.vue'
 
-// ── التبويبات المسموحة حسب صلاحيات المستخدم الحالي (allowed_tabs) ─────────────────
 const visibleTabs = computed(() => getAllowedTabs(user.value?.role, user.value?.allowed_tabs))
-
-// ── دالة مساعدة: هل يملك المستخدم الحالي وصولاً لهذا التبويب؟ ─────────────────────
 const canAccessTab = (tabId) => isTabAllowed(tabId, user.value?.role, user.value?.allowed_tabs)
-
-
 const noAccess = computed(() => visibleTabs.value.length === 0)
 
-// ── وظيفة زر تسجيل الخروج ─────────────────────────────────────
 const router = useRouter()
 const route = useRoute()
 
@@ -337,24 +210,7 @@ const asideClasses = computed(() => {
   return `${mobile} ${desktop}`
 })
 
-const showAssemblyModal  = ref(false)
-const showSaleModal      = ref(false)
-const showFaultModal     = ref(false)
-const showWorkerModal    = ref(false)
-const showCustomerModal  = ref(false)
-const showBikeTypeModal  = ref(false)
-const showBikeColorModal = ref(false)
-
-const editingWorker    = ref(null)
-const editingCustomer  = ref(null)
-const editingBikeType  = ref(null)
-const editingBikeColor = ref(null)
-
-const cancellingSale  = ref(null)
-const cancellingFault = ref(null)
-const cancelLoading   = ref(false)
-
-const stats            = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
+const stats = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const usersTabRef      = ref(null)
 const assemblyTabRef   = ref(null)
 const salesTabRef      = ref(null)
@@ -365,31 +221,16 @@ const settingsTabRef   = ref(null)
 const logsTabRef       = ref(null)
 const archiveTabRef    = ref(null)
 
-const bikeTypesList = ref([])
-const bikeColorsList = ref([])
-const salesList              = ref([])
-const availableChassisList   = ref([])
-const faultsList             = ref([])
-const allChassisList         = ref([])
-const workersList            = ref([])
-const customersList          = ref([])
-
 const currentTabLabel = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.label || '')
 const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === activeTab.value)?.icon || '')
 
 const switchTab = (tab) => {
-  if (!canAccessTab(tab)) return   // 🛡️ حماية
+  if (!canAccessTab(tab)) return
   activeTab.value = tab
   isSidebarOpen.value = false
 }
 
-
-// ── API calls ───────────────────────────────────────────────────────────────
-const API = import.meta.env.VITE_API_BASE_URL
-
-// إنشاء كائن الـ Headers الأساسي مع متطلبات Auth.
 const { user, logout, apiFetch } = useAuth()
-
 
 const loadStats = async () => {
   try {
@@ -398,269 +239,24 @@ const loadStats = async () => {
   } catch (e) { console.error('إحصائيات', e) }
 }
 
-const loadBikeTypes = async () => {
-  try {
-    const res = await apiFetch(`/api/bike-types/`)
-    if (res.ok) bikeTypesList.value = await res.json()
-  } catch (e) { console.error('أنواع الدراجات', e) }
-}
-
-const loadBikeColors = async () => {
-  try {
-    const res = await apiFetch(`/api/bike-colors/`)
-    if (res.ok) bikeColorsList.value = await res.json()
-  } catch (e) { console.error('ألوان الدراجات', e) }
-}
-
-const loadSales = async () => {
-  try {
-    const res = await apiFetch(`/api/sales/`)
-    if (res.ok) salesList.value = await res.json()
-  } catch (e) { console.error('مبيعات', e) }
-}
-
-const loadAvailableChassis = async () => {
-  try {
-    const res = await apiFetch(`/api/chassis/available/`)
-    if (res.ok) availableChassisList.value = await res.json()
-  } catch (e) { console.error('هياكل متاحة', e) }
-}
-
-const loadFaults = async () => {
-  try {
-    const res = await apiFetch(`/api/faults/`)
-    if (res.ok) faultsList.value = await res.json()
-  } catch (e) { console.error('أعطال', e) }
-}
-
-const loadAllChassis = async () => {
-  try {
-    const res = await apiFetch(`/api/chassis/all/`)
-    if (res.ok) allChassisList.value = await res.json()
-  } catch (e) { console.error('كل الهياكل', e) }
-}
-
-const loadWorkers = async () => {
-  try {
-    const res = await apiFetch(`/api/workers/`)
-    if (res.ok) workersList.value = await res.json()
-  } catch (e) { console.error('عمال', e) }
-}
-
-const loadCustomers = async () => {
-  try {
-    const res = await apiFetch(`/api/customers/`)
-    if (res.ok) customersList.value = await res.json()
-  } catch (e) { console.error('عملاء', e) }
-}
-
-// ── فتح/إغلاق مودال العامل (إضافة أو تعديل) ─────────────────────────────
-const openAddWorker = () => {
-  editingWorker.value = null
-  showWorkerModal.value = true
-}
-const openEditWorker = (worker) => {
-  editingWorker.value = worker
-  showWorkerModal.value = true
-}
-const closeWorkerModal = () => {
-  showWorkerModal.value = false
-  editingWorker.value = null
-}
-
-// ── فتح/إغلاق مودال العميل (إضافة أو تعديل) ─────────────────────────────
-const openAddCustomer = () => {
-  editingCustomer.value = null
-  showCustomerModal.value = true
-}
-const openEditCustomer = (customer) => {
-  editingCustomer.value = customer
-  showCustomerModal.value = true
-}
-const closeCustomerModal = () => {
-  showCustomerModal.value = false
-  editingCustomer.value = null
-}
-
-// ── فتح/إغلاق مودال نوع الدراجة (إضافة أو تعديل) ─────────────────────────
-const openAddBikeType = () => {
-  editingBikeType.value = null
-  showBikeTypeModal.value = true
-}
-const openEditBikeType = (type) => {
-  editingBikeType.value = type
-  showBikeTypeModal.value = true
-}
-const closeBikeTypeModal = () => {
-  showBikeTypeModal.value = false
-  editingBikeType.value = null
-}
-
-// ── فتح/إغلاق مودال لون الدراجة (إضافة أو تعديل) ─────────────────────────
-const openAddBikeColor = () => {
-  editingBikeColor.value = null
-  showBikeColorModal.value = true
-}
-const openEditBikeColor = (color) => {
-  editingBikeColor.value = color
-  showBikeColorModal.value = true
-}
-const closeBikeColorModal = () => {
-  showBikeColorModal.value = false
-  editingBikeColor.value = null
-}
-
-// ── حذف عامل / عميل (فردي) ────────────────────────────────────────────
-const handleDeleteWorker = async (workerId) => {
-  try {
-    const res = await apiFetch(`/api/workers/${workerId}/`, {
-      method: 'DELETE'
-    })
-    if (res.ok) {
-      loadWorkers()
-    } else {
-      const data = await res.json()
-      alert('❌ ' + (data.detail || 'تعذر حذف العامل'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  }
-}
-
-const handleDeleteCustomer = async (customerId) => {
-  try {
-    const res = await apiFetch(`/api/customers/${customerId}/`, {
-      method: 'DELETE'
-    })
-    if (res.ok) {
-      loadCustomers()
-    } else {
-      const data = await res.json()
-      alert('❌ ' + (data.detail || 'تعذر حذف العميل'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  }
-}
-
-// ── حذف نوع / لون دراجة (فردي) ───────────────────────────────────────
-const handleDeleteBikeType = async (typeId) => {
-  try {
-    const res = await apiFetch(`/api/bike-types/${typeId}/`, {
-      method: 'DELETE'
-    })
-    if (res.ok) {
-      loadBikeTypes()
-    } else {
-      const data = await res.json()
-      alert('❌ ' + (data.detail || 'تعذر حذف النوع'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  }
-}
-
-const handleDeleteBikeColor = async (colorId) => {
-  try {
-    const res = await apiFetch(`/api/bike-colors/${colorId}/`, {
-      method: 'DELETE'
-    })
-    if (res.ok) {
-      loadBikeColors()
-    } else {
-      const data = await res.json()
-      alert('❌ ' + (data.detail || 'تعذر حذف اللون'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  }
-}
-
-// ── إلغاء بيع (فردي) ─────────────────────────────────────────────────────
-const openCancelSale = (sale) => { cancellingSale.value = sale }
-
-const confirmCancelSale = async (payload) => {
-  if (!cancellingSale.value) return
-  cancelLoading.value = true
-  try {
-    const res = await apiFetch(`/api/sales/${cancellingSale.value.id}/cancel/`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    })
-    const data = await res.json()
-    if (res.ok) {
-      cancellingSale.value = null
-      loadSales()
-      loadAvailableChassis()
-      loadStats()
-    } else {
-      alert('❌ ' + (data.detail || 'تعذر إلغاء عملية البيع'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  } finally {
-    cancelLoading.value = false
-  }
-}
-
-// ── إلغاء عطل (فردي) ─────────────────────────────────────────────────────
-const openCancelFault = (fault) => { cancellingFault.value = fault }
-
-const confirmCancelFault = async (payload) => {
-  if (!cancellingFault.value) return
-  cancelLoading.value = true
-  try {
-    const res = await apiFetch(`/api/faults/${cancellingFault.value.id}/cancel/`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    })
-    const data = await res.json()
-    if (res.ok) {
-      cancellingFault.value = null
-      loadFaults()
-      loadAvailableChassis()
-      loadStats()
-    } else {
-      alert('❌ ' + (data.detail || 'تعذر إلغاء العطل'))
-    }
-  } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
-  } finally {
-    cancelLoading.value = false
-  }
-}
-
-// ── معالجات نجاح الإجراءات الجماعية ─────────────────────────────────────
-const handleRefreshSales = () => { loadSales(); loadAvailableChassis(); loadStats() }
-const handleRefreshFaults = () => { loadFaults(); loadAvailableChassis(); loadStats() }
-
-const handleAssemblySuccess = () => { showAssemblyModal.value = false; assemblyTabRef.value?.refresh() }
-const handleSaleSuccess = () => { showSaleModal.value = false; loadSales(); loadAvailableChassis(); loadStats() }
-const handleFaultSuccess        = () => { showFaultModal.value    = false; loadFaults(); loadAvailableChassis(); loadStats() }
-const handleCustomerFormSuccess = () => { closeCustomerModal(); loadCustomers() }
-const handleWorkerFormSuccess   = () => { closeWorkerModal(); loadWorkers() }
-const handleBikeTypeFormSuccess  = () => { closeBikeTypeModal(); loadBikeTypes() }
-const handleBikeColorFormSuccess = () => { closeBikeColorModal(); loadBikeColors() }
-
 const handleLogout = () => {
   logout()
   router.replace({ name: 'Login' })
 }
 
-// ── عند استعادة عنصر من الأرشيف: نُحدّث القائمة الأصلية المرتبطة بنوعه ─────
 const handleArchiveRestore = (subType) => {
   switch (subType) {
     case 'workers':
-      loadWorkers()
+      workersTabRef.value?.refresh?.()
       break
     case 'customers':
-      loadCustomers()
+      customersTabRef.value?.refresh?.()
       break
     case 'bike_types':
-      loadBikeTypes()
+      settingsTabRef.value?.refreshBikeTypes?.()
       break
     case 'bike_colors':
-      loadBikeColors()
+      settingsTabRef.value?.refreshBikeColors?.()
       break
     case 'users':
       usersTabRef.value?.refresh?.()
@@ -668,8 +264,6 @@ const handleArchiveRestore = (subType) => {
   }
 }
 
-
-// ── إعادة تعيين التحديد الجماعي عند تبديل التبويب ─────────────────────
 watch(activeTab, () => {
   usersTabRef.value?.clearSelection?.()
   settingsTabRef.value?.clearSelection?.()
@@ -681,27 +275,12 @@ watch(activeTab, () => {
   archiveTabRef.value?.clearSelection?.()
 })
 
-
 onMounted(() => {
-  // إذا الرابط بدون ?tab أو يحتوي تبويبًا غير مسموح لهذا المستخدم -> صحّحه لأول تبويب صالح
   const requested = route.query.tab
   if (!requested || !canAccessTab(requested)) {
     router.replace({ query: { ...route.query, tab: getDefaultTab(user.value?.role, user.value?.allowed_tabs) } })
   }
 
-// بيانات مشتركة — تُحمَّل فقط إن كان المستخدم يملك أحد التبويبات التي تحتاجها فعليًا
-  if (canAccessTab('assembly') || canAccessTab('sales') || canAccessTab('faults')) {
-    loadBikeTypes()
-    loadBikeColors()
-    loadWorkers()
-    loadAllChassis()
-  }
-  if (canAccessTab('faults')) loadFaults()
-
-  // بيانات حصرية حسب التبويبات المسموحة فعليًا لهذا المستخدم
   if (canAccessTab('stats')) loadStats()
-  if (canAccessTab('sales')) { loadSales(); loadAvailableChassis() }
-  if (canAccessTab('customers')) loadCustomers()
 })
-
 </script>

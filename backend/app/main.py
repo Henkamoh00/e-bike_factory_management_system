@@ -1,8 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from starlette.responses import JSONResponse
+
 from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles, logs
 from .database import engine
 from . import models
+from .rate_limit import limiter
 
 # إنشاء الجداول عند بدء التطبيق (للتطوير)
 models.Base.metadata.create_all(bind=engine)
@@ -13,6 +19,27 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ── تفعيل Rate Limiting على مستوى التطبيق بأكمله ──────────────────
+app.state.limiter = limiter
+
+
+# 🛡️ معالج مخصص لرسالة عربية واضحة بدل رسالة slowapi الإنجليزية الافتراضية
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    response = _rate_limit_exceeded_handler(request, exc)
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "⛔ عدد كبير جداً من المحاولات في وقت قصير. يرجى الانتظار قليلاً ثم إعادة المحاولة."},
+        headers=dict(response.headers),
+    )
+
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
+
+# 🛡️🛡️ الترتيب حاسم هنا: SlowAPIMiddleware يجب أن يُضاف قبل CORSMiddleware
+# حتى يبقى CORSMiddleware هو الطبقة الخارجية (يُنفَّذ أولاً على كل طلب/استجابة)
+# ويضمن إضافة هيدرز Access-Control-* حتى على استجابات 429، وإلا يفشل
+# المتصفح بصمت في preflight (OPTIONS) ويظهر الأمر كأن لا بيانات تصل إطلاقاً
+app.add_middleware(SlowAPIMiddleware)
+
 origins = [
     "https://electricbikemanager.app",
     "https://electricbikemanager.vercel.app",
@@ -20,7 +47,7 @@ origins = [
     "http://127.0.0.1:5173",
 ]
 
-# CORS
+# CORS — يجب أن يبقى آخر middleware يُضاف (= أول طبقة تنفيذ)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # غير هذا لاحقاً في الإنتاج
