@@ -38,10 +38,14 @@
 
   <!-- الواجهة الطبيعية للتطبيق -->
   <router-view v-else />
+
+  <!-- 🆕 حاوية التوست العامة: تظهر فوق كل التطبيق بغض النظر عن الشاشة الحالية -->
+  <ToastContainer />
 </template>
 
 <script setup>
 import { ref, onErrorCaptured, onMounted, onUnmounted } from 'vue'
+import ToastContainer from './components/shared/ToastContainer.vue'
 
 const hasFatalError = ref(false)
 

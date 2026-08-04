@@ -66,9 +66,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
@@ -96,7 +98,7 @@ const toggleStage = (stage) => {
 
 const submit = async () => {
   if (!form.value.chassis_number || !form.value.description) {
-    alert('رقم الهيكل ووصف العطل مطلوبان')
+    showToast('error', 'رقم الهيكل ووصف العطل مطلوبان')
     return
   }
 
@@ -112,14 +114,14 @@ const submit = async () => {
     })
 
     if (res.ok) {
-      alert('⚠️ تم تسجيل العطل بنجاح!')
+      showToast('success', '⚠️ تم تسجيل العطل بنجاح')
       emit('success')
     } else {
       const data = await res.json()
-      alert('❌ ' + (data.detail || 'حدث خطأ'))
+      showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     loading.value = false
   }

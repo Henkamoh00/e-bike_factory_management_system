@@ -180,6 +180,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
@@ -189,6 +190,7 @@ import FaultModal from '../modals/FaultModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const filters = ref({ chassis_number: '', status: '', repaired_by: '', responsible_worker: '' })
 const repairingFault = ref(null)
@@ -256,6 +258,7 @@ const openRepairModal = (fault) => { repairingFault.value = fault }
 
 const handleRepairSuccess = () => {
   repairingFault.value = null
+  showToast('success', '✅ تم تسجيل التصليح بنجاح')
   pg.load()
   loadAvailableChassis()
 }
@@ -270,12 +273,12 @@ const showBulkCancelModal = ref(false)
 const bulkLoading = ref(false)
 
 const openBulkRepair = () => {
-  if (bulk.selectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  if (bulk.selectedCount.value === 0) { showToast('error', 'لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
   showBulkRepairModal.value = true
 }
 
 const openBulkCancel = () => {
-  if (bulk.selectedCount.value === 0) { alert('لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
+  if (bulk.selectedCount.value === 0) { showToast('error', 'لا توجد أعطال معلقة ضمن التحديد الحالي'); return }
   showBulkCancelModal.value = true
 }
 
@@ -291,13 +294,14 @@ const confirmBulkRepair = async (workerName) => {
 
     if (res.ok) {
       showBulkRepairModal.value = false
+      showToast('success', `✅ ${data.message || 'تم التصليح الجماعي بنجاح'}`)
       bulk.clear()
       pg.load()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ التصليح الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ التصليح الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }
@@ -315,13 +319,14 @@ const confirmBulkCancel = async (payload) => {
 
     if (res.ok) {
       showBulkCancelModal.value = false
+      showToast('success', `✅ ${data.message || 'تم الإلغاء الجماعي بنجاح'}`)
       bulk.clear()
       pg.load()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }
@@ -342,13 +347,14 @@ const confirmCancelFault = async (payload) => {
     const data = await res.json()
     if (res.ok) {
       cancellingFault.value = null
+      showToast('success', '✅ تم إلغاء العطل بنجاح')
       pg.load()
       loadAvailableChassis()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر إلغاء العطل'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر إلغاء العطل'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     cancelLoading.value = false
   }

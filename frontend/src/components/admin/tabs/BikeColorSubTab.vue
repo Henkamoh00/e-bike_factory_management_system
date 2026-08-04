@@ -118,6 +118,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
 import BikeColorFormModal from '../modals/BikeColorFormModal.vue'
@@ -126,6 +127,7 @@ import { useBulkSelection } from '../../../composables/useBulkSelection'
 const emit = defineEmits(['bike-color-changed'])
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const pendingDelete = ref(null)
 const showModal = ref(false)
@@ -159,14 +161,15 @@ const confirmDelete = async () => {
     const data = await res.json()
     if (res.ok) {
       pendingDelete.value = null
+      showToast('success', '✅ تم حذف اللون بنجاح')
       pg.load()
       emit('bike-color-changed')
     } else {
-      alert('❌ ' + (data.detail || 'تعذر حذف اللون'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر حذف اللون'))
       pendingDelete.value = null
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   }
 }
 
@@ -188,14 +191,15 @@ const confirmBulkDelete = async () => {
 
     if (res.ok) {
       showBulkDeleteModal.value = false
+      showToast('success', `✅ ${data.message || 'تم الحذف الجماعي بنجاح'}`)
       bulk.clear()
       pg.load()
       emit('bike-color-changed')
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الحذف الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الحذف الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }

@@ -35,9 +35,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
@@ -83,7 +85,7 @@ const loadSuggestedWorker = async () => {
 
 const submit = async () => {
   if (!form.value.worker_name) {
-    alert('يرجى اختيار العامل الذي قام بالتصليح')
+    showToast('error', 'يرجى اختيار العامل الذي قام بالتصليح')
     return
   }
 
@@ -97,13 +99,13 @@ const submit = async () => {
     const data = await res.json()
 
     if (res.ok) {
-      alert('✅ تم تسجيل التصليح بنجاح!')
+      showToast('success', '✅ تم تسجيل التصليح بنجاح')
       emit('success')
     } else {
-      alert('❌ ' + (data.detail || 'حدث خطأ'))
+      showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     loading.value = false
   }

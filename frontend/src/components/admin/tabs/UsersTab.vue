@@ -176,12 +176,14 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
 import UserFormModal from '../modals/UserFormModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const { apiFetch, user: currentUser } = useAuth()
+const { showToast } = useToast()
 const isTargetProtected = (u) => currentUser.value?.role !== 'admin' && u.role === 'admin'
 
 const showModal = ref(false)
@@ -224,12 +226,13 @@ const confirmDelete = async () => {
     const data = await res.json()
     if (res.ok) {
       pendingDelete.value = null
+      showToast('success', '✅ تم إلغاء تفعيل المستخدم بنجاح')
       pg.load()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تعطيل المستخدم'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تعطيل المستخدم'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   }
 }
 
@@ -251,15 +254,15 @@ const showBulkDeleteModal = ref(false)
 const bulkLoading = ref(false)
 
 const openBulkDeactivate = () => {
-  if (bulk.selectedCount.value === 0) { alert('لا يوجد مستخدمون محددون'); return }
+  if (bulk.selectedCount.value === 0) { showToast('error', 'لا يوجد مستخدمون محددون'); return }
   showBulkDeactivateModal.value = true
 }
 const openBulkActivate = () => {
-  if (bulk.selectedCount.value === 0) { alert('لا يوجد مستخدمون محددون'); return }
+  if (bulk.selectedCount.value === 0) { showToast('error', 'لا يوجد مستخدمون محددون'); return }
   showBulkActivateModal.value = true
 }
 const openBulkDelete = () => {
-  if (bulk.selectedCount.value === 0) { alert('لا يوجد مستخدمون محددون'); return }
+  if (bulk.selectedCount.value === 0) { showToast('error', 'لا يوجد مستخدمون محددون'); return }
   showBulkDeleteModal.value = true
 }
 
@@ -274,13 +277,14 @@ const runBulkAction = async (endpoint, closeModalRef) => {
     const data = await res.json()
     if (res.ok) {
       closeModalRef.value = false
+      showToast('success', `✅ ${data.message || 'تم تنفيذ الإجراء بنجاح'}`)
       bulk.clear()
       pg.load()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الإجراء الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الإجراء الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }

@@ -146,12 +146,14 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import WorkerFormModal from '../../admin/modals/WorkerFormModal.vue'
 import BikeTypeFormModal from '../../admin/modals/BikeTypeFormModal.vue'
 import BikeColorFormModal from '../../admin/modals/BikeColorFormModal.vue'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const emit = defineEmits(['close', 'success', 'worker-added', 'type-added', 'color-added'])
 const loading = ref(false)
@@ -220,15 +222,15 @@ const handleColorAdded = (newColor) => {
 
 const submit = async (force = false) => {
   if (!form.value.chassis_number || !form.value.worker_name || !form.value.stage) {
-    alert('يرجى ملء جميع الحقول')
+    showToast('error', 'يرجى ملء جميع الحقول')
     return
   }
   if (showTypeField.value && !form.value.bike_type_name) {
-    alert('يرجى اختيار نوع الدراجة')
+    showToast('error', 'يرجى اختيار نوع الدراجة')
     return
   }
   if (showColorField.value && !form.value.bike_color_name) {
-    alert('يرجى اختيار لون الدراجة')
+    showToast('error', 'يرجى اختيار لون الدراجة')
     return
   }
 
@@ -246,16 +248,16 @@ const submit = async (force = false) => {
     const data = await res.json()
 
     if (res.ok) {
-      alert('✅ تم تسجيل العملية بنجاح!')
+      showToast('success', '✅ تم تسجيل العملية بنجاح')
       pendingConfirm.value = null
       emit('success')
     } else if (res.status === 409 && data.detail?.includes('هل أنت متأكد')) {
       pendingConfirm.value = data.detail
     } else {
-      alert('❌ ' + (data.detail || 'حدث خطأ'))
+      showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     loading.value = false
   }

@@ -64,10 +64,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import CustomerFormModal from '../../admin/modals/CustomerFormModal.vue'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const emit = defineEmits(['close', 'success', 'customer-added'])
 const loading = ref(false)
@@ -107,7 +109,7 @@ const handleCustomerAdded = (newCustomer) => {
 
 const submit = async () => {
   if (!form.value.chassis_number || !form.value.customer_id) {
-    alert('رقم الهيكل والعميل مطلوبان')
+    showToast('error', 'رقم الهيكل والعميل مطلوبان')
     return
   }
 
@@ -125,13 +127,13 @@ const submit = async () => {
     const data = await res.json()
 
     if (res.ok) {
-      alert('✅ تم تسجيل البيع بنجاح!')
+      showToast('success', '✅ تم تسجيل البيع بنجاح')
       emit('success')
     } else {
-      alert('❌ ' + (data.detail || 'حدث خطأ'))
+      showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     loading.value = false
   }

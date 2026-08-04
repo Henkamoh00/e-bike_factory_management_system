@@ -144,6 +144,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import CancelReasonModal from '../../shared/CancelReasonModal.vue'
@@ -151,6 +152,7 @@ import SaleModal from '../modals/SaleModal.vue'
 import { useBulkSelection } from '../../../composables/useBulkSelection'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const filters = ref({ customer_name: '', status: '', date_from: '', date_to: '' })
 
@@ -198,7 +200,7 @@ const bulkLoading = ref(false)
 
 const openBulkCancel = () => {
   if (bulk.selectedCount.value === 0) {
-    alert('لا توجد عمليات بيع نشطة ضمن التحديد الحالي')
+    showToast('error', 'لا توجد عمليات بيع نشطة ضمن التحديد الحالي')
     return
   }
   showBulkCancelModal.value = true
@@ -216,13 +218,14 @@ const confirmBulkCancel = async (payload) => {
 
     if (res.ok) {
       showBulkCancelModal.value = false
+      showToast('success', `✅ ${data.message || 'تم الإلغاء الجماعي بنجاح'}`)
       bulk.clear()
       pg.load()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الإلغاء الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }
@@ -243,13 +246,14 @@ const confirmCancelSale = async (payload) => {
     const data = await res.json()
     if (res.ok) {
       cancellingSale.value = null
+      showToast('success', '✅ تم إلغاء عملية البيع بنجاح')
       pg.load()
       loadAvailableChassis()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر إلغاء عملية البيع'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر إلغاء عملية البيع'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     cancelLoading.value = false
   }
