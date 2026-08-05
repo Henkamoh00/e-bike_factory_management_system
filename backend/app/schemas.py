@@ -1,17 +1,43 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from datetime import datetime
 from .models import AssemblyStage
+
+
+# ====================== 🛡️ تنظيف تلقائي للمدخلات ======================
+# كلاس أساس مشترك: يمسح المسافات الزائدة (البداية/النهاية) من كل حقل نصي
+# قادم من المستخدم تلقائيًا وقبل أي فحص آخر (mode="before")، بحيث:
+#   - "  أحمد  " → "أحمد"
+#   - "" (بعد المسح) تبقى "" وتخضع لاحقًا لفحوصات الإلزامية العادية
+# أي نموذج إدخال (Create/Update/...) يرث من هذا الكلاس بدل BaseModel مباشرة
+# يحصل على هذا التنظيف تلقائيًا دون أي تعديل إضافي في تعريف الحقول نفسها.
+
+# الحقول التي لا يجب مسح مسافاتها أبدًا (كلمات المرور)
+_SKIP_STRIP_FIELDS = {"password", "hashed_password"}
+
+class StrippedBaseModel(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_string_fields(cls, data):
+        if isinstance(data, dict):
+            cleaned = {}
+            for key, value in data.items():
+                if isinstance(value, str) and key not in _SKIP_STRIP_FIELDS:
+                    cleaned[key] = value.strip()
+                else:
+                    cleaned[key] = value
+            return cleaned
+        return data
 
 
 # ====================== WORKER ======================
 class WorkerBase(BaseModel):
     name: str
 
-class WorkerCreate(BaseModel):
+class WorkerCreate(StrippedBaseModel):
     name: str
     phone: str | None = None
  
-class WorkerUpdate(BaseModel):
+class WorkerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
 
@@ -32,10 +58,10 @@ class Worker(WorkerBase):
         from_attributes = True
 
 # ====================== BIKE TYPE / COLOR ======================
-class BikeTypeCreate(BaseModel):
+class BikeTypeCreate(StrippedBaseModel):
     name: str
 
-class BikeTypeUpdate(BaseModel):
+class BikeTypeUpdate(StrippedBaseModel):
     name: str | None = None
 
 class BikeTypeResponse(BaseModel):
@@ -46,10 +72,10 @@ class BikeTypeResponse(BaseModel):
         from_attributes = True
 
 
-class BikeColorCreate(BaseModel):
+class BikeColorCreate(StrippedBaseModel):
     name: str
 
-class BikeColorUpdate(BaseModel):
+class BikeColorUpdate(StrippedBaseModel):
     name: str | None = None
 
 class BikeColorResponse(BaseModel):
@@ -61,7 +87,7 @@ class BikeColorResponse(BaseModel):
 
 
 # ====================== ASSEMBLY ======================
-class AssemblyCreate(BaseModel):
+class AssemblyCreate(StrippedBaseModel):
     chassis_number: str
     worker_name: str
     stage: AssemblyStage
@@ -90,10 +116,10 @@ class CustomerBase(BaseModel):
     phone: str | None = None
     address: str | None = None
 
-class CustomerCreate(CustomerBase):
+class CustomerCreate(StrippedBaseModel, CustomerBase):
     pass
 
-class CustomerUpdate(BaseModel):
+class CustomerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
     address: str | None = None
@@ -107,13 +133,13 @@ class Customer(CustomerBase):
 
 
 # ====================== SALE ======================
-class SaleCreate(BaseModel):
+class SaleCreate(StrippedBaseModel):
     chassis_number: str
     customer_id: int
     notes: str | None = None
     sale_date: datetime | None = None
 
-class SaleCancel(BaseModel):
+class SaleCancel(StrippedBaseModel):
     reason: str | None = None
     confirm_no_reason: bool = False
 
@@ -135,17 +161,17 @@ class SaleResponse(BaseModel):
 
 
 # ====================== FAULT ======================
-class FaultCreate(BaseModel):
+class FaultCreate(StrippedBaseModel):
     chassis_number: str
     description: str
     related_stage: AssemblyStage | None = None
     status: str | None = "pending"
 
-class FaultCancel(BaseModel):
+class FaultCancel(StrippedBaseModel):
     reason: str | None = None
     confirm_no_reason: bool = False
 
-class FaultRepairCreate(BaseModel):
+class FaultRepairCreate(StrippedBaseModel):
     worker_name: str
     notes: str | None = None
 
@@ -180,10 +206,10 @@ class FaultResponse(BaseModel):
 
 
 # ====================== BULK ACTIONS ======================
-class BulkIds(BaseModel):
+class BulkIds(StrippedBaseModel):
     ids: list[int]
 
-class BulkCancel(BaseModel):
+class BulkCancel(StrippedBaseModel):
     ids: list[int]
     reason: str | None = None
     confirm_no_reason: bool = False
@@ -224,13 +250,13 @@ class ResponseMessage(BaseModel):
 ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "sales", "faults", "workers", "customers", "logs", "archive"]
 
 
-class RoleCreate(BaseModel):
+class RoleCreate(StrippedBaseModel):
     name: str
     label: str
     description: str | None = None
     allowed_tabs: list[str] = []
 
-class RoleUpdate(BaseModel):
+class RoleUpdate(StrippedBaseModel):
     label: str | None = None
     description: str | None = None
     allowed_tabs: list[str] | None = None
@@ -249,13 +275,13 @@ class RoleResponse(BaseModel):
 
 
 # ====================== AUTH / USERS ======================
-class UserCreate(BaseModel):
+class UserCreate(StrippedBaseModel):
     username: str
     password: str
     full_name: str | None = None
     role: str = "operator"
 
-class UserUpdate(BaseModel):
+class UserUpdate(StrippedBaseModel):
     full_name: str | None = None
     role: str | None = None
     is_active: bool | None = None
@@ -275,7 +301,7 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class LoginRequest(BaseModel):
+class LoginRequest(StrippedBaseModel):
     username: str
     password: str
 
