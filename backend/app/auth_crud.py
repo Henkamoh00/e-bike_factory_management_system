@@ -4,7 +4,8 @@ from sqlalchemy.sql import func
 from sqlalchemy.exc import IntegrityError
 from . import models, schemas, audit_crud
 from .security import hash_password, verify_password
-
+from datetime import datetime, timedelta, timezone
+from .models import RefreshToken
 
 def _get_role_by_name(db: Session, name: str) -> models.Role:
     role = db.query(models.Role).filter(models.Role.name == name).first()
@@ -224,3 +225,76 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
         raise ValueError(f"لا يمكن استعادة المستخدم، يوجد مستخدم نشط حاليًا بنفس اسم المستخدم '{user.username}'")
     audit_crud.log_action(db, "restore", "user", user.id, current_user_id, entity_label=user.username)
     return user
+
+
+def create_refresh_token(db: Session, user_id: int, days_valid: int, user_agent: str | None = None, ip_address: str | None = None) -> str:
+    """ينشئ refresh token جديد، يخزّن الهاش فقط، ويرجع القيمة الخام (لتُوضع في الكوكي مرة واحدة فقط)"""
+    raw_token = RefreshToken.generate_raw_token()
+    db_token = RefreshToken(
+        token_hash=RefreshToken.hash_token(raw_token),
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=days_valid),
+        user_agent=user_agent,
+        ip_address=ip_address,
+    )
+    db.add(db_token)
+    db.commit()
+    return raw_token
+
+
+def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User | None:
+    """
+    🛡️ يتحقق من صلاحية الـ refresh token ثم يُبطله فورًا (rotation) —
+    كل استخدام لتوكن التحديث يُنتج توكنًا جديدًا ويُلغي القديم.
+    هذا يمنع إعادة استخدام توكن مسروق قديم (replay attack)، ويكشف السرقة:
+    لو استُخدم توكن مُبطَل سابقًا، فهذا مؤشر قوي على أن نسخة منه سُرِّبت.
+    """
+    token_hash = RefreshToken.hash_token(raw_token)
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+
+    if not db_token:
+        return None
+
+    if db_token.revoked:
+        # 🛡️ إبطال احترازي شامل: لو توكن مُبطَل استُخدم مجددًا، على الأرجح سُرِّب.
+        # نُبطل كل توكنات هذا المستخدم فورًا كإجراء احترازي (يجبره على تسجيل دخول جديد بكل الأجهزة)
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == db_token.user_id,
+            RefreshToken.revoked == False
+        ).update({"revoked": True})
+        db.commit()
+        return None
+
+    if db_token.expires_at < datetime.now(timezone.utc):
+        return None
+
+    user = db.query(models.User).filter(
+        models.User.id == db_token.user_id,
+        models.User.is_deleted == False
+    ).first()
+    if not user or not user.is_active:
+        return None
+
+    # إبطال التوكن الحالي فورًا بعد التحقق (rotation)
+    db_token.revoked = True
+    db.commit()
+
+    return _attach_role(user)
+
+
+def revoke_refresh_token(db: Session, raw_token: str):
+    """يُستخدم عند تسجيل الخروج"""
+    token_hash = RefreshToken.hash_token(raw_token)
+    db_token = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
+    if db_token:
+        db_token.revoked = True
+        db.commit()
+
+
+def revoke_all_user_tokens(db: Session, user_id: int):
+    """يُستخدم عند تغيير كلمة المرور أو الاشتباه بالاختراق"""
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user_id,
+        RefreshToken.revoked == False
+    ).update({"revoked": True})
+    db.commit()

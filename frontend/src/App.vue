@@ -24,9 +24,10 @@
         </button>
         <button
           @click="emergencyLogout"
-          class="w-full bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-bold transition-colors"
+          :disabled="loggingOut"
+          class="w-full bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
         >
-          🚪 تسجيل الخروج وإعادة التحميل
+          {{ loggingOut ? 'جاري تسجيل الخروج...' : '🚪 تسجيل الخروج وإعادة التحميل' }}
         </button>
       </div>
 
@@ -48,6 +49,7 @@ import { ref, onErrorCaptured, onMounted, onUnmounted } from 'vue'
 import ToastContainer from './components/shared/ToastContainer.vue'
 
 const hasFatalError = ref(false)
+const loggingOut = ref(false)
 
 // ── يلتقط أي خطأ يحدث أثناء render أي مكوّن فرعي داخل الشجرة ──────
 onErrorCaptured((err, instance, info) => {
@@ -71,9 +73,25 @@ const reload = () => {
   window.location.reload()
 }
 
-const emergencyLogout = () => {
-  localStorage.removeItem('ebike_token')
-  localStorage.removeItem('ebike_user')
-  window.location.href = '/login'
+// 🛡️ لم يعد يكفي مسح localStorage فقط (لم يعد التوكن موجودًا هناك أصلاً).
+// يجب استدعاء /api/auth/logout/ فعليًا لإبطال الكوكي httpOnly من السيرفر
+// (وإبطال الـ refresh token في قاعدة البيانات)، ثم مسح بيانات العرض المحلية.
+// هذه الشاشة نفسها ظاهرة بسبب خطأ فادح في Vue، لذا نتجنب أي اعتماد على
+// useAuth()/useRouter() هنا ونستخدم fetch خامًا مباشرة لأقصى موثوقية ممكنة.
+const emergencyLogout = async () => {
+  loggingOut.value = true
+  try {
+    await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout/`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch (e) {
+    // نتابع حتى لو فشل الطلب (مثلاً لا يوجد اتصال بالسيرفر) —
+    // الأولوية هي إخراج المستخدم من الواجهة المعطّلة بأي طريقة ممكنة
+    console.error('تعذر إبطال الجلسة من السيرفر أثناء خروج الطوارئ', e)
+  } finally {
+    localStorage.removeItem('ebike_user')
+    window.location.href = '/login'
+  }
 }
 </script>

@@ -25,11 +25,18 @@ app.state.limiter = limiter
 
 # 🛡️ معالج مخصص لرسالة عربية واضحة بدل رسالة slowapi الإنجليزية الافتراضية
 async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    response = _rate_limit_exceeded_handler(request, exc)
+    retry_after = None
+    if hasattr(exc, "retry_after"):
+        retry_after = str(exc.retry_after)
+
+    headers = {}
+    if retry_after:
+        headers["Retry-After"] = retry_after
+
     return JSONResponse(
         status_code=429,
         content={"detail": "⛔ عدد كبير جداً من المحاولات في وقت قصير. يرجى الانتظار قليلاً ثم إعادة المحاولة."},
-        headers=dict(response.headers),
+        headers=headers,
     )
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)

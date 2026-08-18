@@ -49,7 +49,6 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
 const API = import.meta.env.VITE_API_BASE_URL
-const { apiFetch } = useAuth()
 
 const router = useRouter()
 const { setSession } = useAuth()
@@ -66,14 +65,20 @@ const submit = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await apiFetch(`/api/auth/login/`, {
+    // 🛡️ طلب تسجيل الدخول لا يمر عبر apiFetch (لتفادي أي منطق retry/refresh
+    // غير ذي معنى هنا)، لكن يجب credentials: 'include' ليقبل المتصفح
+    // ويخزّن الكوكيز httpOnly التي يُرجعها السيرفر في هذه الاستجابة تحديدًا
+    const res = await fetch(`${API}/api/auth/login/`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)
     })
     const data = await res.json()
     if (res.ok) {
-      setSession(data.access_token, data.user)
+      // 🛡️ لا يوجد access_token في الاستجابة بعد الآن؛ فقط بيانات المستخدم
+      // للعرض. التوكن الفعلي وصل بالفعل داخل Set-Cookie httpOnly ولا نراه هنا إطلاقًا
+      setSession(data)
       router.replace({ name: 'Dashboard' })
     } else {
       error.value = data.detail || 'حدث خطأ أثناء تسجيل الدخول'

@@ -239,8 +239,8 @@ const loadStats = async () => {
   } catch (e) { console.error('إحصائيات', e) }
 }
 
-const handleLogout = () => {
-  logout()
+const handleLogout = async () => {
+  await logout()
   router.replace({ name: 'Login' })
 }
 

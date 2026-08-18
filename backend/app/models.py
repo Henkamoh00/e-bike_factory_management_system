@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, J
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
+import secrets
+import hashlib
 from .database import Base
 
 class AssemblyStage(str, enum.Enum):
@@ -219,3 +221,34 @@ class AuditLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     user = relationship("User")
+
+
+class RefreshToken(Base):
+    """
+    🛡️ توكنات التحديث (Refresh Tokens) — تُخزَّن مُجزّأة (hashed) فقط في قاعدة البيانات
+    أبدًا لا نخزّن التوكن الخام؛ فقط SHA-256 hash منه، بنفس فلسفة كلمات المرور.
+    كل توكن مرتبط بمستخدم، وله تاريخ انتهاء، ويمكن إبطاله (revoke) عند تسجيل الخروج
+    أو عند الاشتباه بتسريبه.
+    """
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked = Column(Boolean, default=False, nullable=False)
+    # 🛡️ لتتبع الجهاز/المتصفح (مفيد لعرض "الجلسات النشطة" مستقبلاً ولاكتشاف السرقة)
+    user_agent = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    @staticmethod
+    def hash_token(raw_token: str) -> str:
+        return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def generate_raw_token() -> str:
+        # 🛡️ 32 بايت عشوائية آمنة تشفيريًا (secrets.token_urlsafe)
+        return secrets.token_urlsafe(48)

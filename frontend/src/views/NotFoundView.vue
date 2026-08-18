@@ -83,8 +83,8 @@ const goBack = () => {
   }
 }
 
-const emergencyLogout = () => {
-  logout()
+const emergencyLogout = async () => {
+  await logout()
   router.replace({ name: 'Login' })
 }
 </script>

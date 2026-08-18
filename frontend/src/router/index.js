@@ -7,7 +7,6 @@ import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
 
 const routes = [
   {
-    // مسار الجذر: يُعيد التوجيه فورًا حسب حالة تسجيل الدخول
     path: '/',
     redirect: () => {
       const { isAuthenticated } = useAuth()
@@ -26,7 +25,6 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    // 🆕 صفحة 404 مميزة بدل التوجيه المباشر لـ /login
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: NotFoundView
@@ -38,15 +36,22 @@ const router = createRouter({
   routes
 })
 
+// 🛡️ فحص الجلسة الأولي يحدث مرة واحدة فقط طوال عمر التطبيق (SPA)،
+// ويستخدم checkInitialSession() بدل fetchCurrentUser() تحديدًا لتفادي
+// طلبات الشبكة غير الضرورية عند عدم وجود جلسة سابقة معروفة أصلًا
+// (راجع التعليق التفصيلي داخل useAuth.js لفهم المنطق الكامل)
+let hasCheckedSession = false
+
 router.beforeEach(async (to) => {
-  const { isAuthenticated, user, fetchCurrentUser, loading } = useAuth()
+  const { isAuthenticated, user, checkInitialSession } = useAuth()
+
+  if (!hasCheckedSession) {
+    hasCheckedSession = true
+    await checkInitialSession()
+  }
 
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return { name: 'Login' }
-  }
-
-  if (isAuthenticated.value && !user.value && fetchCurrentUser) {
-    await fetchCurrentUser()
   }
 
   const role = user.value?.role

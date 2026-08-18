@@ -12,11 +12,19 @@
     <!--
       🆘 زر طوارئ ثابت (لا يعتمد على Vue إطلاقاً - جافاسكريبت خام)
       يبقى يعمل حتى لو تعطلت واجهة التطبيق بالكامل أو فشل تحميلها.
-      يمسح بيانات الجلسة المحلية ويعيد التوجيه لصفحة تسجيل الدخول.
+      يستدعي /api/auth/logout/ لإبطال الكوكي httpOnly من السيرفر فعليًا
+      (وليس فقط مسح localStorage الذي لم يعد يحوي التوكن أصلاً)،
+      ثم يمسح بيانات العرض المحلية ويعيد التوجيه لصفحة تسجيل الدخول.
+
+      🛡️ ملاحظة: %VITE_API_BASE_URL% يُستبدَل فعليًا بقيمة متغير البيئة
+      VITE_API_BASE_URL من ملف .env عند BUILD (وحتى في وضع dev)، بواسطة
+      Vite تلقائيًا لأي نص داخل index.html بهذه الصيغة تحديدًا — لا حاجة
+      لأي <script> خام منفصل لتعريف هذه القيمة، وهذا يُلغي أي احتمال
+      لظهور نص خام غير منفَّذ في الصفحة أثناء التحميل.
     -->
     <button
       id="emergency-logout-btn"
-      onclick="if(confirm('سيتم تسجيل خروجك وإعادة تحميل الصفحة. هل تريد المتابعة؟')){localStorage.removeItem('ebike_token');localStorage.removeItem('ebike_user');window.location.href='/login';}"
+      onclick="if(confirm('سيتم تسجيل خروجك وإعادة تحميل الصفحة. هل تريد المتابعة؟')){fetch('%VITE_API_BASE_URL%/api/auth/logout/',{method:'POST',credentials:'include'}).finally(()=>{localStorage.removeItem('ebike_user');localStorage.removeItem('ebike_had_session');window.location.href='/login';});}"
       style="
         position: fixed;
         bottom: 14px;
