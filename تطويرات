@@ -6,4 +6,7 @@
 
 
 
-نبدأ في الخطوة 7 "لا قيود DB-level تمنع Race Condition عند تسجيل مرحلة تجميع مكررة بنفس اللحظة"
+
+في الحساب الاول درنا محادثة عن الـ ألمبيك تاع الميغرايشن (تهجير قواعد البيانات)
+
+fix(assembly): resolve race condition via pessimistic locking (FOR UPDATE) and unique constraint

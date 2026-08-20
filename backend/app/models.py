@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -104,6 +104,17 @@ class AssemblyRecord(Base):
     bike_type = relationship("BikeType", back_populates="assemblies")
     bike_color = relationship("BikeColor", back_populates="assemblies")
     recorded_by = relationship("User", foreign_keys=[recorded_by_id])
+
+    # 🛡️ قيد فريد على مستوى قاعدة البيانات: يمنع نهائيًا وجود أكثر من سجل
+    # واحد لنفس (رقم الهيكل + المرحلة) — هذا هو خط الدفاع الأخير ضد
+    # Race Condition عند وصول طلبين متزامنين لنفس المرحلة في نفس اللحظة
+    # (مثال: عاملان يُسجَّلان لنفس الهيكل بنفس المرحلة في نفس الثانية).
+    # منطق Python في create_assembly_record يمنع هذا في الحالة العادية،
+    # لكن هذا القيد يضمن الصحة حتى تحت تزامن حقيقي على مستوى الـ DB،
+    # بغض النظر عن أي سباق زمني بين قراءة SELECT وتنفيذ commit.
+    __table_args__ = (
+        UniqueConstraint('chassis_number', 'stage', name='uq_assembly_chassis_stage'),
+    )
 
 class Customer(Base):
     __tablename__ = "customers"

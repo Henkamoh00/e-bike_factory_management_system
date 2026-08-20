@@ -163,8 +163,18 @@ def create_assembly_record(
     stage = assembly.stage.value if hasattr(assembly.stage, 'value') else assembly.stage
     worker = get_or_create_worker(db, assembly.worker_name, current_user_id)
 
+    # 🛡️🛡️ خط الدفاع الأول ضد Race Condition: SELECT ... FOR UPDATE
+    # يقفل كل السجلات الحالية المرتبطة بهذا الهيكل تحديدًا (على مستوى الصفوف)
+    # داخل معاملة قاعدة البيانات الحالية. أي طلب متزامن آخر لنفس chassis_number
+    # (بما فيه طلب إنشاء أول سجل من الصفر) سينتظر في طابور حتى ينتهي commit
+    # لهذه المعاملة، بدل أن يقرأ الاثنان "لا يوجد سجل بهذه المرحلة" في نفس
+    # اللحظة ويُدخلا سجلين متضاربين معًا.
+    # ⚠️ ملاحظة: with_for_update() فعّال مع PostgreSQL/MySQL؛ يُتجاهل بصمت
+    # على SQLite (لا قفل صفّي فيها أصلاً) — لذا القيد الفريد في models.py
+    # (UNIQUE constraint) هو الضمانة الحقيقية والنهائية بغض النظر عن المحرك.
     all_records = db.query(models.AssemblyRecord)\
         .filter(models.AssemblyRecord.chassis_number == assembly.chassis_number)\
+        .with_for_update()\
         .all()
 
     existing_stages = {r.stage for r in all_records}
@@ -260,7 +270,20 @@ def create_assembly_record(
         recorded_by_id=current_user_id,
     )
     db.add(record)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 🛡️🛡️ خط الدفاع الثاني والنهائي: شبكة أمان تلتقط UNIQUE constraint
+        # violation في الحالة النادرة جدًا التي يفلت منها القفل أعلاه
+        # (مثلاً: قاعدة بيانات لا تدعم SELECT FOR UPDATE بنفس الصرامة،
+        # أو مستوى عزل معاملات مختلف). بدل رمي خطأ 500 غامض للمستخدم،
+        # نُرجع رسالة عربية واضحة تفيد بأن التسجيل تم فعليًا من جهة أخرى
+        # في نفس اللحظة تقريبًا.
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"🚫 تم تسجيل مرحلة '{_label(stage)}' لهذا الهيكل ({assembly.chassis_number}) للتو من جهاز أو حساب آخر. يرجى تحديث الصفحة والمحاولة مجدداً."
+        )
     db.refresh(record)
     audit_crud.log_action(
         db, "create", "assembly", record.id, current_user_id,
