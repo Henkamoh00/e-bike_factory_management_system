@@ -15,11 +15,26 @@ def get_workers_with_records(db: Session, skip: int = 0, limit: int = 20, search
     total = query.count()
     workers = query.order_by(desc(models.Worker.id)).offset(skip).limit(limit).all()
 
+    if not workers:
+        return [], total
+
+    # 🆕 إصلاح أداء (N+1): بدل استعلام AssemblyRecord منفصل لكل عامل بالحلقة،
+    # نجلب كل سجلات التجميع الخاصة بعمال هذه الصفحة فقط بطلب واحد (IN)،
+    # ثم نجمّعها بالذاكرة حسب worker_id. هذا يحوّل (1 + عدد العمال) استعلام
+    # إلى استعلامين فقط بغض النظر عن حجم الصفحة.
+    worker_ids = [w.id for w in workers]
+    all_records = db.query(models.AssemblyRecord)\
+        .filter(models.AssemblyRecord.worker_id.in_(worker_ids))\
+        .order_by(models.AssemblyRecord.timestamp)\
+        .all()
+
+    records_by_worker = {}
+    for r in all_records:
+        records_by_worker.setdefault(r.worker_id, []).append(r)
+
     result = []
     for w in workers:
-        records = db.query(models.AssemblyRecord).filter(
-            models.AssemblyRecord.worker_id == w.id
-        ).all()
+        records = records_by_worker.get(w.id, [])
         stages_summary = {}
         for r in records:
             stage_val = r.stage.value if hasattr(r.stage, 'value') else r.stage
@@ -106,12 +121,24 @@ def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search
     total = query.count()
     customers = query.order_by(models.Customer.id.desc()).offset(skip).limit(limit).all()
 
+    if not customers:
+        return [], total
+
+    # 🆕 إصلاح أداء (N+1): جلب كل المبيعات النشطة لعملاء هذه الصفحة بطلب واحد
+    # بدل استعلام منفصل لكل عميل داخل الحلقة
+    customer_ids = [c.id for c in customers]
+    all_sales = db.query(models.Sale).filter(
+        models.Sale.customer_id.in_(customer_ids),
+        models.Sale.status == "active"
+    ).all()
+
+    sales_by_customer = {}
+    for s in all_sales:
+        sales_by_customer.setdefault(s.customer_id, []).append(s)
+
     result = []
     for c in customers:
-        sales = db.query(models.Sale).filter(
-            models.Sale.customer_id == c.id,
-            models.Sale.status == "active"
-        ).all()
+        sales = sales_by_customer.get(c.id, [])
         result.append({
             "id":               c.id,
             "name":             c.name,
@@ -807,11 +834,25 @@ def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, searc
     total = query.count()
     types = query.order_by(desc(models.BikeType.id)).offset(skip).limit(limit).all()
 
-    result = []
-    for t in types:
-        count = db.query(func.count(models.AssemblyRecord.id))\
-                   .filter(models.AssemblyRecord.bike_type_id == t.id).scalar() or 0
-        result.append({"id": t.id, "name": t.name, "usage_count": count})
+    if not types:
+        return [], total
+
+    # 🆕 إصلاح أداء (N+1): بدل استعلام COUNT منفصل لكل نوع دراجة داخل الحلقة،
+    # نجلب كل عدادات الاستخدام لهذه الصفحة بطلب واحد فقط عبر GROUP BY،
+    # ثم نحوّل النتيجة إلى dict {bike_type_id: count} للوصول السريع
+    type_ids = [t.id for t in types]
+    usage_rows = (
+        db.query(models.AssemblyRecord.bike_type_id, func.count(models.AssemblyRecord.id))
+        .filter(models.AssemblyRecord.bike_type_id.in_(type_ids))
+        .group_by(models.AssemblyRecord.bike_type_id)
+        .all()
+    )
+    usage_by_type = {row[0]: row[1] for row in usage_rows}
+
+    result = [
+        {"id": t.id, "name": t.name, "usage_count": usage_by_type.get(t.id, 0)}
+        for t in types
+    ]
     return result, total
 
 
@@ -823,11 +864,24 @@ def get_bike_colors_with_usage(db: Session, skip: int = 0, limit: int = 20, sear
     total = query.count()
     colors = query.order_by(desc(models.BikeColor.id)).offset(skip).limit(limit).all()
 
-    result = []
-    for c in colors:
-        count = db.query(func.count(models.AssemblyRecord.id))\
-                   .filter(models.AssemblyRecord.bike_color_id == c.id).scalar() or 0
-        result.append({"id": c.id, "name": c.name, "usage_count": count})
+    if not colors:
+        return [], total
+
+    # 🆕 إصلاح أداء (N+1): نفس المبدأ المطبّق على أنواع الدراجات أعلاه،
+    # عداد استخدام واحد مجمّع (GROUP BY) بدل استعلام لكل لون في الحلقة
+    color_ids = [c.id for c in colors]
+    usage_rows = (
+        db.query(models.AssemblyRecord.bike_color_id, func.count(models.AssemblyRecord.id))
+        .filter(models.AssemblyRecord.bike_color_id.in_(color_ids))
+        .group_by(models.AssemblyRecord.bike_color_id)
+        .all()
+    )
+    usage_by_color = {row[0]: row[1] for row in usage_rows}
+
+    result = [
+        {"id": c.id, "name": c.name, "usage_count": usage_by_color.get(c.id, 0)}
+        for c in colors
+    ]
     return result, total
 
 
