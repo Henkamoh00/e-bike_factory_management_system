@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+import sqlalchemy as sa
 import enum
 import secrets
 import hashlib
@@ -33,7 +35,10 @@ class Role(Base):
     label = Column(String, nullable=False)
     description = Column(String, nullable=True)
     is_system = Column(Boolean, default=False, nullable=False)
-    allowed_tabs = Column(JSON, nullable=False, default=list)
+    # 🛡️ server_default صريح يطابق القيمة الفعلية المطبّقة على القاعدة حاليًا:
+    # يضمن أن أي إدخال SQL خام (خارج SQLAlchemy) بدون تحديد allowed_tabs
+    # يأخذ [] تلقائيًا بدل فشل NOT NULL violation
+    allowed_tabs = Column(JSONB, nullable=False, default=list, server_default=sa.text("'[]'::jsonb"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="role_obj")
@@ -211,7 +216,9 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
 
     # 👇لمعرفة من قام بحذف/تعطيل هذا المستخدم (للأرشيف)
-    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # 🛡️ index=True: يطابق الفهرس الفعلي الموجود على القاعدة حاليًا
+    # (مفيد لأي استعلام مستقبلي يبحث "من قام بأرشفة من")
+    deleted_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     deleted_by = relationship("User", remote_side=[id], foreign_keys=[deleted_by_id])
 
 

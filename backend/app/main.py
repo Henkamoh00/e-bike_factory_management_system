@@ -11,7 +11,14 @@ from . import models
 from .rate_limit import limiter
 
 # إنشاء الجداول عند بدء التطبيق (للتطوير)
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
+
+# 🛡️ تمت إزالة models.Base.metadata.create_all(bind=engine) نهائيًا.
+# إدارة المخطط (schema) أصبحت حصريًا عبر Alembic migrations من الآن فصاعدًا:
+#   - إنشاء migration جديدة:  alembic revision --autogenerate -m "وصف التغيير"
+#   - تطبيقها على القاعدة:    alembic upgrade head
+# الاعتماد على create_all() كان يعني عدم وجود سجل تاريخي للتغييرات، ويمنع
+# التراجع (downgrade) أو تتبّع من غيّر ماذا ومتى على مستوى بنية القاعدة.
 
 app = FastAPI(
     title="نظام إدارة تجميع الدراجات الكهربائية",
