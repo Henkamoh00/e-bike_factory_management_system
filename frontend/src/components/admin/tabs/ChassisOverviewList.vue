@@ -217,8 +217,10 @@ import { ref, watch, onMounted } from 'vue'
 import SearchableSelect from '../../shared/SearchableSelect.vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const filters = ref({
   chassis_number: '',
@@ -330,11 +332,11 @@ const openDetails = async (chassisNumber) => {
     if (res.ok) {
       selectedChassis.value = await res.json()
     } else {
-      alert('تعذر جلب تفاصيل الهيكل')
+      showToast('error', '❌ تعذر جلب تفاصيل الهيكل')
       selectedChassis.value = null
     }
   } catch (e) {
-    alert('خطأ في الاتصال')
+    showToast('error', 'خطأ في الاتصال')
     selectedChassis.value = null
   } finally {
     loadingDetails.value = false

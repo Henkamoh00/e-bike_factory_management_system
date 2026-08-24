@@ -117,6 +117,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useServerPagination } from '../../../composables/useServerPagination'
+import { useToast } from '../../../composables/useToast'
 import BulkActionsBar from '../../shared/BulkActionsBar.vue'
 import BulkDeleteConfirmModal from '../../shared/BulkDeleteConfirmModal.vue'
 import WorkerFormModal from '../modals/WorkerFormModal.vue'
@@ -125,6 +126,7 @@ import { useBulkSelection } from '../../../composables/useBulkSelection'
 const emit = defineEmits(['worker-changed'])
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const pendingDelete = ref(null)
 const showModal = ref(false)
@@ -158,14 +160,15 @@ const confirmDelete = async () => {
     const data = await res.json()
     if (res.ok) {
       pendingDelete.value = null
+      showToast('success', '✅ تم حذف العامل بنجاح')
       pg.load()
       emit('worker-changed')
     } else {
-      alert('❌ ' + (data.detail || 'تعذر حذف العامل'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر حذف العامل'))
       pendingDelete.value = null
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   }
 }
 
@@ -187,14 +190,15 @@ const confirmBulkDelete = async () => {
 
     if (res.ok) {
       showBulkDeleteModal.value = false
+      showToast('success', `✅ ${data.message || 'تم الحذف الجماعي بنجاح'}`)
       bulk.clear()
       pg.load()
       emit('worker-changed')
     } else {
-      alert('❌ ' + (data.detail || 'تعذر تنفيذ الحذف الجماعي'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ الحذف الجماعي'))
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   } finally {
     bulkLoading.value = false
   }

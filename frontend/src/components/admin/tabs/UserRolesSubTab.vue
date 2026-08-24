@@ -70,16 +70,6 @@
     <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative max-h-[90vh] flex flex-col">
 
-        <transition name="fade">
-          <div
-            v-if="toast.show"
-            class="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg z-10"
-            :class="toast.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
-          >
-            {{ toast.message }}
-          </div>
-        </transition>
-
         <div class="p-8 overflow-y-auto flex-1">
           <h3 class="text-xl font-bold mb-6">{{ isEditing ? 'تعديل الدور' : 'إضافة دور جديد' }}</h3>
 
@@ -163,9 +153,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
+import { useToast } from '../../../composables/useToast'
 import { TAB_DEFINITIONS } from '../../../composables/useTabPermissions'
 
 const { apiFetch, user: currentUser } = useAuth()
+const { showToast } = useToast()
 
 const roles = ref([])
 const loading = ref(false)
@@ -181,14 +173,6 @@ const pendingDelete = ref(null)
 const form = ref({ name: '', label: '', description: '', allowed_tabs: [] })
 
 const tabLabel = (tabId) => TAB_DEFINITIONS.find(t => t.id === tabId)?.label || tabId
-
-const toast = ref({ show: false, type: 'success', message: '' })
-let toastTimer = null
-const showToast = (type, message, duration = 2200) => {
-  clearTimeout(toastTimer)
-  toast.value = { show: true, type, message }
-  toastTimer = setTimeout(() => { toast.value.show = false }, duration)
-}
 
 const loadRoles = async () => {
   loading.value = true
@@ -256,7 +240,8 @@ const submit = async () => {
 
     if (res.ok) {
       showToast('success', isEditing.value ? '✅ تم تحديث الدور والصلاحيات' : '✅ تم إضافة الدور بنجاح')
-      setTimeout(() => { closeModal(); loadRoles() }, 600)
+      closeModal()
+      loadRoles()
     } else {
       showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
@@ -276,13 +261,14 @@ const confirmDelete = async () => {
     const data = await res.json()
     if (res.ok) {
       pendingDelete.value = null
+      showToast('success', '✅ تم حذف الدور بنجاح')
       loadRoles()
     } else {
-      alert('❌ ' + (data.detail || 'تعذر حذف الدور'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر حذف الدور'))
       pendingDelete.value = null
     }
   } catch (e) {
-    alert('تعذر الاتصال بالسيرفر')
+    showToast('error', 'تعذر الاتصال بالسيرفر')
   }
 }
 
@@ -290,8 +276,3 @@ onMounted(() => {
   loadRoles()
 })
 </script>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-</style>
