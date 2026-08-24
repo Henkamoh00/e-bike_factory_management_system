@@ -35,6 +35,19 @@ def get_bike_types(
     return {"items": items, "total": total}
 
 
+# 🛡️📝 ملاحظة توثيقية مقصودة (وليست ثغرة أمنية):
+# صلاحية الإنشاء هنا هي get_current_user فقط (أي مستخدم مسجّل دخول بغض
+# النظر عن صلاحية تبويب "settings")، وليست can_manage_settings كما قد
+# يُتوقع بالمقارنة مع PUT/DELETE أدناه. هذا **مقصود عمدًا** ويطابق تمامًا
+# نفس النمط المتّبع في create_worker داخل workers.py، للسبب التالي:
+#   AssemblyFormModal.vue يسمح لأي عامل يملك صلاحية تبويب "assembly" فقط
+#   (وليس "settings") بإضافة نوع دراجة جديد أثناء تسجيل عملية تجميع
+#   (زر "+ إضافة نوع جديد" داخل المودال) دون أن يحتاج لصلاحية إعدادات كاملة.
+# أما التعديل (PUT) والحذف (DELETE) فتبقى محصورة بـ can_manage_settings
+# عمدًا لأنها عمليات أكثر حساسية تُغيّر أو تُخفي بيانات موجودة مسبقًا،
+# بخلاف مجرد إضافة قيمة جديدة للقائمة.
+# ⚠️ لا تُغيّر هذا إلى can_manage_settings دون التأكد من تحديث الفرونت إند
+# (AssemblyFormModal.vue) ليتعامل مع احتمال ظهور خطأ 403 لغير الأدمن/المشرف.
 @router.post("/bike-types/")
 def create_bike_type(data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeType).filter(
@@ -93,6 +106,10 @@ def get_bike_colors(
     return {"items": items, "total": total}
 
 
+# 🛡️📝 نفس الملاحظة أعلاه بخصوص create_bike_type تنطبق هنا حرفيًا:
+# get_current_user مقصودة عمدًا لتمكين "+ إضافة لون جديد" داخل
+# AssemblyFormModal.vue من قِبل أي عامل بصلاحية تبويب "assembly"، بينما
+# PUT/DELETE تبقى محصورة بـ can_manage_settings.
 @router.post("/bike-colors/")
 def create_bike_color(data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeColor).filter(
