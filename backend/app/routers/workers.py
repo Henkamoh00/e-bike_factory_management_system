@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import crud, schemas, workshop_crud, models
+from .. import reports_crud, schemas, workshop_crud, models
 from ..security import get_current_user, require_tab
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
@@ -33,7 +33,7 @@ def get_workers_full(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    items, total = crud.get_workers_with_records(db, skip=skip, limit=limit, search=search)
+    items, total = reports_crud.get_workers_with_records(db, skip=skip, limit=limit, search=search)
     return {"items": items, "total": total}
 
 
@@ -67,7 +67,7 @@ def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: m
 
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
-    return crud.bulk_soft_delete_workers(db, payload.ids, current_user.id)
+    return reports_crud.bulk_soft_delete_workers(db, payload.ids, current_user.id)
 
 
 @router.get("/archived/", response_model=schemas.PaginatedArchivedWorkers)

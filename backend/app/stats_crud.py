@@ -1,0 +1,34 @@
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from . import models, workshop_crud
+
+
+def get_dashboard_stats(db: Session):
+    all_records = db.query(models.AssemblyRecord).all()
+
+    records_by_chassis = {}
+    for r in all_records:
+        records_by_chassis.setdefault(r.chassis_number, []).append(r)
+
+    total_chassis = len(records_by_chassis)
+
+    completed = sum(
+        1 for records in records_by_chassis.values()
+        if workshop_crud.is_chassis_complete(records)
+    )
+
+    sold = db.query(func.count(models.Sale.id)).filter(
+        models.Sale.status == "active"
+    ).scalar() or 0
+
+    pending_faults = db.query(func.count(models.Fault.id)).filter(
+        models.Fault.status == "pending"
+    ).scalar() or 0
+
+    return {
+        "total_chassis": total_chassis,
+        "completed": completed,
+        "in_progress": total_chassis - completed,
+        "sold": sold,
+        "pending_faults": pending_faults
+    }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import crud, schemas, models
+from .. import customers_crud, schemas, models
 from ..security import require_tab
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
@@ -18,7 +18,7 @@ def search_customers(
     current_user: models.User = Depends(can_access_customers)
 ):
     """🆕 بحث خفيف للقوائم المنسدلة (SaleModal مثلاً)"""
-    customers = crud.search_customers_simple(db, q=q, limit=limit)
+    customers = customers_crud.search_customers_simple(db, q=q, limit=limit)
     return [{"id": c.id, "name": c.name} for c in customers]
 
 
@@ -30,7 +30,7 @@ def get_customers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_customers)
 ):
-    items, total = crud.get_customers_with_sales(db, skip=skip, limit=limit, search=search)
+    items, total = customers_crud.get_customers_with_sales(db, skip=skip, limit=limit, search=search)
     return {"items": items, "total": total}
 
 
@@ -42,13 +42,13 @@ def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العميل موجود مسبقاً")
-    return crud.create_customer(db, customer, current_user.id)
+    return customers_crud.create_customer(db, customer, current_user.id)
 
 
 @router.put("/{customer_id}/")
 def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     try:
-        return crud.update_customer(db, customer_id, customer, current_user.id)
+        return customers_crud.update_customer(db, customer_id, customer, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -56,7 +56,7 @@ def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Sess
 @router.delete("/{customer_id}/")
 def delete_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
     try:
-        crud.soft_delete_customer(db, customer_id, current_user.id)
+        customers_crud.soft_delete_customer(db, customer_id, current_user.id)
         return {"message": "تم حذف العميل بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -64,7 +64,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), current_use
 
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_customers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
-    return crud.bulk_soft_delete_customers(db, payload.ids, current_user.id)
+    return customers_crud.bulk_soft_delete_customers(db, payload.ids, current_user.id)
 
 
 @router.get("/archived/", response_model=schemas.PaginatedArchivedCustomers)
@@ -74,14 +74,14 @@ def get_archived_customers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_archive)
 ):
-    items, total = crud.get_archived_customers(db, skip=skip, limit=limit)
+    items, total = customers_crud.get_archived_customers(db, skip=skip, limit=limit)
     return {"items": items, "total": total}
 
 
 @router.post("/{customer_id}/restore/")
 def restore_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
     try:
-        crud.restore_customer(db, customer_id, current_user.id)
+        customers_crud.restore_customer(db, customer_id, current_user.id)
         return {"message": "تم استعادة العميل بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

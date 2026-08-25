@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import schemas, models, workshop_crud, crud
+from .. import schemas, models, workshop_crud, reports_crud
 from ..security import get_current_user, require_tab
 
 router = APIRouter(prefix="/api", tags=["bike-options"])
@@ -31,7 +31,7 @@ def get_bike_types(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    items, total = crud.get_bike_types_with_usage(db, skip=skip, limit=limit, search=search)
+    items, total = reports_crud.get_bike_types_with_usage(db, skip=skip, limit=limit, search=search)
     return {"items": items, "total": total}
 
 
@@ -78,7 +78,7 @@ def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/bike-types/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_bike_types(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
-    return crud.bulk_soft_delete_bike_types(db, payload.ids, current_user.id)
+    return reports_crud.bulk_soft_delete_bike_types(db, payload.ids, current_user.id)
 
 
 # ====================== BIKE COLORS ======================
@@ -102,7 +102,7 @@ def get_bike_colors(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    items, total = crud.get_bike_colors_with_usage(db, skip=skip, limit=limit, search=search)
+    items, total = reports_crud.get_bike_colors_with_usage(db, skip=skip, limit=limit, search=search)
     return {"items": items, "total": total}
 
 
@@ -140,7 +140,7 @@ def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user
 
 @router.post("/bike-colors/bulk-delete/", response_model=schemas.BulkActionResult)
 def bulk_delete_bike_colors(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
-    return crud.bulk_soft_delete_bike_colors(db, payload.ids, current_user.id)
+    return reports_crud.bulk_soft_delete_bike_colors(db, payload.ids, current_user.id)
 
 
 @router.get("/bike-types/archived/", response_model=schemas.PaginatedArchivedBikeOptions)

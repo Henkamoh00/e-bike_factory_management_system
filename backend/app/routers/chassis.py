@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import crud, schemas, models
+from .. import chassis_crud, schemas, models
 from ..security import require_any_tab
 
 router = APIRouter(prefix="/api/chassis", tags=["chassis"])
@@ -21,7 +21,7 @@ def get_chassis_summary_list(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_chassis)
 ):
-    items, total = crud.get_chassis_summary(
+    items, total = chassis_crud.get_chassis_summary(
         db, skip=skip, limit=limit,
         chassis_number=chassis_number, status=status,
         worker_name=worker_name, stage=stage,
@@ -31,15 +31,15 @@ def get_chassis_summary_list(
 
 @router.get("/available/")
 def get_available_chassis_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
-    return crud.get_available_chassis(db)
+    return chassis_crud.get_available_chassis(db)
 
 @router.get("/all/")
 def get_all_chassis_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
-    return crud.get_all_chassis_numbers(db)
+    return chassis_crud.get_all_chassis_numbers(db)
 
 @router.get("/{chassis_number}/")
 def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
-    history = crud.get_full_chassis_history(db, chassis_number)
+    history = chassis_crud.get_full_chassis_history(db, chassis_number)
     if not history["assembly_history"] and not history["sales"] and not history["faults"]:
         raise HTTPException(status_code=404, detail="لم يتم العثور على هذا الهيكل")
     return history
