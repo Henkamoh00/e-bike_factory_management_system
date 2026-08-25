@@ -102,12 +102,22 @@ def update_user(db: Session, user_id: int, data: schemas.UserUpdate, current_use
     if data.is_active is not None and data.is_active != user.is_active:
         changes.append("تم التفعيل" if data.is_active else "تم التعطيل")
         user.is_active = data.is_active
+
+    password_changed = False
     if data.password:
         changes.append("تم تغيير كلمة المرور")
         user.hashed_password = hash_password(data.password)
+        password_changed = True
 
     db.commit()
     db.refresh(user)
+
+    # 🛡️ عند تغيير كلمة المرور: إبطال كل refresh tokens الحالية للمستخدم فورًا.
+    # بدون هذا، أي جهاز يملك refresh token قديم (مثلاً جهاز مخترق) يبقى قادرًا
+    # على تجديد access token رغم تغيير كلمة المرور، مما يُفشل الغرض الأمني من الخطوة.
+    if password_changed:
+        revoke_all_user_tokens(db, user.id)
+
     audit_crud.log_action(
         db, "update", "user", user.id, current_user_id,
         entity_label=user.username, details="، ".join(changes) if changes else None
@@ -123,6 +133,9 @@ def soft_delete_user(db: Session, user_id: int, current_user_id: int):
     user.is_active = False
     user.deleted_by_id = current_user_id
     db.commit()
+    # 🛡️ إبطال كل جلسات المستخدم فورًا عند الحذف الناعم، حتى لا يبقى بإمكانه
+    # تجديد access token عبر refresh token قديم رغم أرشفة حسابه
+    revoke_all_user_tokens(db, user.id)
     audit_crud.log_action(db, "delete", "user", user.id, current_user_id, entity_label=user.username)
     return user
 
@@ -136,6 +149,9 @@ def bulk_deactivate_users(db: Session, ids: list[int], current_user_id: int):
     for u in users:
         u.is_active = False
     db.commit()
+    # 🛡️ إبطال جلسات كل مستخدم عُطِّل، لنفس السبب أعلاه
+    for u in users:
+        revoke_all_user_tokens(db, u.id)
     audit_crud.log_action(
         db, "bulk_deactivate", "user", None, current_user_id,
         entity_label=f"{len(users)} مستخدم", details="، ".join(names) if names else None
@@ -175,6 +191,9 @@ def bulk_soft_delete_users(db: Session, ids: list[int], current_user_id: int):
         u.is_active = False
         u.deleted_by_id = current_user_id
     db.commit()
+    # 🛡️ إبطال جلسات كل مستخدم حُذف حذفًا ناعمًا جماعيًا
+    for u in users:
+        revoke_all_user_tokens(db, u.id)
     audit_crud.log_action(
         db, "bulk_delete", "user", None, current_user_id,
         entity_label=f"{len(users)} مستخدم", details="، ".join(names) if names else None
@@ -292,7 +311,7 @@ def revoke_refresh_token(db: Session, raw_token: str):
 
 
 def revoke_all_user_tokens(db: Session, user_id: int):
-    """يُستخدم عند تغيير كلمة المرور أو الاشتباه بالاختراق"""
+    """يُستخدم عند تغيير كلمة المرور، تعطيل/حذف المستخدم، أو الاشتباه بالاختراق"""
     db.query(RefreshToken).filter(
         RefreshToken.user_id == user_id,
         RefreshToken.revoked == False

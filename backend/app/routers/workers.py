@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import reports_crud, schemas, workshop_crud, models
+from .. import reports_crud, schemas, workers_crud, models
 from ..security import get_current_user, require_tab
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
@@ -21,7 +21,7 @@ def get_workers_simple(
     🆕 نقطة نهاية خفيفة مخصصة للقوائم المنسدلة (SearchableSelect)
     تدعم بحثًا ديناميكيًا بدل تحميل كل العمال دفعة واحدة.
     """
-    workers = workshop_crud.search_workers_simple(db, q=q, limit=limit)
+    workers = workers_crud.search_workers_simple(db, q=q, limit=limit)
     return [{"id": w.id, "name": w.name} for w in workers]
 
 
@@ -45,13 +45,13 @@ def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), c
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العامل موجود مسبقاً")
-    return workshop_crud.get_or_create_worker(db, worker.name, current_user.id)
+    return workers_crud.get_or_create_worker(db, worker.name, current_user.id)
 
 
 @router.put("/{worker_id}/")
 def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
     try:
-        return workshop_crud.update_worker(db, worker_id, worker, current_user.id)
+        return workers_crud.update_worker(db, worker_id, worker, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -59,7 +59,7 @@ def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = De
 @router.delete("/{worker_id}/")
 def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
     try:
-        workshop_crud.soft_delete_worker(db, worker_id, current_user.id)
+        workers_crud.soft_delete_worker(db, worker_id, current_user.id)
         return {"message": "تم حذف العامل بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -77,14 +77,14 @@ def get_archived_workers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_archive)
 ):
-    items, total = workshop_crud.get_archived_workers(db, skip=skip, limit=limit)
+    items, total = workers_crud.get_archived_workers(db, skip=skip, limit=limit)
     return {"items": items, "total": total}
 
 
 @router.post("/{worker_id}/restore/")
 def restore_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
     try:
-        workshop_crud.restore_worker(db, worker_id, current_user.id)
+        workers_crud.restore_worker(db, worker_id, current_user.id)
         return {"message": "تم استعادة العامل بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

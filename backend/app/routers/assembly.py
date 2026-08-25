@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from .. import schemas, workshop_crud, models
+from .. import schemas, assembly_crud, models
 from ..security import require_tab
 
 router = APIRouter(prefix="/api/assembly", tags=["assembly"])
@@ -17,7 +17,7 @@ def create_assembly_record(
     current_user: models.User = Depends(can_manage_assembly)
 ):
     try:
-        record = workshop_crud.create_assembly_record(
+        record = assembly_crud.create_assembly_record(
             db=db,
             assembly=assembly,
             current_user_id=current_user.id,

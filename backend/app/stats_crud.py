@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from . import models, workshop_crud
+from . import models, assembly_crud
 
 
 def get_dashboard_stats(db: Session):
@@ -14,7 +14,7 @@ def get_dashboard_stats(db: Session):
 
     completed = sum(
         1 for records in records_by_chassis.values()
-        if workshop_crud.is_chassis_complete(records)
+        if assembly_crud.is_chassis_complete(records)
     )
 
     sold = db.query(func.count(models.Sale.id)).filter(

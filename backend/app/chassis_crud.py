@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
-from . import models, workshop_crud, faults_crud
+from . import models, assembly_crud, faults_crud
 
 
 def get_available_chassis(db: Session):
@@ -26,7 +26,7 @@ def get_available_chassis(db: Session):
     available = [
         chassis_number
         for chassis_number, records in records_by_chassis.items()
-        if workshop_crud.is_chassis_complete(records)
+        if assembly_crud.is_chassis_complete(records)
         and chassis_number not in sold_numbers
         and chassis_number not in faulty_numbers
     ]
@@ -82,7 +82,7 @@ def get_chassis_summary(
 
     summary = []
     for chassis_num, records in records_by_chassis.items():
-        is_complete = workshop_crud.is_chassis_complete(records)
+        is_complete = assembly_crud.is_chassis_complete(records)
         sale = active_sold_map.get(chassis_num)
         faults = faults_by_chassis.get(chassis_num, [])
         pending_faults = [f for f in faults if f.status == "pending"]
@@ -129,8 +129,8 @@ def get_chassis_summary(
         if worker_name and stage:
             direct_match = stage_workers.get(stage) == worker_name
             covered_by_full = (
-                stage in (workshop_crud.STAGE_ASSEMBLY, workshop_crud.STAGE_COVER)
-                and stage_workers.get(workshop_crud.STAGE_COMPLETE) == worker_name
+                stage in (assembly_crud.STAGE_ASSEMBLY, assembly_crud.STAGE_COVER)
+                and stage_workers.get(assembly_crud.STAGE_COMPLETE) == worker_name
             )
             if not direct_match and not covered_by_full:
                 return False
@@ -157,7 +157,7 @@ def get_chassis_summary(
 
 def get_full_chassis_history(db: Session, chassis_number: str):
 
-    assembly_records = workshop_crud.get_assembly_by_chassis(
+    assembly_records = assembly_crud.get_assembly_by_chassis(
         db,
         chassis_number
     )

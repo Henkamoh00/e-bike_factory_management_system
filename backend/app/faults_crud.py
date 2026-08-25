@@ -1,7 +1,7 @@
 from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from . import models, schemas, workshop_crud, audit_crud
+from . import models, schemas, workers_crud, assembly_crud, audit_crud
 
 
 def create_fault(db: Session, fault: schemas.FaultCreate, current_user_id: int):
@@ -69,7 +69,7 @@ def _attach_fault_extras(db: Session, faults):
                     db.query(models.AssemblyRecord)
                     .filter(
                         models.AssemblyRecord.chassis_number == fault.chassis_number,
-                        models.AssemblyRecord.stage == workshop_crud.STAGE_COMPLETE
+                        models.AssemblyRecord.stage == assembly_crud.STAGE_COMPLETE
                     )
                     .first()
                 )
@@ -129,7 +129,7 @@ def create_fault_repair(db: Session, fault_id: int, repair: schemas.FaultRepairC
     if db_fault.status == "cancelled":
         raise ValueError("هذا العطل ملغى، لا يمكن تسجيل تصليح له")
 
-    worker = workshop_crud.get_or_create_worker(db, repair.worker_name, current_user_id)
+    worker = workers_crud.get_or_create_worker(db, repair.worker_name, current_user_id)
 
     db_repair = models.FaultRepair(
         fault_id=fault_id,
@@ -208,7 +208,7 @@ def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel, current_user_id
 
 
 def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, current_user_id: int):
-    worker = workshop_crud.get_or_create_worker(db, worker_name, current_user_id)
+    worker = workers_crud.get_or_create_worker(db, worker_name, current_user_id)
     faults = db.query(models.Fault).filter(
         models.Fault.id.in_(ids),
         models.Fault.status == "pending"

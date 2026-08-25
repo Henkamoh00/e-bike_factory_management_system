@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from .. import schemas, models, workshop_crud, reports_crud
+from .. import schemas, models, bike_options_crud, reports_crud
 from ..security import get_current_user, require_tab
 
 router = APIRouter(prefix="/api", tags=["bike-options"])
@@ -19,7 +19,7 @@ def search_bike_types(
     current_user: models.User = Depends(get_current_user)
 ):
     """🆕 بحث خفيف للقوائم المنسدلة"""
-    types = workshop_crud.search_bike_types_simple(db, q=q, limit=limit)
+    types = bike_options_crud.search_bike_types_simple(db, q=q, limit=limit)
     return [{"id": t.id, "name": t.name} for t in types]
 
 
@@ -56,13 +56,13 @@ def create_bike_type(data: schemas.BikeTypeCreate, db: Session = Depends(get_db)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="نوع الدراجة موجود مسبقاً")
-    return workshop_crud.get_or_create_bike_type(db, data.name, current_user.id)
+    return bike_options_crud.get_or_create_bike_type(db, data.name, current_user.id)
 
 
 @router.put("/bike-types/{type_id}/")
 def update_bike_type(type_id: int, data: schemas.BikeTypeUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
     try:
-        return workshop_crud.update_bike_type(db, type_id, data, current_user.id)
+        return bike_options_crud.update_bike_type(db, type_id, data, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -70,7 +70,7 @@ def update_bike_type(type_id: int, data: schemas.BikeTypeUpdate, db: Session = D
 @router.delete("/bike-types/{type_id}/")
 def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
     try:
-        workshop_crud.soft_delete_bike_type(db, type_id, current_user.id)
+        bike_options_crud.soft_delete_bike_type(db, type_id, current_user.id)
         return {"message": "تم حذف نوع الدراجة بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -90,7 +90,7 @@ def search_bike_colors(
     current_user: models.User = Depends(get_current_user)
 ):
     """🆕 بحث خفيف للقوائم المنسدلة"""
-    colors = workshop_crud.search_bike_colors_simple(db, q=q, limit=limit)
+    colors = bike_options_crud.search_bike_colors_simple(db, q=q, limit=limit)
     return [{"id": c.id, "name": c.name} for c in colors]
 
 
@@ -118,13 +118,13 @@ def create_bike_color(data: schemas.BikeColorCreate, db: Session = Depends(get_d
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="لون الدراجة موجود مسبقاً")
-    return workshop_crud.get_or_create_bike_color(db, data.name, current_user.id)
+    return bike_options_crud.get_or_create_bike_color(db, data.name, current_user.id)
 
 
 @router.put("/bike-colors/{color_id}/")
 def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
     try:
-        return workshop_crud.update_bike_color(db, color_id, data, current_user.id)
+        return bike_options_crud.update_bike_color(db, color_id, data, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -132,7 +132,7 @@ def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session 
 @router.delete("/bike-colors/{color_id}/")
 def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
     try:
-        workshop_crud.soft_delete_bike_color(db, color_id, current_user.id)
+        bike_options_crud.soft_delete_bike_color(db, color_id, current_user.id)
         return {"message": "تم حذف اللون بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -150,14 +150,14 @@ def get_archived_bike_types(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_archive)
 ):
-    items, total = workshop_crud.get_archived_bike_types(db, skip=skip, limit=limit)
+    items, total = bike_options_crud.get_archived_bike_types(db, skip=skip, limit=limit)
     return {"items": items, "total": total}
 
 
 @router.post("/bike-types/{type_id}/restore/")
 def restore_bike_type(type_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
     try:
-        workshop_crud.restore_bike_type(db, type_id, current_user.id)
+        bike_options_crud.restore_bike_type(db, type_id, current_user.id)
         return {"message": "تم استعادة النوع بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -170,14 +170,14 @@ def get_archived_bike_colors(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_archive)
 ):
-    items, total = workshop_crud.get_archived_bike_colors(db, skip=skip, limit=limit)
+    items, total = bike_options_crud.get_archived_bike_colors(db, skip=skip, limit=limit)
     return {"items": items, "total": total}
 
 
 @router.post("/bike-colors/{color_id}/restore/")
 def restore_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
     try:
-        workshop_crud.restore_bike_color(db, color_id, current_user.id)
+        bike_options_crud.restore_bike_color(db, color_id, current_user.id)
         return {"message": "تم استعادة اللون بنجاح", "status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
