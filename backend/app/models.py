@@ -229,7 +229,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    action = Column(String, nullable=False)        # create / update / delete / cancel / restore / repair / login
+    action = Column(String, nullable=False, index=True)        # create / update / delete / cancel / restore / repair / login
     entity_type = Column(String, nullable=False, index=True)  # worker / customer / sale / fault / assembly / user / role ...
     entity_id = Column(Integer, nullable=True)
     entity_label = Column(String, nullable=True)    # وصف مقروء (مثال: رقم الهيكل أو اسم العميل)
