@@ -1,11 +1,19 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
-from sqlalchemy.sql import func
 from sqlalchemy.exc import IntegrityError
 from . import models, schemas, audit_crud
 from .security import hash_password, verify_password
 from datetime import datetime, timedelta, timezone
 from .models import RefreshToken
+
+
+# توجد مشاكل في طريقة تعريف الوقت ومقرانة الحقول المتعلقة بالوقت المجلوبة من قاعدة البيانات
+# الطرق المختلفة مثل التاريخ مرتبط بالمنطقة الزمنية وبدونه
+# datetime.now_utc()
+# datetime.utcnow()
+# datetime.now(timezone.utc).replace(tzinfo=None)
+# datetime.now(timezone.utc)
+
 
 def _get_role_by_name(db: Session, name: str) -> models.Role:
     role = db.query(models.Role).filter(models.Role.name == name).first()
@@ -252,7 +260,7 @@ def create_refresh_token(db: Session, user_id: int, days_valid: int, user_agent:
     db_token = RefreshToken(
         token_hash=RefreshToken.hash_token(raw_token),
         user_id=user_id,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=days_valid),
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days_valid),
         user_agent=user_agent,
         ip_address=ip_address,
     )
@@ -284,7 +292,7 @@ def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User 
         db.commit()
         return None
 
-    if db_token.expires_at < datetime.now(timezone.utc):
+    if db_token.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
         return None
 
     user = db.query(models.User).filter(

@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Enum as SQLEnum, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import sqlalchemy as sa
@@ -7,6 +6,11 @@ import enum
 import secrets
 import hashlib
 from .database import Base
+from sqlalchemy.dialects import postgresql
+
+# يستخدم JSONB مع PostgreSQL، و JSON العادي مع بقية قواعد البيانات (مثل SQLite)
+JSON_TYPE = sa.JSON().with_variant(postgresql.JSONB(), "postgresql")
+
 
 class AssemblyStage(str, enum.Enum):
     CHASSIS_ASSEMBLY = "تجميع_الهيكل"
@@ -38,7 +42,7 @@ class Role(Base):
     # 🛡️ server_default صريح يطابق القيمة الفعلية المطبّقة على القاعدة حاليًا:
     # يضمن أن أي إدخال SQL خام (خارج SQLAlchemy) بدون تحديد allowed_tabs
     # يأخذ [] تلقائيًا بدل فشل NOT NULL violation
-    allowed_tabs = Column(JSONB, nullable=False, default=list, server_default=sa.text("'[]'::jsonb"))
+    allowed_tabs = Column(JSON_TYPE, nullable=False, default=list, server_default=sa.text("'[]'")) # النص العادي يفهمه PostgreSQL و SQLite معاً
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="role_obj")

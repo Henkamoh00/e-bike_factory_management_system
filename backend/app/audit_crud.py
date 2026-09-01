@@ -63,9 +63,9 @@ def get_logs(
     total = q.count()
     logs = q.order_by(desc(models.AuditLog.timestamp)).offset(skip).limit(limit).all()
 
-    for l in logs:
-        l.username = l.user.username if l.user else None
-        l.user_full_name = l.user.full_name if l.user else None
+    for log in logs:
+        log.username = log.user.username if log.user else None
+        log.user_full_name = log.user.full_name if log.user else None
 
     return logs, total
 

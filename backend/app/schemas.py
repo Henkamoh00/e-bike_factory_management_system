@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import datetime
 from .models import AssemblyStage
 
@@ -46,16 +46,14 @@ class WorkerResponse(BaseModel):
     name: str
     phone: str | None = None
  
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
  
 
 class Worker(WorkerBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ====================== BIKE TYPE / COLOR ======================
 class BikeTypeCreate(StrippedBaseModel):
@@ -68,8 +66,7 @@ class BikeTypeResponse(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BikeColorCreate(StrippedBaseModel):
@@ -82,8 +79,7 @@ class BikeColorResponse(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== ASSEMBLY ======================
@@ -106,8 +102,7 @@ class AssemblyResponse(BaseModel):
     timestamp: datetime
     recorded_by_username: str | None = None   # 👈 جديد
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== CUSTOMER ======================
@@ -128,8 +123,7 @@ class Customer(CustomerBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== SALE ======================
@@ -156,8 +150,7 @@ class SaleResponse(BaseModel):
     created_by_username: str | None = None     # 👈 جديد
     cancelled_by_username: str | None = None    # 👈 جديد
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== FAULT ======================
@@ -184,8 +177,7 @@ class FaultRepairResponse(BaseModel):
     notes: str | None = None
     recorded_by_username: str | None = None   # 👈 جديد
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FaultResponse(BaseModel):
     id: int
@@ -201,8 +193,7 @@ class FaultResponse(BaseModel):
     reported_by_username: str | None = None    # 👈 جديد
     cancelled_by_username: str | None = None    # 👈 جديد
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== BULK ACTIONS ======================
@@ -234,8 +225,7 @@ class ChassisHistoryResponse(BaseModel):
     sales: list[SaleResponse] = []
     faults: list[FaultResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== RESPONSE MODELS ======================
@@ -270,8 +260,7 @@ class RoleResponse(BaseModel):
     allowed_tabs: list[str] = []
     users_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== AUTH / USERS ======================
@@ -298,8 +287,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LoginRequest(StrippedBaseModel):
     username: str
@@ -324,8 +312,7 @@ class AuditLogResponse(BaseModel):
     user_full_name: str | None = None
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AuditLogListResponse(BaseModel):
@@ -340,8 +327,7 @@ class ArchivedWorkerResponse(BaseModel):
     phone: str | None = None
     deleted_by_username: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ArchivedUserResponse(BaseModel):
@@ -351,8 +337,7 @@ class ArchivedUserResponse(BaseModel):
     role_label: str | None = None
     deleted_by_username: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
         
 
 class ArchivedCustomerResponse(BaseModel):
@@ -362,8 +347,7 @@ class ArchivedCustomerResponse(BaseModel):
     address: str | None = None
     deleted_by_username: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ArchivedBikeOptionResponse(BaseModel):
@@ -371,8 +355,7 @@ class ArchivedBikeOptionResponse(BaseModel):
     name: str
     deleted_by_username: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ====================== PAGINATION ======================
@@ -405,16 +388,14 @@ class WorkerSimpleResponse(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CustomerSimpleResponse(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedSales(BaseModel):

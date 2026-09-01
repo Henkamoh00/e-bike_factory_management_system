@@ -1,13 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
 from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles, logs
-from .database import engine
-from . import models
 from .rate_limit import limiter
 
 # إنشاء الجداول عند بدء التطبيق (للتطوير)

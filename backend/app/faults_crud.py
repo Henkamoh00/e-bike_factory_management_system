@@ -1,4 +1,3 @@
-from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from . import models, schemas, workers_crud, assembly_crud, audit_crud
@@ -105,8 +104,6 @@ def get_all_faults(
     if status:
         query = query.filter(models.Fault.status == status)
 
-    total_query_ids = [f.id for f in query.with_entities(models.Fault.id).all()]
-
     faults = query.order_by(desc(models.Fault.reported_date)).all()
     faults = _attach_fault_extras(db, faults)
 
@@ -207,7 +204,7 @@ def bulk_cancel_faults(db: Session, payload: schemas.BulkCancel, current_user_id
     }
 
 
-def bulk_mark_faults_fixed(db: Session, ids: List[int], worker_name: str, current_user_id: int):
+def bulk_mark_faults_fixed(db: Session, ids: list[int], worker_name: str, current_user_id: int):
     worker = workers_crud.get_or_create_worker(db, worker_name, current_user_id)
     faults = db.query(models.Fault).filter(
         models.Fault.id.in_(ids),

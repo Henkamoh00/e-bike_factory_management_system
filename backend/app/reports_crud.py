@@ -1,4 +1,3 @@
-from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from . import models, audit_crud
@@ -56,7 +55,7 @@ def get_workers_with_records(db: Session, skip: int = 0, limit: int = 20, search
     return result, total
 
 
-def bulk_soft_delete_workers(db: Session, ids: List[int], current_user_id: int):
+def bulk_soft_delete_workers(db: Session, ids: list[int], current_user_id: int):
     workers = db.query(models.Worker).filter(models.Worker.id.in_(ids)).all()
     found_ids = {w.id for w in workers}
     failed_ids = [i for i in ids if i not in found_ids]
@@ -132,7 +131,7 @@ def get_bike_colors_with_usage(db: Session, skip: int = 0, limit: int = 20, sear
     return result, total
 
 
-def bulk_soft_delete_bike_types(db: Session, ids: List[int], current_user_id: int):
+def bulk_soft_delete_bike_types(db: Session, ids: list[int], current_user_id: int):
     types = db.query(models.BikeType).filter(models.BikeType.id.in_(ids)).all()
     found_ids = {t.id for t in types}
     failed_ids = [i for i in ids if i not in found_ids]
@@ -148,7 +147,7 @@ def bulk_soft_delete_bike_types(db: Session, ids: List[int], current_user_id: in
     return {"success_count": len(types), "failed_ids": failed_ids, "message": f"تم حذف {len(types)} نوع"}
 
 
-def bulk_soft_delete_bike_colors(db: Session, ids: List[int], current_user_id: int):
+def bulk_soft_delete_bike_colors(db: Session, ids: list[int], current_user_id: int):
     colors = db.query(models.BikeColor).filter(models.BikeColor.id.in_(ids)).all()
     found_ids = {c.id for c in colors}
     failed_ids = [i for i in ids if i not in found_ids]

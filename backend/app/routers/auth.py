@@ -5,8 +5,7 @@ from ..database import get_db
 from .. import schemas, models, auth_crud
 from ..security import (
     create_access_token, get_current_user,
-    set_auth_cookies, clear_auth_cookies,
-    ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS,
+    set_auth_cookies, clear_auth_cookies, REFRESH_TOKEN_EXPIRE_DAYS,
     REFRESH_COOKIE_NAME,
 )
 from ..rate_limit import limiter
