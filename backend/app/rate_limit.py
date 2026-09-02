@@ -5,27 +5,47 @@ from slowapi.util import get_remote_address
 from fastapi import Request
 
 
+# 🛡️🆕 قائمة عناوين IP الخاصة بالبروكسي/Load Balancer الموثوق فقط.
+# لا يُوثَق بهيدر X-Forwarded-For إلا إذا كان الطلب قادمًا فعليًا من أحد
+# هذه العناوين مباشرة (أي أن request.client.host هو عنوان البروكسي نفسه).
+# بدون هذا الفحص، أي مهاجم يستطيع إرسال X-Forwarded-For مزيّف مختلف مع كل
+# طلب للتحايل الكامل على حد "5 محاولات/دقيقة" في تسجيل الدخول.
+# اضبط هذا المتغير في بيئة الإنتاج بعناوين IP الخاصة بمزوّد الاستضافة
+# (مثال: Render/Railway/Nginx reverse proxy)، مفصولة بفواصل.
+_raw_trusted = os.getenv("TRUSTED_PROXY_IPS", "")
+TRUSTED_PROXY_IPS = {ip.strip() for ip in _raw_trusted.split(",") if ip.strip()}
+
+if not TRUSTED_PROXY_IPS:
+    warnings.warn(
+        "⚠️ TRUSTED_PROXY_IPS غير مُعرَّف — سيتم تجاهل هيدر X-Forwarded-For "
+        "بالكامل والاعتماد فقط على عنوان IP المباشر للاتصال (request.client.host). "
+        "إذا كان السيرفر خلف بروكسي/load balancer فعليًا، يجب ضبط هذا المتغير "
+        "وإلا ستُطبَّق حدود Rate Limiting على IP البروكسي نفسه لكل المستخدمين معًا."
+    )
+
+
 def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return get_remote_address(request)
+    direct_ip = get_remote_address(request)
+
+    # 🛡️ الوثوق بـ X-Forwarded-For فقط إذا كان الاتصال المباشر قادمًا من
+    # بروكسي معروف ومُدرَج صراحة في القائمة الموثوقة
+    if direct_ip in TRUSTED_PROXY_IPS:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # أول عنوان بالسلسلة هو عنوان العميل الأصلي (المُضاف من البروكسي
+            # الموثوق نفسه، وليس من العميل، طالما البروكسي مُهيَّأ بشكل صحيح)
+            return forwarded.split(",")[0].strip()
+
+    return direct_ip
 
 
 REDIS_URL = os.getenv("REDIS_URL")
 
-# 🛡️ مهلة زمنية صارمة (بالثواني) لأي محاولة اتصال أو عملية على Redis.
-# بدونها، أي عطل شبكي صامت (جدار ناري يُسقط الحزم دون رفض) يُعلّق الطلب
-# إلى الأبد بلا أي خطأ ظاهر — وهذا بالضبط ما يسبب "جاري التحميل" اللانهائي.
-REDIS_CONNECT_TIMEOUT = 3   # ثواني لمحاولة فتح الاتصال
-REDIS_SOCKET_TIMEOUT = 3    # ثواني لكل عملية قراءة/كتابة بعد الاتصال
+REDIS_CONNECT_TIMEOUT = 3
+REDIS_SOCKET_TIMEOUT = 3
 
 
 def _build_redis_storage_uri(base_url: str) -> str:
-    """
-    يضيف مهلات timeout لرابط Redis عبر query params التي تدعمها
-    مكتبة redis-py (ومن ورائها limits/slowapi).
-    """
     separator = "&" if "?" in base_url else "?"
     return (
         f"{base_url}{separator}"
@@ -35,10 +55,6 @@ def _build_redis_storage_uri(base_url: str) -> str:
 
 
 def _test_redis_connection(url: str) -> bool:
-    """
-    اختبار فعلي وسريع للاتصال بـ Redis عند إقلاع السيرفر، بدل انتظار
-    اكتشاف العطل لاحقًا أثناء تعامل مستخدم حقيقي مع الموقع (تسجيل دخول مثلاً).
-    """
     try:
         import redis as redis_lib
         client = redis_lib.Redis.from_url(
@@ -55,7 +71,6 @@ def _test_redis_connection(url: str) -> bool:
 
 
 if REDIS_URL and _test_redis_connection(REDIS_URL):
-    # ── وضع الإنتاج: تخزين موزّع عبر Redis (تم التحقق من الاتصال فعليًا) ──
     limiter = Limiter(
         key_func=get_client_ip,
         storage_uri=_build_redis_storage_uri(REDIS_URL),
@@ -63,18 +78,13 @@ if REDIS_URL and _test_redis_connection(REDIS_URL):
     )
     print("✅ Rate Limiting متصل بـ Redis بنجاح")
 else:
-    # ── تراجع آمن: تخزين بالذاكرة المحلية ────────────────────────────
-    # يحدث هذا إما لعدم ضبط REDIS_URL، أو لفشل الاتصال الفعلي به
-    # (شبكة/جدار ناري محلي يحجب المنفذ 6379 مثلاً)
     if REDIS_URL:
         warnings.warn(
             "⚠️ REDIS_URL مضبوط لكن الاتصال به فشل — تم التراجع تلقائيًا "
-            "للتخزين بالذاكرة المحلية حتى لا يتعطل الموقع بالكامل. "
-            "راجع الشبكة/الجدار الناري أو استخدم شبكة إنترنت مختلفة للاختبار."
+            "للتخزين بالذاكرة المحلية حتى لا يتعطل الموقع بالكامل."
         )
     else:
         warnings.warn(
-            "⚠️ REDIS_URL غير مُعرَّف — يعمل Rate Limiting بالذاكرة المحلية فقط "
-            "(غير موثوق مع أكثر من عملية/سيرفر). يجب ضبط REDIS_URL قبل النشر للإنتاج."
+            "⚠️ REDIS_URL غير مُعرَّف — يعمل Rate Limiting بالذاكرة المحلية فقط."
         )
     limiter = Limiter(key_func=get_client_ip, default_limits=["200/minute"])

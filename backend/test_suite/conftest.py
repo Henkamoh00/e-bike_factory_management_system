@@ -34,7 +34,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database import Base, get_db
 from app import models, schemas
-from app.security import hash_password
+from app.security import hash_password, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 from app.rate_limit import limiter
 
 # ---------------------------------------------------------------------------
@@ -74,6 +74,27 @@ limiter.enabled = False
 
 
 # ---------------------------------------------------------------------------
+# 4.5) 🛡️🆕 عميل اختبار "واعٍ" بحماية CSRF
+#    الميدل وير الحقيقي في main.py (CSRFProtectionMiddleware) يفرض إرفاق
+#    هيدر X-CSRF-Token مطابق لكوكي ebike_csrf مع أي طلب غير آمن
+#    (POST/PUT/DELETE/PATCH) بمجرد وجود جلسة كوكيز — تمامًا كما يفعل كود
+#    الفرونت إند (JS يقرأ الكوكي غير httpOnly ويرسله بالهيدر يدويًا).
+#    TestClient العادي لا يحاكي هذا السلوك، لذا نلفّه هنا: بعد كل استجابة
+#    تضبط كوكي ebike_csrf (تسجيل دخول أو تجديد توكن)، تُقرأ قيمته تلقائيًا
+#    وتُرفق مع أي طلب لاحق غير آمن. هذا لا يُضعف الحماية الحقيقية أبداً —
+#    فقط يُحاكي ما يفعله متصفح حقيقي بالضبط.
+# ---------------------------------------------------------------------------
+class CSRFAwareTestClient(TestClient):
+    def request(self, method, url, headers=None, **kwargs):
+        headers = dict(headers or {})
+        if method.upper() not in ("GET", "HEAD", "OPTIONS"):
+            csrf_value = self.cookies.get(CSRF_COOKIE_NAME)
+            if csrf_value:
+                headers.setdefault(CSRF_HEADER_NAME, csrf_value)
+        return super().request(method, url, headers=headers, **kwargs)
+
+
+# ---------------------------------------------------------------------------
 # 5) Fixtures عامة لدورة حياة القاعدة
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session", autouse=True)
@@ -109,7 +130,7 @@ def db_session():
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
+    with CSRFAwareTestClient(app) as c:
         yield c
 
 

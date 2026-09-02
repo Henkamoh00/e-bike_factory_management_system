@@ -1,6 +1,7 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import datetime
 from .models import AssemblyStage
+from pydantic import field_validator
 
 
 # ====================== 🛡️ تنظيف تلقائي للمدخلات ======================
@@ -28,6 +29,13 @@ class StrippedBaseModel(BaseModel):
             return cleaned
         return data
 
+
+MIN_PASSWORD_LENGTH = 8
+
+def _validate_password_strength(value: str) -> str:
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"كلمة المرور يجب أن تكون {MIN_PASSWORD_LENGTH} أحرف على الأقل")
+    return value
 
 # ====================== WORKER ======================
 class WorkerBase(BaseModel):
@@ -270,11 +278,23 @@ class UserCreate(StrippedBaseModel):
     full_name: str | None = None
     role: str = "operator"
 
+    @field_validator("password")
+    @classmethod
+    def _check_password(cls, v):
+        return _validate_password_strength(v)
+
 class UserUpdate(StrippedBaseModel):
     full_name: str | None = None
     role: str | None = None
     is_active: bool | None = None
     password: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def _check_password(cls, v):
+        if v is None:
+            return v
+        return _validate_password_strength(v)
 
 class UserResponse(BaseModel):
     id: int

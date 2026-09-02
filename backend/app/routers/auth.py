@@ -34,7 +34,7 @@ def login(request: Request, response: Response, payload: schemas.LoginRequest, d
         ip_address=request.client.host if request.client else None,
     )
 
-    # 🛡️ التوكنات توضع في httpOnly cookies فقط، ولا تُعاد في جسم الاستجابة إطلاقاً
+    # 🛡️ التوكنات + كوكي CSRF توضع كلها هنا (set_auth_cookies تضبط الثلاثة معًا)
     set_auth_cookies(response, access_token, raw_refresh_token)
 
     return user
@@ -42,11 +42,6 @@ def login(request: Request, response: Response, payload: schemas.LoginRequest, d
 
 @router.post("/refresh/", response_model=schemas.UserResponse)
 def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
-    """
-    🆕 نقطة نهاية جديدة: يستخدمها الفرونت إند تلقائيًا عند انتهاء صلاحية
-    access_token (15 دقيقة) للحصول على واحد جديد دون إعادة تسجيل الدخول،
-    طالما refresh_token (7 أيام) ما زال صالحًا وغير مُبطَل.
-    """
     raw_refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not raw_refresh_token:
         raise HTTPException(status_code=401, detail="لا توجد جلسة نشطة، يرجى تسجيل الدخول")
@@ -70,7 +65,6 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
 
 @router.post("/logout/")
 def logout(request: Request, response: Response, db: Session = Depends(get_db)):
-    """🆕 يُبطل refresh token في قاعدة البيانات ويمسح الكوكيز من المتصفح"""
     raw_refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if raw_refresh_token:
         auth_crud.revoke_refresh_token(db, raw_refresh_token)

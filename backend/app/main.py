@@ -1,21 +1,14 @@
+import secrets
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
 from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles, logs
 from .rate_limit import limiter
-
-# إنشاء الجداول عند بدء التطبيق (للتطوير)
-# models.Base.metadata.create_all(bind=engine)
-
-# 🛡️ تمت إزالة models.Base.metadata.create_all(bind=engine) نهائيًا.
-# إدارة المخطط (schema) أصبحت حصريًا عبر Alembic migrations من الآن فصاعدًا:
-#   - إنشاء migration جديدة:  alembic revision --autogenerate -m "وصف التغيير"
-#   - تطبيقها على القاعدة:    alembic upgrade head
-# الاعتماد على create_all() كان يعني عدم وجود سجل تاريخي للتغييرات، ويمنع
-# التراجع (downgrade) أو تتبّع من غيّر ماذا ومتى على مستوى بنية القاعدة.
+from .security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 
 app = FastAPI(
     title="نظام إدارة تجميع الدراجات الكهربائية",
@@ -23,11 +16,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# ── تفعيل Rate Limiting على مستوى التطبيق بأكمله ──────────────────
 app.state.limiter = limiter
 
 
-# 🛡️ معالج مخصص لرسالة عربية واضحة بدل رسالة slowapi الإنجليزية الافتراضية
 async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
     retry_after = None
     if hasattr(exc, "retry_after"):
@@ -45,29 +36,57 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
-# 🛡️🛡️ الترتيب حاسم هنا: SlowAPIMiddleware يجب أن يُضاف قبل CORSMiddleware
-# حتى يبقى CORSMiddleware هو الطبقة الخارجية (يُنفَّذ أولاً على كل طلب/استجابة)
-# ويضمن إضافة هيدرز Access-Control-* حتى على استجابات 429، وإلا يفشل
-# المتصفح بصمت في preflight (OPTIONS) ويظهر الأمر كأن لا بيانات تصل إطلاقاً
+
+# 🛡️🆕 Middleware حماية CSRF (نمط Double Submit Cookie)
+# يُنفَّذ على أي طلب غير آمن (POST/PUT/DELETE/PATCH) قادم من عميل يحمل جلسة
+# كوكيز (access أو refresh). المسارات المُستثناة: تسجيل الدخول (لا جلسة بعد)
+# وتسجيل الخروج (إجراء آمن نسبيًا، ولمنع قفل المستخدم في حال فقد كوكي CSRF).
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+CSRF_EXEMPT_PATHS = {
+    "/api/auth/login/",
+    "/api/auth/logout/",
+}
+
+
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method not in SAFE_METHODS and request.url.path not in CSRF_EXEMPT_PATHS:
+            has_cookie_session = bool(
+                request.cookies.get(ACCESS_COOKIE_NAME) or request.cookies.get(REFRESH_COOKIE_NAME)
+            )
+            if has_cookie_session:
+                csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+                csrf_header = request.headers.get(CSRF_HEADER_NAME)
+                if not csrf_cookie or not csrf_header or not secrets.compare_digest(csrf_cookie, csrf_header):
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "⛔ فشل التحقق من CSRF token. يرجى إعادة تحميل الصفحة."},
+                    )
+        return await call_next(request)
+
+
+# 🛡️🛡️ الترتيب حاسم: CSRFProtectionMiddleware و SlowAPIMiddleware يجب أن
+# يُضافا قبل CORSMiddleware حتى يبقى CORSMiddleware الطبقة الخارجية الأولى
+app.add_middleware(CSRFProtectionMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
 origins = [
     "https://electricbikemanager.app",
     "https://electricbikemanager.vercel.app",
-    "http://localhost:5173",  # لبيئة التطوير المحلية أيضاً
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# CORS — يجب أن يبقى آخر middleware يُضاف (= أول طبقة تنفيذ)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # غير هذا لاحقاً في الإنتاج
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=[
         "Content-Type",
         "Authorization",
-        "ngrok-skip-browser-warning"  # 👈 يجب كتابته صراحة هنا بالاسم!
+        "ngrok-skip-browser-warning",
+        CSRF_HEADER_NAME,  # 🛡️🆕 يجب السماح به صراحة ليصل هيدر CSRF
     ],
     expose_headers=["X-Confirm-Required"],
 )

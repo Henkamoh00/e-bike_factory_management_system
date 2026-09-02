@@ -1,7 +1,7 @@
 """
 test_auth.py - تسجيل الدخول / الخروج / تجديد التوكن (rotation) / rate limiting
 """
-from app.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
+from app.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 
 
 def test_login_success(client, admin_user):
@@ -81,6 +81,13 @@ def test_refresh_token_reuse_detected(authenticated_client):
     الاسم، مما يسبب CookieConflict عند القراءة). لتفادي هذا نهائيًا، نعزل
     الطلب الثاني (إعادة استخدام التوكن القديم) في TestClient جديد فارغ
     الكوكيز تمامًا، ونضع عليه القيمة القديمة فقط دون أي تعارض محتمل.
+
+    🛡️🆕 ملاحظة CSRF: بما أن هذا العميل المعزول لا يمر بتسجيل دخول (لا يملك
+    كوكي CSRF حقيقية صادرة عن السيرفر)، ولأن نمط Double Submit Cookie لا
+    يتطلب أن تكون القيمة "حقيقية" بل فقط أن تتطابق الكوكي مع الهيدر، نضبط
+    كوكي CSRF وهمية ونُرسل نفس القيمة كهيدر يدويًا — هذا يحاكي بالضبط ما
+    يفعله متصفح حقيقي (JS يقرأ الكوكي ويرسلها بالهيدر)، ويسمح للطلب بالمرور
+    من الميدل وير والوصول فعليًا لمنطق كشف إعادة الاستخدام في auth_crud.py.
     """
     from fastapi.testclient import TestClient
     from app.main import app
@@ -97,7 +104,15 @@ def test_refresh_token_reuse_detected(authenticated_client):
     # عميل معزول تمامًا، لا يشارك أي حالة كوكيز مع authenticated_client
     with TestClient(app) as replay_client:
         replay_client.cookies.set(REFRESH_COOKIE_NAME, old_refresh)
-        second = replay_client.post("/api/auth/refresh/")
+
+        # 🛡️🆕 محاكاة يدوية لنمط Double Submit Cookie: كوكي + هيدر متطابقان
+        fake_csrf = "test-csrf-value-for-replay-detection"
+        replay_client.cookies.set(CSRF_COOKIE_NAME, fake_csrf)
+
+        second = replay_client.post(
+            "/api/auth/refresh/",
+            headers={CSRF_HEADER_NAME: fake_csrf},
+        )
         assert second.status_code == 401
 
 

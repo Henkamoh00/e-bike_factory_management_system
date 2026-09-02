@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import schemas, models, bike_options_crud, reports_crud
 from ..security import get_current_user, require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api", tags=["bike-options"])
 
@@ -49,7 +50,8 @@ def get_bike_types(
 # ⚠️ لا تُغيّر هذا إلى can_manage_settings دون التأكد من تحديث الفرونت إند
 # (AssemblyFormModal.vue) ليتعامل مع احتمال ظهور خطأ 403 لغير الأدمن/المشرف.
 @router.post("/bike-types/")
-def create_bike_type(data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeType).filter(
         models.BikeType.name == data.name,
         models.BikeType.is_deleted == False
@@ -111,7 +113,8 @@ def get_bike_colors(
 # AssemblyFormModal.vue من قِبل أي عامل بصلاحية تبويب "assembly"، بينما
 # PUT/DELETE تبقى محصورة بـ can_manage_settings.
 @router.post("/bike-colors/")
-def create_bike_color(data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def create_bike_color(request: Request, data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeColor).filter(
         models.BikeColor.name == data.name,
         models.BikeColor.is_deleted == False

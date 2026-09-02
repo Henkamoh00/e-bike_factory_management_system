@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import reports_crud, schemas, workers_crud, models
 from ..security import get_current_user, require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
 
@@ -17,10 +18,6 @@ def get_workers_simple(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """
-    🆕 نقطة نهاية خفيفة مخصصة للقوائم المنسدلة (SearchableSelect)
-    تدعم بحثًا ديناميكيًا بدل تحميل كل العمال دفعة واحدة.
-    """
     workers = workers_crud.search_workers_simple(db, q=q, limit=limit)
     return [{"id": w.id, "name": w.name} for w in workers]
 
@@ -37,8 +34,16 @@ def get_workers_full(
     return {"items": items, "total": total}
 
 
+# 🛡️🆕 حد 30 عملية إنشاء/دقيقة لكل IP — هذا المسار مفتوح لأي مستخدم مصادق
+# (بدون require_tab)، لذا يحتاج حماية إضافية من إغراق الجدول بسجلات وهمية
 @router.post("/")
-def create_worker(worker: schemas.WorkerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def create_worker(
+    request: Request,
+    worker: schemas.WorkerCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     existing = db.query(models.Worker).filter(
         models.Worker.name == worker.name,
         models.Worker.is_deleted == False

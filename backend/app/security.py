@@ -1,4 +1,5 @@
 import os
+import secrets
 import bcrypt
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
@@ -18,31 +19,27 @@ if not SECRET_KEY:
         "تم إيقاف التشغيل عمدًا لمنع استخدام مفتاح افتراضي غير آمن في الإنتاج."
     )
 
-# 🛡️ متغير بيئة جديد يتحكم بخاصية Secure على الكوكيز.
-# يجب أن يكون True في الإنتاج (HTTPS إجباري لعمل httpOnly + Secure + SameSite=None بأمان)
-# ويمكن ضبطه False فقط في بيئة التطوير المحلية (http://localhost)
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
-
-# 🛡️ نطاق الكوكي (Domain) — اتركه فارغًا في التطوير المحلي، وحدده في الإنتاج
-# إن كان الباك إند والفرونت إند على نطاقات فرعية مختلفة لنفس الدومين الرئيسي
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN") or None
 
 ALGORITHM = "HS256"
 
-# ── مدد صلاحية التوكنات ─────────────────────────────────────────
-# access_token قصير العمر جدًا الآن (15 دقيقة) لأنه لم يعد يعيش في
-# localStorage القابل للقراءة عبر JS، لكن يبقى قصيرًا كحماية إضافية
-# (defense in depth): حتى لو سُرِّب بطريقة ما، ضرره محدود بالوقت.
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
-# refresh_token طويل العمر (7 أيام) ومخزَّن في httpOnly cookie منفصلة،
-# ومُتحقَّق منه أيضًا في قاعدة البيانات (قابل للإبطال في أي وقت)
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 ACCESS_COOKIE_NAME = "ebike_access"
 REFRESH_COOKIE_NAME = "ebike_refresh"
 
-# 🛡️ لم يعد Authorization header هو المصدر الوحيد؛ أبقينا oauth2_scheme
-# لتوافقية Swagger /docs فقط (اختياري تمامًا الآن)، والاعتماد الفعلي على الكوكي
+# 🛡️🆕 حماية CSRF — نمط Double Submit Cookie:
+# - CSRF cookie غير httpOnly (يجب أن يقرأها JS ليرسلها بالهيدر يدويًا)
+# - أي طلب مُغيِّر للحالة (POST/PUT/DELETE/PATCH) من عميل يحمل جلسة كوكيز
+#   يجب أن يُرفق هيدر X-CSRF-Token مطابقًا تمامًا لقيمة الكوكي
+# - موقع خبيث (cross-site) لا يستطيع قراءة كوكيز الضحية بسبب Same-Origin Policy
+#   حتى لو استطاع إرسال الكوكيز تلقائيًا ضمن الطلب (بسبب SameSite=None)،
+#   لذا لا يستطيع بناء الهيدر الصحيح إطلاقًا — هذا هو جوهر الحماية.
+CSRF_COOKIE_NAME = "ebike_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login/", auto_error=False)
 
 
@@ -64,16 +61,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def _cookie_kwargs(max_age_seconds: int) -> dict:
-    """
-    🛡️ الإعدادات الموحّدة لكل الكوكيز الحساسة:
-    - httponly=True   → غير قابلة للقراءة عبر JavaScript إطلاقًا (يحمي من XSS)
-    - secure=COOKIE_SECURE → لا تُرسَل إلا عبر HTTPS في الإنتاج
-    - samesite="none" مع secure=True في الإنتاج (لأن الفرونت والباك على نطاقين مختلفين
-      حسب origins في main.py)، أو "lax" في التطوير المحلي حيث secure=False
-    """
+def _cookie_kwargs(max_age_seconds: int, http_only: bool = True) -> dict:
     return {
-        "httponly": True,
+        "httponly": http_only,
         "secure": COOKIE_SECURE,
         "samesite": "none" if COOKIE_SECURE else "lax",
         "domain": COOKIE_DOMAIN,
@@ -82,8 +72,31 @@ def _cookie_kwargs(max_age_seconds: int) -> dict:
     }
 
 
+def generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def set_csrf_cookie(response: Response, token: str):
+    """🛡️🆕 يضبط كوكي CSRF غير httpOnly — يجب أن يبقى قابلاً للقراءة من JS"""
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=token,
+        **_cookie_kwargs(REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, http_only=False),
+    )
+
+
+def clear_csrf_cookie(response: Response):
+    response.delete_cookie(
+        key=CSRF_COOKIE_NAME,
+        domain=COOKIE_DOMAIN,
+        path="/",
+        samesite="none" if COOKIE_SECURE else "lax",
+        secure=COOKIE_SECURE,
+    )
+
+
 def set_auth_cookies(response: Response, access_token: str, raw_refresh_token: str):
-    """يضبط كوكيز الـ access و refresh معًا على الاستجابة"""
+    """يضبط كوكيز الـ access و refresh و CSRF معًا على الاستجابة"""
     response.set_cookie(
         key=ACCESS_COOKIE_NAME,
         value=access_token,
@@ -94,6 +107,9 @@ def set_auth_cookies(response: Response, access_token: str, raw_refresh_token: s
         value=raw_refresh_token,
         **_cookie_kwargs(REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60),
     )
+    # 🛡️🆕 كوكي CSRF جديد يُصدَر مع كل جلسة (login أو refresh) لمنع إعادة استخدام
+    # توكن CSRF قديم عبر جلسات مختلفة
+    set_csrf_cookie(response, generate_csrf_token())
 
 
 def clear_auth_cookies(response: Response):
@@ -106,13 +122,10 @@ def clear_auth_cookies(response: Response):
             samesite="none" if COOKIE_SECURE else "lax",
             secure=COOKIE_SECURE,
         )
+    clear_csrf_cookie(response)
 
 
 def _extract_access_token(request: Request, header_token: str | None) -> str | None:
-    """
-    🛡️ يقرأ التوكن أولاً من httpOnly cookie (المسار الطبيعي للمتصفح)،
-    ويسمح بـ Authorization header فقط كـ fallback (مفيد لـ /docs أو أدوات API خارجية)
-    """
     cookie_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if cookie_token:
         return cookie_token
