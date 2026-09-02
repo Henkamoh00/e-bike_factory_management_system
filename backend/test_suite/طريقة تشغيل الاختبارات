@@ -1,3 +1,0 @@
-cd backend
-poetry add pytest httpx   # إن لم تكن مثبتة
-poetry run pytest test_suite/ -v

@@ -36,7 +36,7 @@ class WorkerBase(BaseModel):
 class WorkerCreate(StrippedBaseModel):
     name: str
     phone: str | None = None
- 
+
 class WorkerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
@@ -45,9 +45,9 @@ class WorkerResponse(BaseModel):
     id: int
     name: str
     phone: str | None = None
- 
+
     model_config = ConfigDict(from_attributes=True)
- 
+
 
 class Worker(WorkerBase):
     id: int
@@ -118,7 +118,7 @@ class CustomerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
     address: str | None = None
-    
+
 class Customer(CustomerBase):
     id: int
     created_at: datetime
@@ -338,7 +338,7 @@ class ArchivedUserResponse(BaseModel):
     deleted_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
-        
+
 
 class ArchivedCustomerResponse(BaseModel):
     id: int

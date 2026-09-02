@@ -7,12 +7,13 @@ from datetime import datetime, timedelta, timezone
 from .models import RefreshToken
 
 
-# توجد مشاكل في طريقة تعريف الوقت ومقرانة الحقول المتعلقة بالوقت المجلوبة من قاعدة البيانات
+# توجد مشكلة في طريقة تعريف الوقت ومقرانة الحقول المتعلقة بالوقت المجلوبة من قاعدة البيانات
 # الطرق المختلفة مثل التاريخ مرتبط بالمنطقة الزمنية وبدونه
 # datetime.now_utc()
 # datetime.utcnow()
 # datetime.now(timezone.utc).replace(tzinfo=None)
 # datetime.now(timezone.utc)
+# 📌 راجع backend/NOTES.md — قسم "تضارب محتمل في طريقة التعامل مع الوقت (timezone)"
 
 
 def _get_role_by_name(db: Session, name: str) -> models.Role:

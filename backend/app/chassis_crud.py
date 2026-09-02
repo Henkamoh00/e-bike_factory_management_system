@@ -43,7 +43,7 @@ def get_all_chassis_numbers(db: Session):
     )
     return [c[0] for c in chassis_numbers]
 
-
+# 📌 راجع backend/NOTES.md — قسم "دالة get_chassis_summary معقّدة (complexity=18)"
 def get_chassis_summary(
     db: Session,
     skip: int = 0,

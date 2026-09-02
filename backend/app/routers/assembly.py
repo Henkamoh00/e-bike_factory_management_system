@@ -22,6 +22,8 @@ def create_assembly_record(
             current_user_id=current_user.id,
             force=force,
         )
+        # 📌 worker_name يبقى None عمدًا هنا حاليًا
+        # راجع backend/NOTES.md — قسم "worker_name دائمًا None في استجابة تسجيل التجميع"
         if record.recorded_by:
             record.recorded_by_username = record.recorded_by.username
         return record
