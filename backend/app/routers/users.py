@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import schemas, auth_crud, models
 from ..security import require_roles, require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -32,10 +32,9 @@ def get_users(
     return {"items": items, "total": total}
 
 
-# 🛡️ حد على إنشاء المستخدمين: يمنع سكربت آلي (حتى لو بتوكن مسروق) من
-# إغراق النظام بحسابات وهمية دفعة واحدة
+# 🛡️ حد على إنشاء المستخدمين — الآن لكل مستخدم بدل IP
 @router.post("/", response_model=schemas.UserResponse)
-@limiter.limit("10/minute")
+@limiter.limit("10/minute", key_func=get_rate_limit_key)
 def create_user(
     request: Request,
     user: schemas.UserCreate,
@@ -84,10 +83,9 @@ def delete_user(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد صارم على bulk-deactivate: عملية مؤثرة بحجم كبير (تعطيل عشرات
-# المستخدمين دفعة واحدة)، تستحق حدًا أقل بكثير من الحد العام (200/minute)
+# 🛡️🆕 حد صارم على bulk-deactivate — الآن لكل مستخدم
 @router.post("/bulk-deactivate/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_deactivate_users(
     request: Request,
     payload: schemas.BulkIds,
@@ -107,7 +105,7 @@ def bulk_deactivate_users(
 
 
 @router.post("/bulk-activate/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_activate_users(
     request: Request,
     payload: schemas.BulkIds,
@@ -117,10 +115,9 @@ def bulk_activate_users(
     return auth_crud.bulk_activate_users(db, payload.ids, current_user.id)
 
 
-# 🛡️🆕 bulk-delete هو الأخطر بين الثلاثة (يؤرشف مستخدمين ويُبطل جلساتهم)،
-# لذا حده الأصرم (5/hour) بدل 10/hour مثل بقية عمليات bulk في هذا الملف
+# 🛡️🆕 bulk-delete هو الأخطر بين الثلاثة — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-@limiter.limit("5/hour")
+@limiter.limit("5/hour", key_func=get_rate_limit_key)
 def bulk_delete_users(
     request: Request,
     payload: schemas.BulkIds,

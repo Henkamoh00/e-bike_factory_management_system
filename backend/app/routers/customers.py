@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import customers_crud, schemas, models
 from ..security import require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -63,9 +63,9 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete (عملية مؤثرة بحجم كبير دفعة واحدة)
+# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_customers(
     request: Request,
     payload: schemas.BulkIds,

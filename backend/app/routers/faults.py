@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import faults_crud, schemas, models
 from ..security import require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/faults", tags=["faults"])
 
@@ -62,9 +62,9 @@ def suggested_worker(fault_id: int, db: Session = Depends(get_db), current_user:
     return suggestion
 
 
-# 🛡️🆕 حد على bulk-cancel
+# 🛡️🆕 حد على bulk-cancel — الآن لكل مستخدم
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_cancel_faults(
     request: Request,
     payload: schemas.BulkCancel,
@@ -77,9 +77,9 @@ def bulk_cancel_faults(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-repair
+# 🛡️🆕 حد على bulk-repair — الآن لكل مستخدم
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_repair_faults(
     request: Request,
     ids: schemas.BulkIds,

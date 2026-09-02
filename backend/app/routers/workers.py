@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import reports_crud, schemas, workers_crud, models
 from ..security import get_current_user, require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
 
@@ -34,8 +34,10 @@ def get_workers_full(
     return {"items": items, "total": total}
 
 
+# 🛡️ الحد الآن لكل مستخدم (user:{username}) بدل IP — يمنع تشارك عدة عمال
+# خلف نفس IP نفس السقف اليومي
 @router.post("/")
-@limiter.limit("20/day")
+@limiter.limit("20/day", key_func=get_rate_limit_key)
 def create_worker(
     request: Request,
     worker: schemas.WorkerCreate,
@@ -68,9 +70,9 @@ def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete
+# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_workers(
     request: Request,
     payload: schemas.BulkIds,

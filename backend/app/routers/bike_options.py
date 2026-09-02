@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import schemas, models, bike_options_crud, reports_crud
 from ..security import get_current_user, require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api", tags=["bike-options"])
 
@@ -36,8 +36,9 @@ def get_bike_types(
     return {"items": items, "total": total}
 
 
+# 🛡️ الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-types/")
-@limiter.limit("20/day")
+@limiter.limit("20/day", key_func=get_rate_limit_key)
 def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeType).filter(
         models.BikeType.name == data.name,
@@ -65,9 +66,9 @@ def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: 
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete
+# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bike-types/bulk-delete/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_bike_types(
     request: Request,
     payload: schemas.BulkIds,
@@ -102,8 +103,9 @@ def get_bike_colors(
     return {"items": items, "total": total}
 
 
+# 🛡️ الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-colors/")
-@limiter.limit("20/day")
+@limiter.limit("20/day", key_func=get_rate_limit_key)
 def create_bike_color(request: Request, data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeColor).filter(
         models.BikeColor.name == data.name,
@@ -131,9 +133,9 @@ def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete
+# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bike-colors/bulk-delete/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_bike_colors(
     request: Request,
     payload: schemas.BulkIds,

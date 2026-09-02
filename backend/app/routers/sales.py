@@ -4,7 +4,7 @@ from datetime import datetime
 from ..database import get_db
 from .. import sales_crud, schemas, models
 from ..security import require_tab
-from ..rate_limit import limiter
+from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
@@ -55,9 +55,9 @@ def cancel_sale(sale_id: int, payload: schemas.SaleCancel, db: Session = Depends
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-cancel (إلغاء عدد كبير من عمليات البيع دفعة واحدة)
+# 🛡️🆕 حد على bulk-cancel — الآن لكل مستخدم
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
-@limiter.limit("10/hour")
+@limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_cancel_sales(
     request: Request,
     payload: schemas.BulkCancel,
