@@ -3,6 +3,7 @@ import warnings
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from fastapi import Request
+from jose import jwt, JWTError
 
 
 # 🛡️🆕 قائمة عناوين IP الخاصة بالبروكسي/Load Balancer الموثوق فقط.
@@ -37,6 +38,42 @@ def get_client_ip(request: Request) -> str:
             return forwarded.split(",")[0].strip()
 
     return direct_ip
+
+
+# 🛡️🆕 مفتاح Rate Limiting معتمد على هوية المستخدم (من توكن الوصول) بدل IP.
+# السبب: عدة عمال (operators) قد يعملون خلف نفس IP العام لشبكة الورشة الداخلية،
+# فربط الحد بـ IP يجعلهم يتشاركون نفس السقف اليومي/الساعي بالخطأ — بينما الهدف
+# الفعلي من هذه الحدود هو منع إساءة استخدام حساب واحد وليس منع نشاط الورشة كلها.
+#
+# 🔑 يعتمد فقط على فك تشفير التوكن (بدون أي استعلام لقاعدة البيانات) للحفاظ على
+# خفة key_func كما يتطلبه slowapi، ثم يُعيد "user:{username}" كمفتاح فريد لكل مستخدم.
+# لو تعذّر استخراج توكن صالح (طلب غير مُصادَق، توكن منتهي/تالف)، يتم التراجع
+# تلقائيًا لعنوان IP كحل بديل بدل رفض الطلب أو كسر منطق الحد بالكامل.
+#
+# ⚠️ ملاحظة: هذه الدالة لا تُستخدم في مسار /api/auth/login/ عمدًا؛ فالمستخدم هناك
+# غير مُصادَق بعد (لا يوجد توكن صالح لاستخراج هويته منه)، والمهاجم هو من يتحكم
+# بحقل username المُرسَل، فلا يمكن الوثوق به كمفتاح — الحماية من Brute Force
+# يجب أن تبقى مرتبطة بمصدر الاتصال الفعلي (IP) في ذلك المسار تحديدًا.
+def get_rate_limit_key(request: Request) -> str:
+    from .security import ACCESS_COOKIE_NAME, SECRET_KEY, ALGORITHM
+
+    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub")
+            if username and payload.get("type") == "access":
+                return f"user:{username}"
+        except JWTError:
+            pass
+
+    # تراجع آمن: طلب بدون هوية صالحة يُحدَّد بعنوان IP بدل تعطيل الحد كليًا
+    return f"ip:{get_client_ip(request)}"
 
 
 REDIS_URL = os.getenv("REDIS_URL")

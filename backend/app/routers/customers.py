@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import customers_crud, schemas, models
 from ..security import require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -62,8 +63,15 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# 🛡️🆕 حد على bulk-delete (عملية مؤثرة بحجم كبير دفعة واحدة)
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-def bulk_delete_customers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_customers)):
+@limiter.limit("10/hour")
+def bulk_delete_customers(
+    request: Request,
+    payload: schemas.BulkIds,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_customers)
+):
     return customers_crud.bulk_soft_delete_customers(db, payload.ids, current_user.id)
 
 

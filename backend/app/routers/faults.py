@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import faults_crud, schemas, models
 from ..security import require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api/faults", tags=["faults"])
 
@@ -61,16 +62,26 @@ def suggested_worker(fault_id: int, db: Session = Depends(get_db), current_user:
     return suggestion
 
 
+# 🛡️🆕 حد على bulk-cancel
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
-def bulk_cancel_faults(payload: schemas.BulkCancel, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+@limiter.limit("10/hour")
+def bulk_cancel_faults(
+    request: Request,
+    payload: schemas.BulkCancel,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults)
+):
     try:
         return faults_crud.bulk_cancel_faults(db, payload, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# 🛡️🆕 حد على bulk-repair
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
+@limiter.limit("10/hour")
 def bulk_repair_faults(
+    request: Request,
     ids: schemas.BulkIds,
     worker_name: str = Body(..., embed=True),
     db: Session = Depends(get_db),

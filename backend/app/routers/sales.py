@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 from ..database import get_db
 from .. import sales_crud, schemas, models
 from ..security import require_tab
+from ..rate_limit import limiter
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
@@ -54,8 +55,15 @@ def cancel_sale(sale_id: int, payload: schemas.SaleCancel, db: Session = Depends
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# 🛡️🆕 حد على bulk-cancel (إلغاء عدد كبير من عمليات البيع دفعة واحدة)
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
-def bulk_cancel_sales(payload: schemas.BulkCancel, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_sales)):
+@limiter.limit("10/hour")
+def bulk_cancel_sales(
+    request: Request,
+    payload: schemas.BulkCancel,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_sales)
+):
     try:
         return sales_crud.bulk_cancel_sales(db, payload, current_user.id)
     except ValueError as e:

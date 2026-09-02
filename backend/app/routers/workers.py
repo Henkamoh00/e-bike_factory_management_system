@@ -34,10 +34,8 @@ def get_workers_full(
     return {"items": items, "total": total}
 
 
-# 🛡️🆕 حد 30 عملية إنشاء/دقيقة لكل IP — هذا المسار مفتوح لأي مستخدم مصادق
-# (بدون require_tab)، لذا يحتاج حماية إضافية من إغراق الجدول بسجلات وهمية
 @router.post("/")
-@limiter.limit("30/minute")
+@limiter.limit("20/day")
 def create_worker(
     request: Request,
     worker: schemas.WorkerCreate,
@@ -70,8 +68,15 @@ def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# 🛡️🆕 حد على bulk-delete
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
-def bulk_delete_workers(payload: schemas.BulkIds, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
+@limiter.limit("10/hour")
+def bulk_delete_workers(
+    request: Request,
+    payload: schemas.BulkIds,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_workers)
+):
     return reports_crud.bulk_soft_delete_workers(db, payload.ids, current_user.id)
 
 

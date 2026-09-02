@@ -84,8 +84,12 @@ def delete_user(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# 🛡️🆕 حد صارم على bulk-deactivate: عملية مؤثرة بحجم كبير (تعطيل عشرات
+# المستخدمين دفعة واحدة)، تستحق حدًا أقل بكثير من الحد العام (200/minute)
 @router.post("/bulk-deactivate/", response_model=schemas.BulkActionResult)
+@limiter.limit("10/hour")
 def bulk_deactivate_users(
+    request: Request,
     payload: schemas.BulkIds,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_users_tab)
@@ -103,7 +107,9 @@ def bulk_deactivate_users(
 
 
 @router.post("/bulk-activate/", response_model=schemas.BulkActionResult)
+@limiter.limit("10/hour")
 def bulk_activate_users(
+    request: Request,
     payload: schemas.BulkIds,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_users_tab)
@@ -111,8 +117,12 @@ def bulk_activate_users(
     return auth_crud.bulk_activate_users(db, payload.ids, current_user.id)
 
 
+# 🛡️🆕 bulk-delete هو الأخطر بين الثلاثة (يؤرشف مستخدمين ويُبطل جلساتهم)،
+# لذا حده الأصرم (5/hour) بدل 10/hour مثل بقية عمليات bulk في هذا الملف
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
+@limiter.limit("5/hour")
 def bulk_delete_users(
+    request: Request,
     payload: schemas.BulkIds,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_access_users_tab)
