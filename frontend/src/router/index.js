@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import InvoicesView from '../views/InvoicesView.vue'
 import NotFoundView from '../views/NotFoundView.vue'
 import { useAuth } from '../composables/useAuth'
 import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
@@ -23,6 +24,15 @@ const routes = [
     name: 'Dashboard',
     component: DashboardView,
     meta: { requiresAuth: true }
+  },
+  {
+    // 🆕 صفحة الفواتير أصبحت مستقلة تمامًا عن نظام تبويبات DashboardView
+    // (وليست v-else-if داخل <main>)، لأن نظام الفوترة أكبر وأعقد من أن
+    // يُحشر كتبويب عادي — راجع الخطة المحفوظة بخصوص هذا القرار المعماري
+    path: '/invoices',
+    name: 'Invoices',
+    component: InvoicesView,
+    meta: { requiresAuth: true, tabId: 'invoices' }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -60,6 +70,15 @@ router.beforeEach(async (to) => {
   if (to.name === 'Login' && isAuthenticated.value) {
     const defaultTab = getDefaultTab(role, allowedTabs)
     return { name: 'Dashboard', query: { tab: defaultTab } }
+  }
+
+  // 🆕 حماية صفحة الفواتير: نفس منطق فحص allowed_tabs المستخدم في Dashboard،
+  // لكن هنا نُعيد المستخدم للوحة الإدارة (وليس لتبويب آخر داخل نفس الصفحة)
+  // لأن /invoices مسار مستقل بالكامل
+  if (to.meta.tabId && isAuthenticated.value) {
+    if (!isTabAllowed(to.meta.tabId, role, allowedTabs)) {
+      return { name: 'Dashboard', query: { tab: getDefaultTab(role, allowedTabs) } }
+    }
   }
 
   if (to.name === 'Dashboard' && isAuthenticated.value) {

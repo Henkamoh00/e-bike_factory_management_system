@@ -146,7 +146,7 @@ def seed_roles(db_session):
         dict(name=models.RoleNames.ADMIN, label="مدير", is_system=True,
              allowed_tabs=list(schemas.ALL_TAB_IDS)),
         dict(name=models.RoleNames.SUPERVISOR, label="مشرف", is_system=True,
-             allowed_tabs=["assembly", "faults", "sales", "customers", "workers", "users"]),
+             allowed_tabs=["assembly", "faults", "invoices", "customers", "workers", "users"]),
         dict(name=models.RoleNames.OPERATOR, label="عامل", is_system=True,
              allowed_tabs=["assembly", "faults"]),
     ]

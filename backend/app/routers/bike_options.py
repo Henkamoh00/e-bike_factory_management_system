@@ -46,7 +46,7 @@ def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="نوع الدراجة موجود مسبقاً")
-    return bike_options_crud.get_or_create_bike_type(db, data.name, current_user.id)
+    return bike_options_crud.get_or_create_bike_type(db, data.name, current_user.id, default_price=data.default_price)
 
 
 @router.put("/bike-types/{type_id}/")

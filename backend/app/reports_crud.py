@@ -15,10 +15,6 @@ def get_workers_with_records(db: Session, skip: int = 0, limit: int = 20, search
     if not workers:
         return [], total
 
-    # 🆕 إصلاح أداء (N+1): بدل استعلام AssemblyRecord منفصل لكل عامل بالحلقة،
-    # نجلب كل سجلات التجميع الخاصة بعمال هذه الصفحة فقط بطلب واحد (IN)،
-    # ثم نجمّعها بالذاكرة حسب worker_id. هذا يحوّل (1 + عدد العمال) استعلام
-    # إلى استعلامين فقط بغض النظر عن حجم الصفحة.
     worker_ids = [w.id for w in workers]
     all_records = db.query(models.AssemblyRecord)\
         .filter(models.AssemblyRecord.worker_id.in_(worker_ids))\
@@ -83,9 +79,6 @@ def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, searc
     if not types:
         return [], total
 
-    # 🆕 إصلاح أداء (N+1): بدل استعلام COUNT منفصل لكل نوع دراجة داخل الحلقة،
-    # نجلب كل عدادات الاستخدام لهذه الصفحة بطلب واحد فقط عبر GROUP BY،
-    # ثم نحوّل النتيجة إلى dict {bike_type_id: count} للوصول السريع
     type_ids = [t.id for t in types]
     usage_rows = (
         db.query(models.AssemblyRecord.bike_type_id, func.count(models.AssemblyRecord.id))
@@ -96,7 +89,13 @@ def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, searc
     usage_by_type = {row[0]: row[1] for row in usage_rows}
 
     result = [
-        {"id": t.id, "name": t.name, "usage_count": usage_by_type.get(t.id, 0)}
+        {
+            "id": t.id,
+            "name": t.name,
+            "usage_count": usage_by_type.get(t.id, 0),
+            # 🆕 يُعرض في واجهة إعدادات أنواع الدراجات
+            "default_price": t.default_price,
+        }
         for t in types
     ]
     return result, total
@@ -113,8 +112,6 @@ def get_bike_colors_with_usage(db: Session, skip: int = 0, limit: int = 20, sear
     if not colors:
         return [], total
 
-    # 🆕 إصلاح أداء (N+1): نفس المبدأ المطبّق على أنواع الدراجات أعلاه،
-    # عداد استخدام واحد مجمّع (GROUP BY) بدل استعلام لكل لون في الحلقة
     color_ids = [c.id for c in colors]
     usage_rows = (
         db.query(models.AssemblyRecord.bike_color_id, func.count(models.AssemblyRecord.id))

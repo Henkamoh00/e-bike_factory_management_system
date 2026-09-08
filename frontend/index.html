@@ -11,13 +11,17 @@
 
     <!--
       🆘 زر طوارئ ثابت (لا يعتمد على Vue إطلاقاً - جافاسكريبت خام)
-      🛡️🆕 logout مُستثنى من فحص CSRF في main.py (CSRF_EXEMPT_PATHS)،
-      لذا هذا الزر يعمل دون الحاجة لإرفاق هيدر CSRF، حتى لو تعطلت الواجهة بالكامل.
+      🛡️🆕 مخفي افتراضيًا الآن (display:none) — يظهر فقط تلقائيًا في حالتين:
+        1) فشل Vue في العرض (حدث app-fatal-error من main.js/App.vue)
+        2) لم يُحمَّل التطبيق إطلاقًا خلال مهلة معقولة (فشل تحميل سكربت Vue)
+      logout مُستثنى من فحص CSRF في main.py (CSRF_EXEMPT_PATHS)، لذا هذا
+      الزر يعمل دون الحاجة لإرفاق هيدر CSRF، حتى لو تعطلت الواجهة بالكامل.
     -->
     <button
       id="emergency-logout-btn"
       onclick="if(confirm('سيتم تسجيل خروجك وإعادة تحميل الصفحة. هل تريد المتابعة؟')){fetch('%VITE_API_BASE_URL%/api/auth/logout/',{method:'POST',credentials:'include'}).finally(()=>{localStorage.removeItem('ebike_user');localStorage.removeItem('ebike_had_session');window.location.href='/login';});}"
       style="
+        display: none;
         position: fixed;
         bottom: 14px;
         left: 14px;
@@ -42,5 +46,32 @@
     </button>
 
     <script type="module" src="/src/main.js"></script>
+
+    <!--
+      🆕 سكربت خام (خارج Vue تمامًا) لإظهار زر الطوارئ فقط عند الحاجة الفعلية:
+      - يستمع لحدث app-fatal-error (يُطلقه main.js عبر app.config.errorHandler
+        أو App.vue عند onErrorCaptured) ليُظهر الزر فورًا عند أي خطأ فادح.
+      - كخط دفاع أخير: لو مرّت 6 ثوانٍ ولم يُحقن أي عنصر داخل #app إطلاقًا
+        (سكربت main.js نفسه فشل بالتحميل أو التنفيذ قبل الوصول حتى لمرحلة
+        معالجة الأخطاء)، يُظهر الزر تلقائيًا كحل احتياطي أخير.
+    -->
+    <script>
+      (function () {
+        var btn = document.getElementById('emergency-logout-btn');
+
+        function showEmergencyButton() {
+          if (btn) btn.style.display = 'block';
+        }
+
+        window.addEventListener('app-fatal-error', showEmergencyButton);
+
+        setTimeout(function () {
+          var appRoot = document.getElementById('app');
+          if (appRoot && appRoot.children.length === 0) {
+            showEmergencyButton();
+          }
+        }, 6000);
+      })();
+    </script>
   </body>
 </html>

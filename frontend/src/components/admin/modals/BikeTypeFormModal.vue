@@ -10,10 +10,18 @@
 
       <div class="p-8 overflow-y-auto flex-1">
         <h3 class="text-xl font-bold mb-6">{{ isEditing ? 'تعديل نوع الدراجة' : 'إضافة نوع دراجة جديد' }}</h3>
-        <div>
-          <label class="block text-sm text-gray-600 mb-1">اسم النوع</label>
-          <input v-model="form.name" type="text" placeholder="مثال: دراجة جبلية"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">اسم النوع</label>
+            <input v-model="form.name" type="text" placeholder="مثال: دراجة جبلية"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">السعر الافتراضي (اختياري)</label>
+            <input v-model.number="form.default_price" type="number" min="0" step="0.01" placeholder="مثال: 45000"
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none" />
+            <p class="text-xs text-gray-400 mt-1">يُستخدم لتعبئة سعر البند تلقائيًا عند إنشاء فاتورة، ويبقى قابلاً للتعديل حينها</p>
+          </div>
         </div>
       </div>
       <div class="flex gap-3 p-6 pt-0 shrink-0">
@@ -30,7 +38,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
 
-const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 
 const props = defineProps({
@@ -39,13 +46,14 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
-const form = ref({ name: '' })
+const form = ref({ name: '', default_price: null })
 
 const isEditing = computed(() => !!props.bikeType)
 
 onMounted(() => {
   if (props.bikeType) {
     form.value.name = props.bikeType.name || ''
+    form.value.default_price = props.bikeType.default_price != null ? Number(props.bikeType.default_price) : null
   }
 })
 
@@ -67,9 +75,14 @@ const submit = async () => {
       : `/api/bike-types/`
     const method = isEditing.value ? 'PUT' : 'POST'
 
+    const payload = {
+      name: form.value.name,
+      default_price: form.value.default_price === '' ? null : form.value.default_price,
+    }
+
     const res = await apiFetch(url, {
       method,
-      body: JSON.stringify(form.value)
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
     if (res.ok) {

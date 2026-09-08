@@ -44,6 +44,36 @@ def cancel_fault(db: Session, fault_id: int, payload: schemas.FaultCancel, curre
     return fault
 
 
+def _find_responsible_record(db: Session, chassis_number: str, related_stage: str):
+    """
+    🆕 دالة مشتركة: تبحث أولاً عن سجل تجميع بنفس المرحلة تحديدًا (مثلاً
+    'تجميع_الهيكل')، فإن لم تجد (لأن العامل نفّذ المرحلتين دفعة واحدة عبر
+    'تجميع_كامل')، ترجع لسجل 'تجميع_كامل' كخيار احتياطي. تُستخدم في كل
+    من عرض قائمة الأعطال (_attach_fault_extras) وفي اقتراح العامل عند
+    التصليح (get_suggested_worker_for_fault) لضمان نفس السلوك في الحالتين.
+    """
+    if not related_stage:
+        return None
+    record = (
+        db.query(models.AssemblyRecord)
+        .filter(
+            models.AssemblyRecord.chassis_number == chassis_number,
+            models.AssemblyRecord.stage == related_stage
+        )
+        .first()
+    )
+    if not record:
+        record = (
+            db.query(models.AssemblyRecord)
+            .filter(
+                models.AssemblyRecord.chassis_number == chassis_number,
+                models.AssemblyRecord.stage == assembly_crud.STAGE_COMPLETE
+            )
+            .first()
+        )
+    return record
+
+
 def _attach_fault_extras(db: Session, faults):
     for fault in faults:
         for repair in fault.repairs:
@@ -54,26 +84,9 @@ def _attach_fault_extras(db: Session, faults):
         fault.cancelled_by_username = fault.cancelled_by.username if fault.cancelled_by else None
 
         fault.responsible_worker_name = None
-        if fault.related_stage:
-            record = (
-                db.query(models.AssemblyRecord)
-                .filter(
-                    models.AssemblyRecord.chassis_number == fault.chassis_number,
-                    models.AssemblyRecord.stage == fault.related_stage
-                )
-                .first()
-            )
-            if not record:
-                record = (
-                    db.query(models.AssemblyRecord)
-                    .filter(
-                        models.AssemblyRecord.chassis_number == fault.chassis_number,
-                        models.AssemblyRecord.stage == assembly_crud.STAGE_COMPLETE
-                    )
-                    .first()
-                )
-            if record and record.worker:
-                fault.responsible_worker_name = record.worker.name
+        record = _find_responsible_record(db, fault.chassis_number, fault.related_stage)
+        if record and record.worker:
+            fault.responsible_worker_name = record.worker.name
     return faults
 
 
@@ -96,7 +109,6 @@ def get_all_faults(
     repaired_by: str | None = None,
     responsible_worker: str | None = None,
 ):
-    """🆕 مُصفَّحة ومُفلتَرة من جهة السيرفر"""
     query = db.query(models.Fault)
 
     if chassis_number:
@@ -154,14 +166,10 @@ def get_suggested_worker_for_fault(db: Session, fault_id: int):
     if not db_fault or not db_fault.related_stage:
         return None
 
-    record = (
-        db.query(models.AssemblyRecord)
-        .filter(
-            models.AssemblyRecord.chassis_number == db_fault.chassis_number,
-            models.AssemblyRecord.stage == db_fault.related_stage
-        )
-        .first()
-    )
+    # 🛡️ إصلاح: كانت هذه الدالة تبحث فقط عن سجل بنفس المرحلة الدقيقة،
+    # فلا تجد شيئًا إن كان العامل نفّذ المرحلتين معًا عبر 'تجميع_كامل' —
+    # الآن تستخدم نفس منطق الرجوع الاحتياطي المستخدم في قائمة الأعطال
+    record = _find_responsible_record(db, db_fault.chassis_number, db_fault.related_stage)
     if record and record.worker:
         return {"worker_id": record.worker.id, "worker_name": record.worker.name}
     return None

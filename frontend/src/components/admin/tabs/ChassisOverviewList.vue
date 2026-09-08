@@ -150,22 +150,28 @@
                 v-for="sale in selectedChassis.sales"
                 :key="sale.id"
                 class="p-4 rounded-2xl"
-                :class="sale.status === 'cancelled' ? 'bg-gray-50 opacity-70' : 'bg-emerald-50'"
+                :class="saleCardClass(sale.status)"
               >
                 <div class="flex items-center justify-between gap-2">
-                  <p class="font-medium text-sm" :class="sale.status === 'cancelled' ? 'text-gray-500 line-through' : ''">
-                    {{ sale.status === 'cancelled' ? '✖️ بيع ملغى لـ' : '✅ تم البيع لـ' }}
+                  <p class="font-medium text-sm" :class="sale.status !== 'active' ? 'text-gray-500' : ''" :style="sale.status !== 'active' ? 'text-decoration: line-through' : ''">
+                    {{ saleStatusIcon(sale.status) }}
+                    <span v-if="sale.status === 'active'">تم البيع لـ</span>
+                    <span v-else-if="sale.status === 'returned'">دراجة مُرجَعة من</span>
+                    <span v-else>بيع ملغى لـ</span>
                     <strong>{{ sale.customer_name }}</strong>
                   </p>
                   <span
-                    v-if="sale.status === 'cancelled'"
-                    class="text-xs bg-red-100 text-red-600 rounded-full px-2 py-0.5 font-medium shrink-0"
+                    v-if="sale.status !== 'active'"
+                    class="text-xs rounded-full px-2 py-0.5 font-medium shrink-0"
+                    :class="sale.status === 'returned' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'"
                   >
-                    ملغى
+                    {{ sale.status === 'returned' ? 'مُرجَع' : 'ملغى' }}
                   </span>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">{{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}</p>
-                <p v-if="sale.status === 'cancelled' && sale.cancel_reason" class="text-xs text-red-500 mt-1">
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ sale.invoice_number }} — {{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}
+                </p>
+                <p v-if="sale.status !== 'active' && sale.cancel_reason" class="text-xs mt-1" :class="sale.status === 'returned' ? 'text-orange-500' : 'text-red-500'">
                   السبب: {{ sale.cancel_reason }}
                 </p>
               </div>
@@ -323,6 +329,14 @@ const currentStageLabel = (chassis) => {
   if (stages.includes('تجميع_الهيكل')) return 'تجميع الهيكل'
   return 'لم تبدأ بعد'
 }
+
+// 🆕 حالات سجل البيع الثلاث: نشط / مُرجَع / ملغى
+const saleStatusIcon = (status) => ({ active: '✅', returned: '🔄', cancelled: '✖️' }[status] || '✅')
+const saleCardClass = (status) => ({
+  active: 'bg-emerald-50',
+  returned: 'bg-orange-50',
+  cancelled: 'bg-gray-50 opacity-70',
+}[status] || 'bg-emerald-50')
 
 const openDetails = async (chassisNumber) => {
   loadingDetails.value = true

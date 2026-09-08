@@ -7,7 +7,9 @@ export const TAB_DEFINITIONS = [
   { id: 'users',     label: 'المستخدمون',     icon: '👤' },
   { id: 'settings',  label: 'الإعدادات',      icon: '🛠️' },
   { id: 'assembly',  label: 'الورشة',         icon: '⚙️' },
-  { id: 'sales',     label: 'المبيعات',       icon: '💰' },
+  // 🆕 "sales" استُبدل نهائيًا بـ "invoices" — نظام فوترة كامل يفتح صفحة
+  // مستقلة (router.push) بدل تبويب داخلي، لذا الأيقونة مختلفة قصدًا للتمييز
+  { id: 'invoices',  label: 'الفواتير',       icon: '🧾' },
   { id: 'faults',    label: 'الأعطال',        icon: '⚠️' },
   { id: 'workers',   label: 'العمال',         icon: '👷' },
   { id: 'customers', label: 'العملاء',        icon: '🧑‍🤝‍🧑' },

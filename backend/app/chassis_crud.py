@@ -1,14 +1,33 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from . import models, assembly_crud, faults_crud
+from invoicing import models as invoicing_models
+
+
+def _get_active_invoiced_chassis_numbers(db: Session) -> set:
+    """
+    🛡️ الهياكل التي عليها فعليًا بند فاتورة نشط (غير ملغى، وغير مُرجَع).
+    هذا هو المصدر الوحيد الآن لتحديد "المُباع" بعد حذف نظام sales القديم.
+    """
+    active_items = (
+        db.query(invoicing_models.InvoiceItem)
+        .join(invoicing_models.Invoice)
+        .outerjoin(
+            invoicing_models.ChassisReturn,
+            invoicing_models.ChassisReturn.invoice_item_id == invoicing_models.InvoiceItem.id
+        )
+        .filter(
+            invoicing_models.Invoice.status != "cancelled",
+            invoicing_models.Invoice.is_deleted == False,
+            invoicing_models.ChassisReturn.id.is_(None),
+        )
+        .all()
+    )
+    return {item.chassis_number for item in active_items}
 
 
 def get_available_chassis(db: Session):
-    sold_numbers = {
-        s[0] for s in db.query(models.Sale.chassis_number)
-        .filter(models.Sale.status == "active")
-        .all()
-    }
+    invoiced_numbers = _get_active_invoiced_chassis_numbers(db)
 
     faulty_numbers = {
         f[0] for f in db.query(models.Fault.chassis_number)
@@ -27,7 +46,7 @@ def get_available_chassis(db: Session):
         chassis_number
         for chassis_number, records in records_by_chassis.items()
         if assembly_crud.is_chassis_complete(records)
-        and chassis_number not in sold_numbers
+        and chassis_number not in invoiced_numbers
         and chassis_number not in faulty_numbers
     ]
 
@@ -43,7 +62,7 @@ def get_all_chassis_numbers(db: Session):
     )
     return [c[0] for c in chassis_numbers]
 
-# 📌 راجع backend/NOTES.md — قسم "دالة get_chassis_summary معقّدة (complexity=18)"
+
 def get_chassis_summary(
     db: Session,
     skip: int = 0,
@@ -55,25 +74,28 @@ def get_chassis_summary(
     bike_type: str | None = None,
     bike_color: str | None = None,
 ):
-    """
-    🆕 مُصفَّحة ومُفلتَرة من جهة السيرفر الآن.
-    ملاحظة: البيانات مُجمَّعة (aggregated) من سجلات التجميع، لذا يتم بناء
-    الملخص الكامل أولاً بالذاكرة ثم تُطبَّق الفلاتر والتصفيح على النتيجة،
-    لأن التجميع (حسب رقم الهيكل) لا يمكن أن يتم مباشرة عبر offset/limit في SQL
-    بسبب طبيعة العلاقة (سجل واحد أو أكثر لكل هيكل).
-    """
     all_records = db.query(models.AssemblyRecord).all()
     records_by_chassis = {}
     for r in all_records:
         records_by_chassis.setdefault(r.chassis_number, []).append(r)
 
-    active_sold_map = {
-        s.chassis_number: s
-        for s in db.query(models.Sale)
-        .options(joinedload(models.Sale.customer))
-        .filter(models.Sale.status == "active")
+    # 🆕 "المُباع" الآن مصدره الوحيد نظام الفوترة (بعد حذف sales القديم)
+    active_items = (
+        db.query(invoicing_models.InvoiceItem)
+        .join(invoicing_models.Invoice)
+        .outerjoin(
+            invoicing_models.ChassisReturn,
+            invoicing_models.ChassisReturn.invoice_item_id == invoicing_models.InvoiceItem.id
+        )
+        .options(joinedload(invoicing_models.InvoiceItem.invoice).joinedload(invoicing_models.Invoice.customer))
+        .filter(
+            invoicing_models.Invoice.status != "cancelled",
+            invoicing_models.Invoice.is_deleted == False,
+            invoicing_models.ChassisReturn.id.is_(None),
+        )
         .all()
-    }
+    )
+    invoiced_map = {item.chassis_number: item.invoice for item in active_items}
 
     all_faults = db.query(models.Fault).all()
     faults_by_chassis = {}
@@ -83,7 +105,7 @@ def get_chassis_summary(
     summary = []
     for chassis_num, records in records_by_chassis.items():
         is_complete = assembly_crud.is_chassis_complete(records)
-        sale = active_sold_map.get(chassis_num)
+        invoice = invoiced_map.get(chassis_num)
         faults = faults_by_chassis.get(chassis_num, [])
         pending_faults = [f for f in faults if f.status == "pending"]
 
@@ -97,22 +119,23 @@ def get_chassis_summary(
             for r in records
         }
 
+        customer_name = invoice.customer.name if invoice and invoice.customer else None
+
         summary.append({
             "chassis_number": chassis_num,
             "is_complete": is_complete,
-            "is_sold": sale is not None,
+            "is_sold": invoice is not None,
             "workers": worker_names,
             "stages": stage_values,
             "stage_workers": stage_workers,
             "bike_type": bike_type_name,
             "bike_color": bike_color_name,
-            "customer_name": sale.customer.name if sale and sale.customer else None,
+            "customer_name": customer_name,
             "pending_faults_count": len(pending_faults),
             "total_faults_count": len(faults),
             "last_updated": max(r.timestamp for r in records),
         })
 
-    # ── تطبيق الفلاتر (بنفس منطق الفرونت إند القديم) ──────────────────
     def matches(item):
         if chassis_number and chassis_number.lower() not in item["chassis_number"].lower():
             return False
@@ -168,17 +191,52 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         else:
             record.worker_name = "غير معروف"
 
-    sales = (
-        db.query(models.Sale)
-        .filter(
-            models.Sale.chassis_number == chassis_number
+    # 🆕🛡️ سجل البيع الآن مبني بالكامل على نظام الفوترة بدل جدول sales
+    # القديم الذي أُزيل نهائيًا. نجلب كل بنود الفواتير الخاصة بهذا الهيكل عبر
+    # كل تاريخه (حتى الملغاة/المُرجَعة، حفاظًا على الأثر الكامل)، ونحدد حالة
+    # كل بند: نشط (active) / مُرجَع (returned) / على فاتورة ملغاة (cancelled)
+    items = (
+        db.query(invoicing_models.InvoiceItem)
+        .join(invoicing_models.Invoice)
+        .options(
+            joinedload(invoicing_models.InvoiceItem.invoice).joinedload(invoicing_models.Invoice.customer),
+            joinedload(invoicing_models.InvoiceItem.invoice).joinedload(invoicing_models.Invoice.created_by),
+            joinedload(invoicing_models.InvoiceItem.chassis_return),
         )
-        .order_by(desc(models.Sale.sale_date))
+        .filter(invoicing_models.InvoiceItem.chassis_number == chassis_number)
+        .order_by(desc(invoicing_models.Invoice.invoice_date))
         .all()
     )
 
-    for sale in sales:
-        sale.customer_name = sale.customer.name if sale.customer else "غير معروف"
+    sales_history = []
+    for item in items:
+        inv = item.invoice
+        ret = item.chassis_return
+        if ret is not None:
+            item_status = "returned"
+            cancel_reason = ret.reason
+            cancelled_at = ret.created_at
+        elif inv.status == "cancelled":
+            item_status = "cancelled"
+            cancel_reason = inv.cancel_reason
+            cancelled_at = inv.cancelled_at
+        else:
+            item_status = "active"
+            cancel_reason = None
+            cancelled_at = None
+
+        sales_history.append({
+            "id": item.id,
+            "invoice_number": inv.invoice_number,
+            "customer_id": inv.customer_id,
+            "customer_name": inv.customer.name if inv.customer else "غير معروف",
+            "sale_date": inv.invoice_date,
+            "notes": item.notes,
+            "status": item_status,
+            "cancelled_at": cancelled_at,
+            "cancel_reason": cancel_reason,
+            "created_by_username": inv.created_by.username if inv.created_by else None,
+        })
 
     faults = faults_crud.get_faults_by_chassis(
         db,
@@ -191,7 +249,7 @@ def get_full_chassis_history(db: Session, chassis_number: str):
     return {
         "chassis_number": chassis_number,
         "assembly_history": assembly_records,
-        "sales": sales,
+        "sales": sales_history,
         "faults": faults,
         "bike_type": bike_type_name,
         "bike_color": bike_color_name,

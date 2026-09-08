@@ -1,18 +1,10 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import datetime
+from decimal import Decimal
 from .models import AssemblyStage
 from pydantic import field_validator
 
 
-# ====================== 🛡️ تنظيف تلقائي للمدخلات ======================
-# كلاس أساس مشترك: يمسح المسافات الزائدة (البداية/النهاية) من كل حقل نصي
-# قادم من المستخدم تلقائيًا وقبل أي فحص آخر (mode="before")، بحيث:
-#   - "  أحمد  " → "أحمد"
-#   - "" (بعد المسح) تبقى "" وتخضع لاحقًا لفحوصات الإلزامية العادية
-# أي نموذج إدخال (Create/Update/...) يرث من هذا الكلاس بدل BaseModel مباشرة
-# يحصل على هذا التنظيف تلقائيًا دون أي تعديل إضافي في تعريف الحقول نفسها.
-
-# الحقول التي لا يجب مسح مسافاتها أبدًا (كلمات المرور)
 _SKIP_STRIP_FIELDS = {"password", "hashed_password"}
 
 class StrippedBaseModel(BaseModel):
@@ -66,13 +58,16 @@ class Worker(WorkerBase):
 # ====================== BIKE TYPE / COLOR ======================
 class BikeTypeCreate(StrippedBaseModel):
     name: str
+    default_price: Decimal | None = None
 
 class BikeTypeUpdate(StrippedBaseModel):
     name: str | None = None
+    default_price: Decimal | None = None
 
 class BikeTypeResponse(BaseModel):
     id: int
     name: str
+    default_price: Decimal | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -108,7 +103,7 @@ class AssemblyResponse(BaseModel):
     bike_type_name: str | None = None
     bike_color_name: str | None = None
     timestamp: datetime
-    recorded_by_username: str | None = None   # 👈 جديد
+    recorded_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -134,29 +129,22 @@ class Customer(CustomerBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ====================== SALE ======================
-class SaleCreate(StrippedBaseModel):
-    chassis_number: str
-    customer_id: int
-    notes: str | None = None
-    sale_date: datetime | None = None
-
-class SaleCancel(StrippedBaseModel):
-    reason: str | None = None
-    confirm_no_reason: bool = False
-
-class SaleResponse(BaseModel):
+# ====================== سجل بيع الهيكل (🆕 مبني على نظام الفوترة) ======================
+# 🛡️ حلّت محل SaleResponse القديمة بعد حذف نظام sales نهائيًا. تُبنى بيانات
+# هذا النموذج من bند فاتورة (InvoiceItem) + الفاتورة + سجل الإرجاع إن وُجد،
+# راجع chassis_crud.get_full_chassis_history لمصدر البيانات الفعلي.
+class ChassisSaleHistoryItem(BaseModel):
     id: int
-    chassis_number: str
+    invoice_number: str
     customer_id: int
     customer_name: str | None = None
     sale_date: datetime
     notes: str | None = None
+    # "active" بيع نشط قائم | "returned" تم إرجاع الدراجة | "cancelled" الفاتورة ملغاة
     status: str = "active"
     cancelled_at: datetime | None = None
     cancel_reason: str | None = None
-    created_by_username: str | None = None     # 👈 جديد
-    cancelled_by_username: str | None = None    # 👈 جديد
+    created_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -183,7 +171,7 @@ class FaultRepairResponse(BaseModel):
     worker_name: str | None = None
     repair_date: datetime
     notes: str | None = None
-    recorded_by_username: str | None = None   # 👈 جديد
+    recorded_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -198,8 +186,8 @@ class FaultResponse(BaseModel):
     resolved_at: datetime | None = None
     cancel_reason: str | None = None
     repairs: list[FaultRepairResponse] = []
-    reported_by_username: str | None = None    # 👈 جديد
-    cancelled_by_username: str | None = None    # 👈 جديد
+    reported_by_username: str | None = None
+    cancelled_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -230,7 +218,7 @@ class DashboardStats(BaseModel):
 class ChassisHistoryResponse(BaseModel):
     chassis_number: str
     assembly_history: list[AssemblyResponse]
-    sales: list[SaleResponse] = []
+    sales: list[ChassisSaleHistoryItem] = []
     faults: list[FaultResponse]
 
     model_config = ConfigDict(from_attributes=True)
@@ -243,9 +231,7 @@ class ResponseMessage(BaseModel):
 
 
 # ====================== ROLES ======================
-# القائمة المرجعية الوحيدة لمعرّفات التبويبات المتاحة في لوحة الإدارة
-# ⚠️ يجب أن تبقى متطابقة تمامًا مع TAB_DEFINITIONS في useTabPermissions.js بالفرونت إند
-ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "sales", "faults", "workers", "customers", "logs", "archive"]
+ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "invoices", "faults", "workers", "customers", "logs", "archive"]
 
 
 class RoleCreate(StrippedBaseModel):
@@ -340,7 +326,7 @@ class AuditLogListResponse(BaseModel):
     total: int
 
 
-# ====================== ARCHIVE (سجلات محذوفة/مؤرشفة) ======================
+# ====================== ARCHIVE ======================
 class ArchivedWorkerResponse(BaseModel):
     id: int
     name: str
@@ -379,7 +365,7 @@ class ArchivedBikeOptionResponse(BaseModel):
 
 
 # ====================== PAGINATION ======================
-MAX_PAGE_LIMIT = 100          # سقف أقصى صارم لأي limit قادم من العميل
+MAX_PAGE_LIMIT = 100
 DEFAULT_PAGE_LIMIT = 20
 
 
@@ -417,10 +403,6 @@ class CustomerSimpleResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
-class PaginatedSales(BaseModel):
-    items: list[SaleResponse]
-    total: int
 
 class PaginatedFaults(BaseModel):
     items: list[FaultResponse]

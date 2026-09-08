@@ -38,22 +38,34 @@
           v-for="tab in visibleTabs"
           :key="tab.id"
           @click="switchTab(tab.id)"
-          :class="activeTab === tab.id
-            ? 'bg-indigo-50 text-indigo-700 font-semibold'
-            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'"
+          :class="[
+            activeTab === tab.id
+              ? 'bg-indigo-50 text-indigo-700 font-semibold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
+            // 🆕 تمييز بصري خفيف لزر الفواتير لأنه ينقل لصفحة مستقلة
+            // (وليس تبديل تبويب داخلي مثل بقية الأزرار)
+            tab.id === 'invoices' ? 'ring-1 ring-inset ring-amber-200' : ''
+          ]"
           class="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 text-sm"
         >
           <span class="text-base sm:text-lg">{{ tab.icon }}</span>
           <span class="truncate">{{ tab.label }}</span>
           <span
-            v-if="activeTab === tab.id"
+            v-if="tab.id === 'invoices'"
+            class="mr-auto text-[10px] text-amber-600"
+            title="ينتقل لصفحة مستقلة"
+          >
+            ↗
+          </span>
+          <span
+            v-else-if="activeTab === tab.id"
             class="mr-auto w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0"
           ></span>
         </button>
       </nav>
 
       <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
-        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 2.0 · نظام التجميع الكهربائي</p>
+        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 3.0 · نظام التجميع الكهربائي</p>
         <p class="text-xs text-slate-500 text-center mb-2 truncate">
           {{ user?.full_name || user?.username }} — {{ user?.role }}
         </p>
@@ -120,11 +132,6 @@
             ref="assemblyTabRef"
           />
 
-          <SalesTab
-            v-else-if="activeTab === 'sales'"
-            ref="salesTabRef"
-          />
-
           <FaultsTab
             v-else-if="activeTab === 'faults'"
             ref="faultsTabRef"
@@ -175,7 +182,6 @@ import { getAllowedTabs, getDefaultTab, isTabAllowed } from '../composables/useT
 import DashboardStatsTab from '../components/admin/tabs/DashboardStatsTab.vue'
 import UsersTab from '../components/admin/tabs/UsersTab.vue'
 import AssemblyTab from '../components/admin/tabs/AssemblyTab.vue'
-import SalesTab from '../components/admin/tabs/SalesTab.vue'
 import FaultsTab from '../components/admin/tabs/FaultsTab.vue'
 import WorkersTab from '../components/admin/tabs/WorkersTab.vue'
 import CustomersTab from '../components/admin/tabs/CustomersTab.vue'
@@ -213,7 +219,6 @@ const asideClasses = computed(() => {
 const stats = ref({ total_chassis: 0, completed: 0, in_progress: 0, sold: 0 })
 const usersTabRef      = ref(null)
 const assemblyTabRef   = ref(null)
-const salesTabRef      = ref(null)
 const faultsTabRef     = ref(null)
 const workersTabRef    = ref(null)
 const customersTabRef  = ref(null)
@@ -226,6 +231,15 @@ const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === acti
 
 const switchTab = (tab) => {
   if (!canAccessTab(tab)) return
+
+  // 🆕 "الفواتير" تنقل فعلي (router.push) لصفحة مستقلة تمامًا عن نظام
+  // التبويبات الداخلي في DashboardView — راجع القرار المعماري المحفوظ
+  if (tab === 'invoices') {
+    isSidebarOpen.value = false
+    router.push({ name: 'Invoices' })
+    return
+  }
+
   activeTab.value = tab
   isSidebarOpen.value = false
 }
@@ -267,7 +281,6 @@ const handleArchiveRestore = (subType) => {
 watch(activeTab, () => {
   usersTabRef.value?.clearSelection?.()
   settingsTabRef.value?.clearSelection?.()
-  salesTabRef.value?.clearSelection?.()
   faultsTabRef.value?.clearSelection?.()
   workersTabRef.value?.clearSelection?.()
   customersTabRef.value?.clearSelection?.()

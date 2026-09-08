@@ -293,7 +293,8 @@ def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User 
         db.commit()
         return None
 
-    if db_token.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+    now = datetime.now(timezone.utc).replace(tzinfo=None) if db_token.expires_at.tzinfo is None else datetime.now(timezone.utc)
+    if db_token.expires_at < now:
         return None
 
     user = db.query(models.User).filter(

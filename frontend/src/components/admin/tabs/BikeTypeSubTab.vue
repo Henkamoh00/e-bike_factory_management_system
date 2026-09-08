@@ -58,6 +58,10 @@
               </div>
               <div class="min-w-0">
                 <div class="font-bold text-gray-800 truncate">{{ type.name }}</div>
+                <div v-if="type.default_price != null" class="text-xs text-emerald-600 mt-0.5">
+                  السعر الافتراضي: {{ Number(type.default_price).toFixed(2) }}
+                </div>
+                <div v-else class="text-xs text-gray-400 mt-0.5">بدون سعر افتراضي محدد</div>
               </div>
             </div>
 

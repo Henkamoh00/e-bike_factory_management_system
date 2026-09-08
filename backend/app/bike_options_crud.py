@@ -5,10 +5,15 @@ from . import models, schemas, audit_crud
 
 
 # ====================== BIKE TYPE ======================
-def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None = None):
+def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None = None, default_price=None):
+    """
+    🛡️ إصلاح خطأ حقيقي: كانت هذه الدالة تتجاهل السعر الافتراضي تمامًا عند
+    الإنشاء (المُعامل default_price لم يكن موجودًا أصلاً)، فيُنشأ النوع دائمًا
+    بسعر NULL بغض النظر عمّا أرسله المستخدم في الفورم.
+    """
     bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
     if not bike_type:
-        bike_type = models.BikeType(name=name, created_by_id=current_user_id)
+        bike_type = models.BikeType(name=name, created_by_id=current_user_id, default_price=default_price)
         db.add(bike_type)
         try:
             db.commit()
@@ -37,11 +42,12 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, cu
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
     if not bike_type:
         raise ValueError("نوع الدراجة غير موجود")
-    # 🛡️ إصلاح: منع تعديل نوع دراجة مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
     if bike_type.is_deleted:
         raise ValueError("لا يمكن تعديل نوع دراجة مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
         bike_type.name = data.name
+    if "default_price" in data.model_fields_set:
+        bike_type.default_price = data.default_price
     try:
         db.commit()
     except IntegrityError:
@@ -80,7 +86,6 @@ def restore_bike_type(db: Session, type_id: int, current_user_id: int):
     if not bike_type.is_deleted:
         raise ValueError("النوع غير مؤرشف أصلاً")
 
-    # 🛡️ فحص مسبق بالكود لإعطاء رسالة عربية واضحة (نفس نمط العملاء/العمال)
     duplicate = db.query(models.BikeType).filter(
         models.BikeType.name == bike_type.name,
         models.BikeType.is_deleted == False,
@@ -138,7 +143,6 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate,
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
     if not bike_color:
         raise ValueError("لون الدراجة غير موجود")
-    # 🛡️ إصلاح: منع تعديل لون دراجة مؤرشف مباشرة، يجب استعادته أولاً من الأرشيف
     if bike_color.is_deleted:
         raise ValueError("لا يمكن تعديل لون دراجة مؤرشف، يجب استعادته أولاً")
     if data.name is not None:
@@ -181,7 +185,6 @@ def restore_bike_color(db: Session, color_id: int, current_user_id: int):
     if not bike_color.is_deleted:
         raise ValueError("اللون غير مؤرشف أصلاً")
 
-    # 🛡️ فحص مسبق بالكود لإعطاء رسالة عربية واضحة (نفس نمط العملاء/العمال)
     duplicate = db.query(models.BikeColor).filter(
         models.BikeColor.name == bike_color.name,
         models.BikeColor.is_deleted == False,

@@ -19,6 +19,12 @@
           <span class="text-sm text-gray-600">لا يوجد سبب محدد، متابعة الإلغاء بدون كتابة سبب</span>
         </label>
 
+        <!-- 🆕 تأكيد إضافي اختياري (مثال: رد مبلغ مدفوع للعميل عند إلغاء فاتورة) -->
+        <label v-if="requireExtraConfirm" class="flex items-start gap-2 mt-4 p-3 bg-amber-50 rounded-xl cursor-pointer select-none">
+          <input type="checkbox" v-model="extraConfirmed" class="w-4 h-4 accent-amber-600 mt-0.5" />
+          <span class="text-sm text-amber-700">{{ extraConfirmText }}</span>
+        </label>
+
         <p v-if="error" class="text-sm text-red-600 mt-3">{{ error }}</p>
       </div>
 
@@ -45,13 +51,17 @@ const props = defineProps({
   title: { type: String, default: 'تأكيد الإلغاء' },
   subtitle: { type: String, default: '' },
   icon: { type: String, default: '⚠️' },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  // 🆕 تأكيد إضافي اختياري لا علاقة له بسبب الإلغاء (مثال: تأكيد رد مبلغ)
+  requireExtraConfirm: { type: Boolean, default: false },
+  extraConfirmText: { type: String, default: '' }
 })
 
 const emit = defineEmits(['close', 'confirm'])
 
 const reason = ref('')
 const noReason = ref(false)
+const extraConfirmed = ref(false)
 const error = ref('')
 
 const confirm = () => {
@@ -60,7 +70,15 @@ const confirm = () => {
     error.value = 'يرجى كتابة سبب الإلغاء، أو تفعيل الخيار أدناه للمتابعة بدون سبب'
     return
   }
+  if (props.requireExtraConfirm && !extraConfirmed.value) {
+    error.value = 'يرجى تأكيد الخيار الإضافي أعلاه للمتابعة'
+    return
+  }
   error.value = ''
-  emit('confirm', { reason: trimmed, confirm_no_reason: noReason.value })
+  const payload = { reason: trimmed, confirm_no_reason: noReason.value }
+  if (props.requireExtraConfirm) {
+    payload.confirm_extra = true
+  }
+  emit('confirm', payload)
 }
 </script>

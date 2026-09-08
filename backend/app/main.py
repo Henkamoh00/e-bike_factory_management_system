@@ -6,7 +6,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
-from .routers import workers, bike_options, customers, sales, faults, chassis, assembly, stats, auth, users, roles, logs
+from .routers import workers, bike_options, customers, faults, chassis, assembly, stats, auth, users, roles, logs
+from invoicing.routers.invoices import router as invoices_router
 from .rate_limit import limiter
 from .security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 
@@ -95,7 +96,6 @@ app.add_middleware(
 app.include_router(workers.router)
 app.include_router(bike_options.router)
 app.include_router(customers.router)
-app.include_router(sales.router)
 app.include_router(faults.router)
 app.include_router(chassis.router)
 app.include_router(assembly.router)
@@ -104,6 +104,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(logs.router)
+app.include_router(invoices_router)
 
 
 @app.get("/")
