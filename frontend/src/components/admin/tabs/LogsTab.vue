@@ -109,9 +109,12 @@ const actionLabels = {
   bulk_delete: 'حذف جماعي', bulk_cancel: 'إلغاء جماعي', bulk_repair: 'تصليح جماعي',
   bulk_restore: 'استعادة جماعية', bulk_activate: 'تفعيل جماعي', bulk_deactivate: 'تعطيل جماعي'
 }
+
+// 🆕🛡️ نُظّفت من "sale" نهائيًا واستُبدلت بكيانات نظام الفوترة الفعلية
 const entityLabels = {
   worker: 'عامل', customer: 'عميل', bike_type: 'نوع دراجة', bike_color: 'لون دراجة',
-  assembly: 'تجميع', sale: 'بيع', fault: 'عطل', fault_repair: 'تصليح عطل', user: 'مستخدم', role: 'دور'
+  assembly: 'تجميع', fault: 'عطل', fault_repair: 'تصليح عطل', user: 'مستخدم', role: 'دور',
+  invoice: 'فاتورة', invoice_item: 'بند فاتورة', payment: 'دفعة', chassis_return: 'إرجاع دراجة'
 }
 
 const actionOptions = computed(() => meta.value.actions.map(a => ({ label: actionLabels[a] || a, value: a })))

@@ -6,7 +6,7 @@ from ..security import require_any_tab
 
 router = APIRouter(prefix="/api/chassis", tags=["chassis"])
 
-can_view_chassis = require_any_tab("assembly", "sales", "faults")
+can_view_chassis = require_any_tab("assembly", "invoices", "faults")
 
 @router.get("/summary/", response_model=schemas.PaginatedChassisSummary)
 def get_chassis_summary_list(

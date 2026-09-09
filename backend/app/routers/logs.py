@@ -16,7 +16,15 @@ ACTION_CHOICES = [
     "bulk_delete", "bulk_cancel", "bulk_restore", "bulk_repair",
     "bulk_activate", "bulk_deactivate"
 ]
-ENTITY_CHOICES = ["worker", "customer", "bike_type", "bike_color", "assembly", "sale", "fault", "fault_repair", "user", "role"]
+
+# 🆕🛡️ نُظّفت من "sale" نهائيًا (نظام sales القديم حُذف بالكامل من المشروع
+# بلا أي داعٍ للإبقاء عليه، لأن المشروع لا يزال قيد التطوير ولا توجد بيانات
+# حقيقية يُخشى فقدان تصنيفها). استُبدلت بكيانات نظام الفوترة الفعلية.
+ENTITY_CHOICES = [
+    "worker", "customer", "bike_type", "bike_color", "assembly",
+    "invoice", "invoice_item", "payment", "chassis_return",
+    "fault", "fault_repair", "user", "role"
+]
 
 
 @router.get("/", response_model=schemas.AuditLogListResponse)

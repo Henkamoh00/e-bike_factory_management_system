@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 from . import models, schemas, audit_crud
+from invoicing import models as invoicing_models
 
 
 def create_customer(db: Session, customer: schemas.CustomerCreate, current_user_id: int):
@@ -62,6 +63,11 @@ def search_customers_simple(db: Session, q: str | None = None, limit: int = 20):
     return query.order_by(models.Customer.name).limit(limit).all()
 
 
+# 🆕🛡️ إصلاح حرج: كانت هذه الدالة تستعلم عن models.Sale (الجدول القديم الذي
+# حُذف نهائيًا مع كل نظام sales). الآن تعتمد حصريًا على نظام الفوترة:
+# "عملية شراء نشطة" = بند فاتورة (InvoiceItem) على فاتورة غير ملغاة، ولم
+# يُسجَّل عليه إرجاع (ChassisReturn) — بنفس المنطق المستخدم تمامًا في
+# chassis_crud._get_active_invoiced_chassis_numbers وstats_crud.get_dashboard_stats
 def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
     query = db.query(models.Customer).filter(models.Customer.is_deleted == False)
     if search:
@@ -73,34 +79,47 @@ def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search
     if not customers:
         return [], total
 
-    # 🆕 إصلاح أداء (N+1): جلب كل المبيعات النشطة لعملاء هذه الصفحة بطلب واحد
-    # بدل استعلام منفصل لكل عميل داخل الحلقة
     customer_ids = [c.id for c in customers]
-    all_sales = db.query(models.Sale).filter(
-        models.Sale.customer_id.in_(customer_ids),
-        models.Sale.status == "active"
-    ).all()
 
-    sales_by_customer = {}
-    for s in all_sales:
-        sales_by_customer.setdefault(s.customer_id, []).append(s)
+    # 🆕 جلب كل بنود الفواتير النشطة (غير ملغاة الفاتورة + غير مُرجَعة) لعملاء
+    # هذه الصفحة بطلب واحد، مع joinedload للفاتورة لتفادي N+1 عند قراءة customer_id
+    active_items = (
+        db.query(invoicing_models.InvoiceItem)
+        .join(invoicing_models.Invoice)
+        .outerjoin(
+            invoicing_models.ChassisReturn,
+            invoicing_models.ChassisReturn.invoice_item_id == invoicing_models.InvoiceItem.id
+        )
+        .options(joinedload(invoicing_models.InvoiceItem.invoice))
+        .filter(
+            invoicing_models.Invoice.customer_id.in_(customer_ids),
+            invoicing_models.Invoice.status != "cancelled",
+            invoicing_models.Invoice.is_deleted == False,
+            invoicing_models.ChassisReturn.id.is_(None),
+        )
+        .all()
+    )
+
+    items_by_customer = {}
+    for item in active_items:
+        items_by_customer.setdefault(item.invoice.customer_id, []).append(item)
 
     result = []
     for c in customers:
-        sales = sales_by_customer.get(c.id, [])
+        items = items_by_customer.get(c.id, [])
         result.append({
             "id":               c.id,
             "name":             c.name,
             "phone":            c.phone,
             "address":          c.address,
-            "total_purchases":  len(sales),
+            "total_purchases":  len(items),
             "sales": [
                 {
-                    "id":             s.id,
-                    "chassis_number": s.chassis_number,
-                    "sale_date":      s.sale_date,
+                    "id":             item.id,
+                    "chassis_number": item.chassis_number,
+                    "sale_date":      item.invoice.invoice_date,
                 }
-                for s in sales
+                for item in items
             ],
         })
     return result, total

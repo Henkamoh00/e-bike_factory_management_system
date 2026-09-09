@@ -33,7 +33,7 @@ def test_admin_role_tabs_cannot_be_restricted(authenticated_client, seed_roles):
     admin_role_id = seed_roles["admin"].id
     response = authenticated_client.put(
         f"/api/roles/{admin_role_id}/",
-        json={"allowed_tabs": ["sales"]},
+        json={"allowed_tabs": ["invoices"]},
     )
     assert response.status_code == 200
     assert set(response.json()["allowed_tabs"]) == set(schemas.ALL_TAB_IDS)

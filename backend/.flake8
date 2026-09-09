@@ -25,5 +25,4 @@ per-file-ignores =
     test_suite/conftest.py:E402
 max-complexity = 20
 
-
 # Strict spacing rules active (removed E712, E302, E305, E221, E261, W292, W293)

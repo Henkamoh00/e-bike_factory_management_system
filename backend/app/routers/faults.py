@@ -2,12 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import faults_crud, schemas, models
-from ..security import require_tab
+from ..security import require_tab, require_any_tab
 from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/faults", tags=["faults"])
 
 can_access_faults = require_tab("faults")
+
+# 🛡️🆕 إصلاح: مستخدم يملك تبويب "invoices" فقط يحتاج قراءة قائمة الأعطال
+# (وليس إدارتها) عند تسجيل إرجاع دراجة — ReturnFormModal.vue يستعلم عن
+# الأعطال المعلّقة الخاصة بهيكل معيّن ليربط الإرجاع بعطل موجود مسبقًا بدل
+# فتح عطل مكرر تلقائيًا. القراءة فقط مفتوحة لـ faults أو invoices، بينما
+# الإنشاء/التصليح/الإلغاء تبقى حكرًا على تبويب "faults" فقط.
+can_view_faults = require_any_tab("faults", "invoices")
+
 
 @router.post("/", response_model=schemas.FaultResponse)
 def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
@@ -24,7 +32,7 @@ def get_all_faults(
     repaired_by: str | None = Query(default=None),
     responsible_worker: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(can_access_faults)
+    current_user: models.User = Depends(can_view_faults)
 ):
     """عرض الأعطال (معلقة، مصلَحة، وملغاة) مُصفَّحة ومُفلتَرة من السيرفر"""
     items, total = faults_crud.get_all_faults(
