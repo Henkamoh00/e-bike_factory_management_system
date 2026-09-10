@@ -44,7 +44,12 @@ jobs:
       - name: Run flake8 (linting)
         run: poetry run flake8 . --count --show-source --statistics
 
-      - name: Run pytest
+      - name: Run pytest (main suite)
         run: poetry run pytest test_suite/ -v --tb=short
+        env:
+          PYTHONIOENCODING: utf-8
+
+      - name: Run pytest (invoices suite)
+        run: poetry run pytest test_suite_invoices/ -v --tb=short
         env:
           PYTHONIOENCODING: utf-8

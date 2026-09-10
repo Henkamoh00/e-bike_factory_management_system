@@ -1143,7 +1143,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
         "reason": ret.reason,
         "related_fault_id": ret.related_fault_id,
         "notes": ret.notes,
-        "created_by_username": None,
+        "created_by_username": ret.created_by.username if ret.created_by else None,
         "created_at": ret.created_at,
     }
 
