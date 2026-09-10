@@ -26,25 +26,28 @@ os.environ.pop("REDIS_URL", None)       # إجبار slowapi على وضع ال�
 BACKEND_DIR = TEST_SUITE_DIR.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
-import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
+# 🛡️ noqa: E402 — هذه الاستيرادات يجب أن تأتي بعد ضبط متغيرات البيئة أعلاه
+# عمدًا (database.py و security.py يفشلان عند الاستيراد لو لم تُضبط هذه
+# المتغيرات أولاً)، لذا تجاهل تحذير flake8 الخاص بترتيب الاستيراد هنا مقصود.
+import pytest  # noqa: E402
+from sqlalchemy import create_engine, event  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 2) استيراد app بعد ضبط متغيرات البيئة
 # ---------------------------------------------------------------------------
-from app.main import app
-from app.database import Base, get_db
-from app import models, schemas
-from app.security import hash_password, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
-from app.rate_limit import limiter
-from app.assembly_crud import STAGE_COMPLETE
+from app.main import app  # noqa: E402
+from app.database import Base, get_db  # noqa: E402
+from app import models, schemas  # noqa: E402
+from app.security import hash_password, CSRF_COOKIE_NAME, CSRF_HEADER_NAME  # noqa: E402
+from app.rate_limit import limiter  # noqa: E402
+from app.assembly_crud import STAGE_COMPLETE  # noqa: E402
 
 # نماذج الفوترة تستخدم نفس Base (raw import من app.database)، لذا
 # Base.metadata.create_all تُنشئ جداول الفوترة تلقائيًا أيضًا دون أي خطوة إضافية
-from invoicing import models as invoicing_models  # noqa: F401  (لضمان تسجيل الجداول في Base.metadata)
+from invoicing import models as invoicing_models  # noqa: F401,E402  (لضمان تسجيل الجداول في Base.metadata)
 
 # ---------------------------------------------------------------------------
 # 3) محرك اختبار مستقل (SQLite + StaticPool لتفادي مشاكل تعدد الاتصالات)

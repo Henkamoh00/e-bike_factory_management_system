@@ -79,10 +79,8 @@ def test_invoices_only_can_view_faults_list(invoices_only_client, make_chassis):
     🛡️ القراءة فقط (GET) تبقى مفتوحة لمن يملك invoices — يحتاجها
     ReturnFormModal.vue لربط الإرجاع بعطل معلّق موجود مسبقًا.
     🔧 لا نستخدم authenticated_client هنا مع invoices_only_client في نفس
-    الاختبار (نفس فخ تصادم الكوكيز الموثّق أدناه) — بدلاً من ذلك نُنشئ
-    العطل عبر invoices_only_client نفسه (القراءة لا تتطلب وجود عطل حقيقي
-    بالضرورة، لكن لتفادي أي تعقيد إضافي نكتفي هنا باختبار مسار القراءة
-    فقط على قائمة فارغة، وهو كافٍ للتأكد من عدم رفض الوصول 403/401).
+    الاختبار (نفس فخ تصادم الكوكيز الموثّق أدناه) — بدلاً من ذلك نكتفي
+    باختبار مسار القراءة نفسه، وهو كافٍ للتأكد من عدم رفض الوصول 403/401.
     """
     make_chassis()
     response = invoices_only_client.get("/api/faults/")
@@ -118,15 +116,13 @@ def test_invoices_only_cannot_repair_fault(invoices_only_client, make_chassis):
     `client` المشترك (pytest يُخزّن الفِكستشر لمرة واحدة فقط لكل اختبار).
     كانت النتيجة: authenticated_client يُسجّل دخول admin *فوق* كوكيز
     invoices_only الموجودة أصلاً على نفس كائن client، فينقلب كل طلب لاحق
-    عبر invoices_only_client فعليًا إلى طلب بصلاحية admin بالخطأ (نفس الفخ
-    الموثّق في تعليق test_unauthenticated_cannot_create_fault، لكنه لم يكن
-    معالَجًا هنا). الحل: استخدام عميل TestClient معزول تمامًا (بكوكيز خاصة
-    به) لتسجيل دخول admin وإنشاء العطل الذي سنحاول تصليحه، دون أي تأثير على
-    كوكيز invoices_only_client المستخدم لاحقًا لمحاولة التصليح الفعلية.
+    عبر invoices_only_client فعليًا إلى طلب بصلاحية admin بالخطأ. الحل:
+    استخدام عميل TestClient معزول تمامًا (بكوكيز خاصة به، مستورد من
+    conftest) لتسجيل دخول admin وإنشاء العطل الذي سنحاول تصليحه، دون أي
+    تأثير على كوكيز invoices_only_client المستخدم لاحقًا لمحاولة التصليح.
     """
-    from fastapi.testclient import TestClient
-    from app.main import app
     from conftest import CSRFAwareTestClient, _login
+    from app.main import app
 
     chassis = make_chassis()
 
@@ -243,7 +239,6 @@ def test_dashboard_stats_counts_active_invoiced_chassis_as_sold(authenticated_cl
     make_chassis()  # هيكل ثالث متاح، غير مُباع
 
     created = _create_invoice(authenticated_client, customer.id, [_item(c1), _item(c2)])
-    invoice_id = created.json()["id"]
     item1_id = created.json()["items"][0]["id"]
 
     before = authenticated_client.get("/api/stats/").json()
