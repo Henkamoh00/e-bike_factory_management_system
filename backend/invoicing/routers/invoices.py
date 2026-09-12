@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models as app_models
 from app.security import require_tab
 from .. import schemas, invoices_crud
+from ..pdf_generator import generate_invoice_pdf
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
 can_access_invoices = require_tab("invoices")
 
-# ⚠️ ترتيب حاسم: كل مسار حرفي بجزء واحد (مثل /returns/, /sold-faulty-chassis/)
-# يجب أن يُسجَّل قبل `/{invoice_id}/` بجزء واحد، وإلا سيُفسَّر النص الحرفي
-# كمعرّف فاتورة ويفشل بخطأ 422 قبل الوصول للمسار الصحيح إطلاقًا.
+# ⚠️ ترتيب حاسم: كل مسار حرفي بجزء واحد (مثل /returns/, /sold-faulty-chassis/,
+# /{invoice_id}/pdf/) يجب أن يُسجَّل قبل `/{invoice_id}/` بجزء واحد، وإلا
+# سيُفسَّر النص الحرفي كمعرّف فاتورة ويفشل بخطأ 422 قبل الوصول للمسار الصحيح.
+# ملاحظة: /{invoice_id}/pdf/ بجزأين بعد المعرّف لا يتعارض إطلاقًا مع
+# /{invoice_id}/ بجزء واحد، لكن أُبقي على نفس عادة التسجيل المبكر للوضوح.
 
 
 @router.post("/", response_model=schemas.InvoiceResponse)
@@ -106,6 +109,33 @@ def get_sold_faulty_chassis(
     current_user: app_models.User = Depends(can_access_invoices)
 ):
     return invoices_crud.get_sold_faulty_chassis(db)
+
+
+# 🆕 توليد PDF لفاتورة واحدة. لا يُعدّل أي بيانات — قراءة فقط، بنفس صلاحية
+# عرض الفاتورة (can_access_invoices)، بلا أي فحص إضافي.
+@router.get("/{invoice_id}/pdf/")
+def get_invoice_pdf(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    invoice = invoices_crud.get_invoice_by_id(db, invoice_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    try:
+        pdf_bytes = generate_invoice_pdf(invoice)
+    except RuntimeError as e:
+        # 🛡️ خطأ إعداد الخط (ملف الخط غير موجود على السيرفر) — 500 واضح
+        # بدل فشل غامض، مع رسالة عربية تشرح الحل
+        raise HTTPException(status_code=500, detail=str(e))
+
+    filename = f"{invoice.invoice_number}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{invoice_id}/", response_model=schemas.InvoiceResponse)

@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 
 from .routers import workers, bike_options, customers, faults, chassis, assembly, stats, auth, users, roles, logs
 from invoicing.routers.invoices import router as invoices_router
+from invoicing.routers.verify import router as invoice_verify_router
 from .rate_limit import limiter
 from .security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 
@@ -42,6 +43,8 @@ app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 # يُنفَّذ على أي طلب غير آمن (POST/PUT/DELETE/PATCH) قادم من عميل يحمل جلسة
 # كوكيز (access أو refresh). المسارات المُستثناة: تسجيل الدخول (لا جلسة بعد)
 # وتسجيل الخروج (إجراء آمن نسبيًا، ولمنع قفل المستخدم في حال فقد كوكي CSRF).
+# ⚠️ صفحة التحقق العامة (invoice_verify_router) لا تحتاج استثناء هنا أصلاً
+# لأنها GET فقط، والـ GET مُستثنى بالفعل ضمن SAFE_METHODS.
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 CSRF_EXEMPT_PATHS = {
     "/api/auth/login/",
@@ -105,6 +108,11 @@ app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(logs.router)
 app.include_router(invoices_router)
+
+# 🆕🛡️ راوتر التحقق العام من صحة الفواتير — مسار عشوائي بعيد تمامًا عن
+# /api/، بلا تسجيل دخول، وبلا ظهور في /docs (راجع invoicing/verification.py
+# و invoicing/routers/verify.py). يُستدعى فقط من مسح رمز QR على فاتورة PDF.
+app.include_router(invoice_verify_router)
 
 
 @app.get("/")

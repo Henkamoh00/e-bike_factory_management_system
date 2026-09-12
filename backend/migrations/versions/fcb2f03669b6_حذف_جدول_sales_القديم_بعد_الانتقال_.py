@@ -1,7 +1,7 @@
 """حذف جدول sales القديم بعد الانتقال الكامل لنظام الفوترة
 
 Revision ID: fcb2f03669b6
-Revises: f46a116e7d61
+Revises: 037a0006f145
 Create Date: 2026-09-09 09:26:46.918215
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'fcb2f03669b6'
-down_revision: Union[str, Sequence[str], None] = 'f46a116e7d61'
+down_revision: Union[str, Sequence[str], None] = '037a0006f145'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

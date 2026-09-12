@@ -7,9 +7,18 @@
             <h2 class="text-2xl font-bold font-mono text-gray-800">{{ invoice.invoice_number }}</h2>
             <p class="text-sm text-gray-500">{{ invoice.customer_name }}</p>
           </div>
-          <span class="text-sm px-3 py-1.5 rounded-full font-medium" :class="statusTextClass(invoice.status)">
-            {{ statusLabel(invoice.status) }}
-          </span>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openPdf"
+              class="text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full font-medium flex items-center gap-1.5 shrink-0"
+              title="فتح/طباعة الفاتورة كملف PDF"
+            >
+              🖨️ طباعة / PDF
+            </button>
+            <span class="text-sm px-3 py-1.5 rounded-full font-medium" :class="statusTextClass(invoice.status)">
+              {{ statusLabel(invoice.status) }}
+            </span>
+          </div>
         </div>
 
         <div v-if="invoice.status === 'paid'" class="mb-6 p-3 bg-emerald-50 text-emerald-700 text-sm rounded-2xl flex items-center gap-2">
@@ -251,6 +260,7 @@ import { useAuth } from '../../composables/useAuth'
 import { useToast } from '../../composables/useToast'
 import CancelReasonModal from '../shared/CancelReasonModal.vue'
 
+const API = import.meta.env.VITE_API_BASE_URL
 const { apiFetch } = useAuth()
 const { showToast } = useToast()
 
@@ -269,6 +279,13 @@ const statusTextClass = (s) => ({
   paid: 'bg-emerald-50 text-emerald-600',
   cancelled: 'bg-gray-50 text-gray-400',
 }[s] || 'bg-gray-50 text-gray-500')
+
+// 🆕 فتح/طباعة الفاتورة كـ PDF في تبويب جديد. رابط مباشر (بلا fetch) لأن
+// الطلب GET آمن (لا يحتاج هيدر CSRF)، والمتصفح يُرفق الكوكيز httpOnly
+// تلقائيًا مع أي تنقل عادي لنفس الدومين — تمامًا كأي رابط تحميل مباشر.
+const openPdf = () => {
+  window.open(`${API}/api/invoices/${props.invoice.id}/pdf/`, '_blank')
+}
 
 const paymentAmount = ref(null)
 const paymentMethod = ref('')
