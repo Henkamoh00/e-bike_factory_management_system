@@ -61,27 +61,27 @@
           </div>
         </div>
 
-        <!-- 🆕 صف كامل الصورة عبر مراحل المال: مسترجَع / معلَّق / شامل -->
+        <!-- 🆕 صف يضم: المسترجَع، مجموع الأرصدة، الإجمالي الشامل -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div class="bg-orange-50 rounded-2xl p-5">
-            <div class="flex items-center gap-2 text-xs text-orange-500 mb-2">
-              <span class="w-2 h-2 rounded-full bg-orange-500"></span> معلَّق (بانتظار قرار)
-            </div>
-            <div class="text-2xl font-bold text-orange-600">{{ Number(stats.total_pending).toFixed(2) }}</div>
-            <div class="text-xs text-orange-400 mt-1">موجود في الصندوق، على فواتير ملغاة</div>
-          </div>
           <div class="bg-amber-50 rounded-2xl p-5">
             <div class="flex items-center gap-2 text-xs text-amber-600 mb-2">
               <span class="w-2 h-2 rounded-full bg-amber-500"></span> إجمالي المسترجَع للعملاء
             </div>
             <div class="text-2xl font-bold text-amber-600">{{ Number(stats.total_refunded).toFixed(2) }}</div>
           </div>
+          <div class="bg-purple-50 rounded-2xl p-5">
+            <div class="flex items-center gap-2 text-xs text-purple-600 mb-2">
+              <span class="w-2 h-2 rounded-full bg-purple-500"></span> مجموع الأرصدة
+            </div>
+            <div class="text-2xl font-bold text-purple-600">{{ Number(stats.total_credit_balance ?? 0).toFixed(2) }}</div>
+            <div class="text-xs text-purple-400 mt-1">رصيد كل العملاء الحاليين مجتمعًا</div>
+          </div>
           <div class="bg-indigo-50 rounded-2xl p-5">
             <div class="flex items-center gap-2 text-xs text-indigo-500 mb-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> الإجمالي الشامل (كل ما دخل الصندوق)
             </div>
             <div class="text-2xl font-bold text-indigo-600">{{ Number(stats.total_gross_collected).toFixed(2) }}</div>
-            <div class="text-xs text-indigo-400 mt-1">= صافٍ + مسترجَع + معلَّق</div>
+            <div class="text-xs text-indigo-400 mt-1">= صافٍ + مسترجَع + الأرصدة</div>
           </div>
         </div>
 

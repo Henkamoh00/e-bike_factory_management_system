@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[65]" @click.self="$emit('close')">
+  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[71]" @click.self="$emit('close')">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
       <div class="p-8 overflow-y-auto flex-1">
         <div class="flex items-center justify-between mb-2">
@@ -90,19 +90,35 @@
           </div>
         </div>
 
-        <div class="p-4 bg-emerald-50 rounded-2xl mb-6 space-y-1">
+        <div class="p-4 bg-emerald-50 rounded-2xl mb-3 space-y-1">
           <div class="flex justify-between text-sm"><span class="text-gray-600">المجموع الفرعي</span><span>{{ Number(invoice.subtotal).toFixed(2) }}</span></div>
           <div v-if="invoice.discount_type" class="flex justify-between text-sm text-red-500">
-            <span>الخصم</span><span>- {{ (Number(invoice.subtotal) - Number(invoice.total_amount)).toFixed(2) }}</span>
+            <span>الخصم</span><span>- {{ (Number(invoice.subtotal) - Number(invoice.total_amount) - returnedItemsTotal).toFixed(2) }}</span>
+          </div>
+          <!-- 🆕 توضيح واضح للبنود المُرجَعة/المحذوفة المخصومة من الإجمالي -->
+          <div v-if="returnedItemsTotal > 0" class="flex justify-between text-sm text-red-500">
+            <span>بنود مُرجَعة (مخصومة من الإجمالي)</span><span>- {{ returnedItemsTotal.toFixed(2) }}</span>
           </div>
           <div class="flex justify-between text-base font-bold text-emerald-700 pt-1 border-t border-emerald-200">
-            <span>الإجمالي</span><span>{{ Number(invoice.total_amount).toFixed(2) }}</span>
+            <span>الإجمالي الحالي</span><span>{{ Number(invoice.total_amount).toFixed(2) }}</span>
           </div>
           <div class="flex justify-between text-sm text-emerald-600"><span>المدفوع</span><span>{{ Number(invoice.paid_amount).toFixed(2) }}</span></div>
           <div v-if="Number(invoice.remaining_amount) > 0" class="flex justify-between text-sm font-bold text-red-600">
             <span>المتبقي</span><span>{{ Number(invoice.remaining_amount).toFixed(2) }}</span>
           </div>
         </div>
+
+        <!-- 🆕 توضيح سبب أن المدفوع أكبر من الإجمالي الحالي (بسبب إرجاع/حذف بند بعد الدفع) -->
+        <div v-if="paidExceedsTotal" class="mb-6 p-3 bg-indigo-50 text-indigo-700 text-sm rounded-2xl flex items-start gap-2">
+          <span class="shrink-0">💡</span>
+          <span>
+            تم دفع مبلغ أعلى من الإجمالي الحالي للفاتورة بمقدار
+            <strong>{{ surplusOverTotal.toFixed(2) }}</strong>
+            بسبب إرجاع أو حذف بند بعد تسجيل الدفع — تم تحويل هذا الفرق تلقائيًا
+            لرصيد العميل.
+          </span>
+        </div>
+        <div v-else class="mb-6"></div>
 
         <div class="mb-6">
           <h4 class="font-semibold text-sm text-gray-500 mb-3">سجل الدفعات</h4>
@@ -151,14 +167,31 @@
 
         <div v-if="invoice.status !== 'cancelled' && invoice.status !== 'paid'" class="p-4 border-2 border-dashed border-emerald-200 rounded-2xl">
           <h4 class="font-semibold text-sm text-gray-700 mb-3">تسجيل دفعة جديدة</h4>
+
+          <div v-if="customerCredit > 0" class="mb-3">
+            <label class="flex items-center gap-2 cursor-pointer select-none mb-2">
+              <input type="checkbox" v-model="useCreditNow" class="w-4 h-4 accent-indigo-600 rounded" />
+              <span class="text-sm font-medium text-gray-700">استخدام من رصيد العميل (المتاح: {{ Number(customerCredit).toFixed(2) }})</span>
+            </label>
+            <input
+              v-if="useCreditNow"
+              v-model.number="useCreditAmount"
+              type="number"
+              min="0"
+              :max="Math.min(Number(customerCredit), Number(invoice.remaining_amount))"
+              step="0.01"
+              placeholder="المبلغ المُستخدم من الرصيد"
+              class="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+
           <div class="flex gap-2">
             <input
               v-model.number="paymentAmount"
               type="number"
               min="0"
-              :max="invoice.remaining_amount"
               step="0.01"
-              placeholder="المبلغ"
+              placeholder="المبلغ النقدي"
               class="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-emerald-400 focus:outline-none"
             />
             <input
@@ -169,12 +202,21 @@
             />
             <button
               @click="submitPayment"
-              :disabled="paymentLoading || !paymentAmount"
+              :disabled="paymentLoading || (!paymentAmount && !useCreditAmount)"
               class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl font-medium shrink-0"
             >
-              {{ paymentLoading ? '...' : 'تسجيل' }}
+              {{ paymentLoading ? '...' : 'تسديد' }}
             </button>
           </div>
+
+          <p v-if="showRemainingNote" class="text-xs mt-2" :class="remainingAfterPayment < 0 ? 'text-amber-600' : 'text-indigo-600'">
+            <span v-if="remainingAfterPayment >= 0">
+              سيتبقى على الفاتورة بعد هذه الدفعة: {{ remainingAfterPayment.toFixed(2) }}
+            </span>
+            <span v-else>
+              ⚠️ سيتجاوز إجمالي الدفعة المتبقي — الفائض سيُضاف تلقائيًا لرصيد العميل: {{ Math.abs(remainingAfterPayment).toFixed(2) }}
+            </span>
+          </p>
         </div>
       </div>
 
@@ -190,8 +232,8 @@
       </div>
     </div>
 
-    <!-- 🆕 تأكيد حذف بند -->
-    <div v-if="pendingDeleteItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[75]">
+    <!-- تأكيد حذف بند -->
+    <div v-if="pendingDeleteItem" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
         <p class="text-gray-800 text-lg mb-3">
@@ -208,7 +250,7 @@
         <p v-else-if="isLastItem" class="text-sm bg-amber-50 text-amber-700 rounded-xl p-3 mb-6">
           ⚠️ هذا آخر بند في الفاتورة — حذفه سيُلغي الفاتورة تلقائيًا (وليس حذفها)،
           وسينتقل المبلغ المدفوع مسبقًا ({{ Number(invoice.paid_amount).toFixed(2) }}) تلقائيًا
-          لقائمة "المدفوعات المعلقة" لمعالجته لاحقًا.
+          <strong>لرصيد العميل</strong> فورًا.
         </p>
 
         <div class="flex gap-3">
@@ -220,8 +262,8 @@
       </div>
     </div>
 
-    <!-- 🆕 تأكيد حذف دفعة -->
-    <div v-if="pendingDeletePayment" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[75]">
+    <!-- تأكيد حذف دفعة -->
+    <div v-if="pendingDeletePayment" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
         <p class="text-gray-800 text-lg mb-3">
@@ -240,6 +282,27 @@
       </div>
     </div>
 
+    <!-- 🆕 تأكيد وجود فائض قبل تسجيل الدفعة فعليًا -->
+    <div v-if="showSurplusConfirm" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
+      <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+        <div class="text-4xl mb-4">⚠️</div>
+        <p class="text-gray-800 text-lg mb-3">
+          المبلغ المُدخل يتجاوز المتبقي على الفاتورة بمقدار <strong class="text-amber-600">{{ paymentSurplusAmount.toFixed(2) }}</strong>.
+        </p>
+        <p class="text-sm text-gray-500 mb-6">
+          سيُضاف هذا الفائض تلقائيًا كرصيد جديد للعميل. تأكد من صحة المبلغ المُدخل قبل المتابعة.
+        </p>
+        <div class="flex gap-3">
+          <button @click="confirmSurplusAndSubmitPayment" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold">
+            نعم، أضفه كرصيد للعميل
+          </button>
+          <button @click="showSurplusConfirm = false" class="flex-1 bg-gray-100 hover:bg-gray-200 py-3 rounded-xl font-bold">
+            تراجع وعدّل المبلغ
+          </button>
+        </div>
+      </div>
+    </div>
+
     <CancelReasonModal
       v-if="showCancelModal"
       title="إلغاء الفاتورة"
@@ -247,7 +310,7 @@
       icon="🧾"
       :loading="cancelLoading"
       :require-extra-confirm="hasPayments"
-      :extra-confirm-text="`أؤكد أنني سأقوم برد المبلغ المدفوع (${Number(invoice.paid_amount).toFixed(2)}) للعميل يدويًا خارج النظام`"
+      :extra-confirm-text="`أؤكد أن المبلغ المدفوع (${Number(invoice.paid_amount).toFixed(2)}) سيُضاف تلقائيًا لرصيد العميل`"
       @close="showCancelModal = false"
       @confirm="confirmCancel"
     />
@@ -255,7 +318,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../composables/useAuth'
 import { useToast } from '../../composables/useToast'
 import CancelReasonModal from '../shared/CancelReasonModal.vue'
@@ -272,6 +335,15 @@ const emit = defineEmits(['close', 'refresh'])
 const hasPayments = computed(() => Number(props.invoice.paid_amount) > 0)
 const canEditItems = computed(() => props.invoice.status !== 'cancelled' && props.invoice.status !== 'paid')
 
+// 🆕 مجموع البنود المُرجَعة (لتوضيح سبب الفرق بين المدفوع والإجمالي الحالي)
+const returnedItemsTotal = computed(() =>
+  (props.invoice.items || [])
+    .filter(i => i.is_returned)
+    .reduce((sum, i) => sum + Number(i.unit_price || 0), 0)
+)
+const paidExceedsTotal = computed(() => Number(props.invoice.paid_amount) > Number(props.invoice.total_amount))
+const surplusOverTotal = computed(() => Math.max(0, Number(props.invoice.paid_amount) - Number(props.invoice.total_amount)))
+
 const statusLabel = (s) => ({ confirmed: 'مؤكدة', partially_paid: 'مدفوعة جزئيًا', paid: 'مدفوعة بالكامل', cancelled: 'ملغاة' }[s] || s)
 const statusTextClass = (s) => ({
   confirmed: 'bg-blue-50 text-blue-600',
@@ -280,37 +352,88 @@ const statusTextClass = (s) => ({
   cancelled: 'bg-gray-50 text-gray-400',
 }[s] || 'bg-gray-50 text-gray-500')
 
-// 🆕 فتح/طباعة الفاتورة كـ PDF في تبويب جديد. رابط مباشر (بلا fetch) لأن
-// الطلب GET آمن (لا يحتاج هيدر CSRF)، والمتصفح يُرفق الكوكيز httpOnly
-// تلقائيًا مع أي تنقل عادي لنفس الدومين — تمامًا كأي رابط تحميل مباشر.
 const openPdf = () => {
   window.open(`${API}/api/invoices/${props.invoice.id}/pdf/`, '_blank')
+}
+
+const customerCredit = ref(0)
+const useCreditNow = ref(false)
+const useCreditAmount = ref(null)
+
+const loadCustomerCredit = async () => {
+  try {
+    const res = await apiFetch(`/api/invoices/customers/${props.invoice.customer_id}/credit/`)
+    if (res.ok) {
+      const data = await res.json()
+      customerCredit.value = Number(data.credit_balance) || 0
+    }
+  } catch (e) { console.error('رصيد العميل', e) }
 }
 
 const paymentAmount = ref(null)
 const paymentMethod = ref('')
 const paymentLoading = ref(false)
+const showSurplusConfirm = ref(false)
 
-const submitPayment = async () => {
-  if (!paymentAmount.value || paymentAmount.value <= 0) {
-    showToast('error', 'يرجى إدخال مبلغ صحيح')
+const totalPaymentEntered = computed(() => {
+  const cash = Number(paymentAmount.value) || 0
+  const credit = useCreditNow.value ? (Number(useCreditAmount.value) || 0) : 0
+  return cash + credit
+})
+const remainingAfterPayment = computed(() => Number(props.invoice.remaining_amount) - totalPaymentEntered.value)
+const paymentSurplusAmount = computed(() => remainingAfterPayment.value < 0 ? Math.abs(remainingAfterPayment.value) : 0)
+const showRemainingNote = computed(() =>
+  Number(paymentAmount.value) > 0 || (useCreditNow.value && Number(useCreditAmount.value) > 0)
+)
+
+// 🆕 بوابة تحقّق أولًا، ثم تعرض تأكيد الفائض إن وُجد قبل الإرسال الفعلي
+const submitPayment = () => {
+  const cash = Number(paymentAmount.value) || 0
+  const credit = useCreditNow.value ? (Number(useCreditAmount.value) || 0) : 0
+  if (cash <= 0 && credit <= 0) {
+    showToast('error', 'يرجى إدخال مبلغ نقدي أو استخدام رصيد')
     return
   }
+  if (credit > customerCredit.value) {
+    showToast('error', 'المبلغ المطلوب من الرصيد أكبر من الرصيد المتاح')
+    return
+  }
+  if (paymentSurplusAmount.value > 0) {
+    showSurplusConfirm.value = true
+    return
+  }
+  performSubmitPayment()
+}
+
+const confirmSurplusAndSubmitPayment = () => {
+  showSurplusConfirm.value = false
+  performSubmitPayment()
+}
+
+const performSubmitPayment = async () => {
+  const cash = Number(paymentAmount.value) || 0
+  const credit = useCreditNow.value ? (Number(useCreditAmount.value) || 0) : 0
   paymentLoading.value = true
   try {
+    const payload = {
+      amount: cash,
+      payment_method: paymentMethod.value || null
+    }
+    if (credit > 0) payload.use_credit_amount = credit
+
     const res = await apiFetch(`/api/invoices/${props.invoice.id}/payments/`, {
       method: 'POST',
-      body: JSON.stringify({
-        amount: paymentAmount.value,
-        payment_method: paymentMethod.value || null
-      })
+      body: JSON.stringify(payload)
     })
     const data = await res.json()
     if (res.ok) {
       showToast('success', '✅ تم تسجيل الدفعة بنجاح')
       paymentAmount.value = null
       paymentMethod.value = ''
+      useCreditNow.value = false
+      useCreditAmount.value = null
       emit('refresh')
+      loadCustomerCredit()
     } else {
       showToast('error', '❌ ' + (data.detail || 'حدث خطأ'))
     }
@@ -363,7 +486,6 @@ const saveEditPayment = async (p) => {
   }
 }
 
-// 🆕 حذف دفعة
 const pendingDeletePayment = ref(null)
 const askDeletePayment = (p) => { pendingDeletePayment.value = p }
 
@@ -428,13 +550,11 @@ const saveEditItem = async (item) => {
   }
 }
 
-// 🆕 حذف بند
 const pendingDeleteItem = ref(null)
 const isLastItem = computed(() => {
   if (!pendingDeleteItem.value) return false
   return (props.invoice.items?.length || 0) <= 1
 })
-// 🆕 يُحذف كامل الفاتورة فعليًا فقط عندما يكون هذا آخر بند ولا توجد أي مدفوعات
 const willFullyDeleteInvoice = computed(() => isLastItem.value && Number(props.invoice.paid_amount) <= 0)
 
 const askDeleteItem = (item) => { pendingDeleteItem.value = item }
@@ -451,8 +571,6 @@ const confirmDeleteItem = async () => {
     if (res.ok) {
       pendingDeleteItem.value = null
       if (data.deleted) {
-        // 🆕 الفاتورة حُذفت بالكامل من قاعدة البيانات — لا معنى لبقاء
-        // المودال مفتوحًا على فاتورة لم تعد موجودة، فنُغلقه مباشرة
         showToast('success', '✅ ' + (data.message || 'تم حذف الفاتورة بالكامل بنجاح'))
         emit('refresh')
         emit('close')
@@ -487,7 +605,7 @@ const confirmCancel = async (payload) => {
     const data = await res.json()
     if (res.ok) {
       showCancelModal.value = false
-      showToast('success', '✅ تم إلغاء الفاتورة بنجاح')
+      showToast('success', '✅ تم إلغاء الفاتورة، وأُضيف المبلغ المدفوع تلقائيًا لرصيد العميل إن وُجد')
       emit('refresh')
     } else {
       showToast('error', '❌ ' + (data.detail || 'تعذر إلغاء الفاتورة'))
@@ -498,4 +616,8 @@ const confirmCancel = async (payload) => {
     cancelLoading.value = false
   }
 }
+
+onMounted(() => {
+  loadCustomerCredit()
+})
 </script>

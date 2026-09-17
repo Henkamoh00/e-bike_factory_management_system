@@ -17,6 +17,16 @@
     <div v-if="quickLoading" class="text-center py-16 text-gray-400 text-lg">جاري التحميل...</div>
 
     <div v-else-if="quickStatement" class="mb-10">
+      <div class="flex items-center justify-end gap-2 mb-4">
+        <span class="text-xs text-gray-400">{{ quickStatement.invoices.length }} فاتورة نشطة</span>
+        <button
+          @click="openNewInvoice(quickStatement)"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-2xl font-medium text-sm"
+        >
+          + فاتورة جديدة
+        </button>
+      </div>
+
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-white rounded-2xl shadow p-6 text-center">
           <div class="text-sm text-gray-400 mb-1">إجمالي الفواتير</div>
@@ -32,12 +42,72 @@
             {{ Number(quickStatement.total_remaining).toFixed(2) }}
           </div>
         </div>
-        <!-- 🆕 كارد المبلغ القابل للاسترجاع -->
         <div class="bg-white rounded-2xl shadow p-6 text-center">
-          <div class="text-sm text-gray-400 mb-1">قابل للاسترجاع</div>
-          <div class="text-2xl font-bold" :class="Number(quickStatement.total_pending_refund) > 0 ? 'text-amber-600' : 'text-gray-400'">
-            {{ Number(quickStatement.total_pending_refund).toFixed(2) }}
+          <div class="text-sm text-gray-400 mb-1">رصيد العميل</div>
+          <div class="text-2xl font-bold" :class="Number(quickStatement.credit_balance) > 0 ? 'text-indigo-600' : 'text-gray-400'">
+            {{ Number(quickStatement.credit_balance).toFixed(2) }}
           </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-xl p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-700">💰 رصيد العميل ومصادره</h3>
+          <button
+            @click="openDeposit(quickStatement)"
+            class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-medium"
+          >
+            + إيداع رصيد
+          </button>
+        </div>
+
+        <div v-if="Number(quickStatement.credit_balance) > 0" class="bg-indigo-50 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div>
+            <div class="text-xs text-indigo-500 mb-1">الرصيد المتاح حاليًا</div>
+            <div class="text-xl font-bold text-indigo-700">{{ Number(quickStatement.credit_balance).toFixed(2) }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openReallocate(quickStatement)"
+              class="text-xs bg-white hover:bg-indigo-100 text-indigo-600 px-3 py-2 rounded-full font-medium border border-indigo-200"
+            >
+              🧾 تسديد فاتورة
+            </button>
+            <button
+              @click="openRefund(quickStatement)"
+              class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-full font-medium"
+            >
+              ✅ استرجاع نقدي
+            </button>
+          </div>
+        </div>
+
+        <div v-if="quickLedgerPg.paginatedItems.value.length" class="space-y-1.5">
+          <div
+            v-for="entry in quickLedgerPg.paginatedItems.value"
+            :key="entry.id"
+            class="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 rounded-xl text-xs"
+          >
+            <div class="min-w-0">
+              <span class="font-medium" :class="Number(entry.amount) >= 0 ? 'text-emerald-600' : 'text-red-500'">
+                {{ Number(entry.amount) >= 0 ? '+' : '' }}{{ Number(entry.amount).toFixed(2) }}
+              </span>
+              <span class="text-gray-400 mr-2">{{ creditActionLabel(entry.action_type) }}</span>
+              <span v-if="entry.related_invoice_number" class="text-gray-400">— {{ entry.related_invoice_number }}</span>
+              <div v-if="entry.notes" class="text-gray-400 mt-0.5 truncate">{{ entry.notes }}</div>
+            </div>
+            <span class="text-gray-400 shrink-0">{{ new Date(entry.created_at).toLocaleDateString('ar-EG') }}</span>
+          </div>
+
+          <PaginationControls
+            :page="quickLedgerPg.page.value"
+            :total-pages="quickLedgerPg.totalPages.value"
+            @prev="quickLedgerPg.prevPage"
+            @next="quickLedgerPg.nextPage"
+          />
+        </div>
+        <div v-else class="text-center py-6 text-gray-400 text-xs bg-gray-50 rounded-2xl">
+          لا توجد حركات على الرصيد بعد
         </div>
       </div>
 
@@ -117,11 +187,18 @@
       </div>
     </div>
 
+    <!-- 🆕 لا يُغلق كشف الحساب المنبثق تلقائيًا عند فتح فاتورة/فاتورة جديدة من داخله؛
+         يبقى مفتوحًا خلفها، وإغلاق نافذة الفاتورة يُعيد المستخدم إليه تلقائيًا (بمثابة زر رجوع) -->
     <CustomerStatementCardModal
       v-if="cardCustomerId"
+      ref="cardModalRef"
       :customer-id="cardCustomerId"
       @close="cardCustomerId = null"
       @open-invoice="handleOpenInvoiceFromCard"
+      @deposit-credit="openDeposit"
+      @reallocate-credit="openReallocate"
+      @refund-credit="openRefund"
+      @add-invoice="openNewInvoiceFromCard"
     />
 
     <InvoiceDetailModal
@@ -130,22 +207,82 @@
       @close="selectedInvoice = null"
       @refresh="handleDetailRefresh"
     />
+
+    <CreditDepositModal
+      v-if="depositTarget"
+      :customer-name="depositTarget.customer_name"
+      :loading="creditActionLoading"
+      @close="depositTarget = null"
+      @confirm="submitDeposit"
+    />
+
+    <CreditRefundModal
+      v-if="refundTarget"
+      :customer-name="refundTarget.customer_name"
+      :credit-balance="refundTarget.credit_balance"
+      :loading="creditActionLoading"
+      @close="refundTarget = null"
+      @confirm="submitRefund"
+    />
+
+    <CreditReallocateModal
+      v-if="reallocateTarget"
+      :customer-id="reallocateTarget.customer_id"
+      :customer-name="reallocateTarget.customer_name"
+      :credit-balance="reallocateTarget.credit_balance"
+      @close="reallocateTarget = null"
+      @success="handleReallocateSuccess"
+    />
+
+    <!-- 🆕 إنشاء فاتورة مباشرة لعميل مُحدَّد -->
+    <InvoiceFormModal
+      v-if="newInvoiceTarget"
+      :preset-customer-id="newInvoiceTarget.customer_id"
+      :preset-customer-name="newInvoiceTarget.customer_name"
+      @close="newInvoiceTarget = null"
+      @success="handleNewInvoiceSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../../composables/useAuth'
 import { useServerPagination } from '../../composables/useServerPagination'
+import { usePagination } from '../../composables/usePagination'
+import { useToast } from '../../composables/useToast'
 import SearchableSelect from '../shared/SearchableSelect.vue'
+import PaginationControls from '../shared/PaginationControls.vue'
 import InvoiceDetailModal from './InvoiceDetailModal.vue'
+import InvoiceFormModal from './InvoiceFormModal.vue'
 import CustomerStatementCardModal from './CustomerStatementCardModal.vue'
+import CreditDepositModal from './CreditDepositModal.vue'
+import CreditRefundModal from './CreditRefundModal.vue'
+import CreditReallocateModal from './CreditReallocateModal.vue'
 
 const { apiFetch } = useAuth()
+const { showToast } = useToast()
 
 const selectedCustomerId = ref('')
 const quickStatement = ref(null)
 const quickLoading = ref(false)
+
+const creditActionLabels = {
+  deposit: 'إيداع يدوي',
+  manual_adjust: 'تعديل يدوي',
+  from_cancel: 'فائض من إلغاء فاتورة',
+  from_return: 'فائض من إرجاع دراجة',
+  from_adjustment: 'فائض من تعديل الفاتورة',
+  used_on_invoice: 'تسديد فاتورة',
+  deposit_excess_payment: 'فائض دفعة نقدية',
+  refunded: 'استرجاع نقدي',
+  reallocated: 'تسديد فاتورة', // توافق مع سجلات قديمة قبل توحيد التسمية
+}
+const creditActionLabel = (t) => creditActionLabels[t] || t
+
+// 🆕 باجينيشن (10 بكل صفحة) لسجل حركات الرصيد في قسم "البحث السريع"
+const quickLedgerItems = computed(() => quickStatement.value?.credit_ledger || [])
+const quickLedgerPg = usePagination(quickLedgerItems, 10)
 
 const searchCustomers = async (query) => {
   const params = new URLSearchParams({ limit: 20 })
@@ -194,18 +331,106 @@ const fetchCustomersPage = async ({ skip, limit, search }) => {
 const pg = useServerPagination(fetchCustomersPage, 10)
 
 const cardCustomerId = ref(null)
+const cardModalRef = ref(null)
 const openCard = (customer) => { cardCustomerId.value = customer.id }
 
 const selectedInvoice = ref(null)
 const openInvoiceDetail = (inv) => { selectedInvoice.value = inv }
+
+// 🆕 لا نُغلق كشف الحساب (card) عند فتح فاتورة من داخله — يبقى بالخلفية،
+// وإغلاق نافذة الفاتورة (@close="selectedInvoice = null") يُعيد المستخدم
+// إليه تلقائيًا، وهذا هو "زر الرجوع" المطلوب دون الحاجة لأي زر إضافي
 const handleOpenInvoiceFromCard = (inv) => {
-  cardCustomerId.value = null
   selectedInvoice.value = inv
 }
 
 const handleDetailRefresh = async () => {
   await loadQuickStatement()
+  if (cardModalRef.value) await cardModalRef.value.reload()
   selectedInvoice.value = null
+}
+
+const depositTarget = ref(null)
+const refundTarget = ref(null)
+const reallocateTarget = ref(null)
+const creditActionLoading = ref(false)
+
+const openDeposit = (target) => { depositTarget.value = target }
+const openRefund = (target) => { refundTarget.value = target }
+const openReallocate = (target) => { reallocateTarget.value = target }
+
+const refreshAfterCreditAction = async () => {
+  await loadQuickStatement()
+  if (cardModalRef.value) await cardModalRef.value.reload()
+}
+
+const submitDeposit = async ({ amount, notes }) => {
+  if (!depositTarget.value) return
+  creditActionLoading.value = true
+  try {
+    const res = await apiFetch(`/api/invoices/customers/${depositTarget.value.customer_id}/credit/deposit/`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, notes })
+    })
+    const data = await res.json()
+    if (res.ok) {
+      showToast('success', '✅ تم إيداع الرصيد بنجاح')
+      depositTarget.value = null
+      await refreshAfterCreditAction()
+    } else {
+      showToast('error', '❌ ' + (data.detail || 'تعذر إيداع الرصيد'))
+    }
+  } catch (e) {
+    showToast('error', 'تعذر الاتصال بالسيرفر')
+  } finally {
+    creditActionLoading.value = false
+  }
+}
+
+const submitRefund = async (amount) => {
+  if (!refundTarget.value) return
+  creditActionLoading.value = true
+  try {
+    const res = await apiFetch(`/api/invoices/customers/${refundTarget.value.customer_id}/credit/refund/`, {
+      method: 'POST',
+      body: JSON.stringify({ amount })
+    })
+    const data = await res.json()
+    if (res.ok) {
+      showToast('success', '✅ تم تسجيل الاسترجاع النقدي بنجاح')
+      refundTarget.value = null
+      await refreshAfterCreditAction()
+    } else {
+      showToast('error', '❌ ' + (data.detail || 'تعذر تسجيل الاسترجاع'))
+    }
+  } catch (e) {
+    showToast('error', 'تعذر الاتصال بالسيرفر')
+  } finally {
+    creditActionLoading.value = false
+  }
+}
+
+const handleReallocateSuccess = async () => {
+  reallocateTarget.value = null
+  await refreshAfterCreditAction()
+}
+
+// 🆕 فاتورة جديدة مباشرة لعميل مُحدَّد
+const newInvoiceTarget = ref(null)
+
+const openNewInvoice = (stmt) => {
+  newInvoiceTarget.value = { customer_id: stmt.customer_id, customer_name: stmt.customer_name }
+}
+// 🆕 لا نُغلق كشف الحساب (card) عند فتح فاتورة جديدة من داخله — نفس منطق
+// handleOpenInvoiceFromCard أعلاه، لإتاحة الرجوع التلقائي إليه بعد الإغلاق
+const openNewInvoiceFromCard = (stmt) => {
+  newInvoiceTarget.value = { customer_id: stmt.customer_id, customer_name: stmt.customer_name }
+}
+const handleNewInvoiceSuccess = async () => {
+  newInvoiceTarget.value = null
+  await loadQuickStatement()
+  if (cardModalRef.value) await cardModalRef.value.reload()
+  pg.load()
 }
 
 onMounted(() => {

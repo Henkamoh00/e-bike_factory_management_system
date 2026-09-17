@@ -122,6 +122,12 @@ class Customer(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # 🆕 رصيد العميل (محفظة داخلية): يتغذى تلقائيًا من فائض إلغاء/إرجاع
+    # الفواتير، أو يدويًا عبر إيداع مباشر. لا يُسحب نقدًا مباشرة أبدًا إلا
+    # عبر مسارات محددة (استرجاع نقدي من الرصيد) — راجع CustomerCreditAction
+    # في invoicing/models.py لسجل كل حركة على هذا الرصيد.
+    credit_balance = Column(Numeric(12, 2), nullable=False, default=0, server_default=sa.text("0"))
+
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 

@@ -2,17 +2,15 @@
   <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[75]">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col">
       <div class="p-8 overflow-y-auto flex-1">
-        <h3 class="text-xl font-bold mb-2">نقل المبلغ لفاتورة أخرى</h3>
-        <p class="text-sm text-gray-500 mb-2">
-          العميل: {{ invoice.customer_name }}
-        </p>
+        <h3 class="text-xl font-bold mb-2">تسديد فاتورة من الرصيد</h3>
+        <p class="text-sm text-gray-500 mb-2">العميل: {{ customerName }}</p>
         <p class="text-sm text-gray-500 mb-6">
-          المتبقي غير المُعالَج: <strong class="text-amber-600">{{ Number(invoice.remaining_unprocessed).toFixed(2) }}</strong>
+          الرصيد المتاح: <strong class="text-indigo-600">{{ Number(creditBalance).toFixed(2) }}</strong>
         </p>
 
         <div v-if="loading" class="text-center py-10 text-gray-400">جاري تحميل فواتير العميل...</div>
         <div v-else-if="targetOptions.length === 0" class="text-center py-10 text-gray-400">
-          لا توجد فواتير أخرى نشطة لهذا العميل يمكن النقل إليها حاليًا
+          لا توجد فواتير نشطة غير مدفوعة بالكامل لهذا العميل حاليًا
         </div>
 
         <template v-else>
@@ -32,7 +30,7 @@
           </div>
 
           <div v-if="selectedInvoiceId">
-            <label class="block text-sm font-medium text-gray-700 mb-2">المبلغ المنقول</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">المبلغ المُسدَّد</label>
             <input
               v-model.number="amount"
               type="number"
@@ -42,7 +40,7 @@
               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-400 focus:outline-none mb-1"
             />
             <p class="text-xs text-gray-400">
-              الحد الأقصى: {{ maxAllowedAmount.toFixed(2) }} (أقل قيمة بين المتبقي غير المُعالَج والمتبقي على الفاتورة الهدف)
+              الحد الأقصى: {{ maxAllowedAmount.toFixed(2) }} (أقل قيمة بين الرصيد والمتبقي على الفاتورة الهدف)
             </p>
           </div>
         </template>
@@ -57,7 +55,7 @@
           :disabled="!selectedInvoiceId || submitting"
           class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-2xl font-bold"
         >
-          {{ submitting ? 'جاري النقل...' : 'تأكيد النقل' }}
+          {{ submitting ? 'جاري التسديد...' : 'تأكيد التسديد' }}
         </button>
       </div>
     </div>
@@ -73,7 +71,9 @@ const { apiFetch } = useAuth()
 const { showToast } = useToast()
 
 const props = defineProps({
-  invoice: { type: Object, required: true }
+  customerId: { type: [Number, String], required: true },
+  customerName: { type: String, default: '' },
+  creditBalance: { type: [Number, String], required: true },
 })
 const emit = defineEmits(['close', 'success'])
 
@@ -86,9 +86,9 @@ const amount = ref(0)
 const error = ref('')
 
 const maxAllowedAmount = computed(() => {
-  const sourceRemaining = Number(props.invoice.remaining_unprocessed)
+  const sourceCredit = Number(props.creditBalance)
   const targetRemaining = selectedTargetInvoice.value ? Number(selectedTargetInvoice.value.remaining_amount) : 0
-  return Math.min(sourceRemaining, targetRemaining)
+  return Math.min(sourceCredit, targetRemaining)
 })
 
 const onSelectTarget = (inv) => {
@@ -99,12 +99,12 @@ const onSelectTarget = (inv) => {
 const loadTargets = async () => {
   loading.value = true
   try {
-    const params = new URLSearchParams({ customer_name: props.invoice.customer_name, limit: 50 })
+    const params = new URLSearchParams({ customer_name: props.customerName, limit: 50 })
     const res = await apiFetch(`/api/invoices/?${params.toString()}`)
     if (res.ok) {
       const data = await res.json()
       targetOptions.value = data.items.filter(
-        inv => inv.status !== 'cancelled' && inv.id !== props.invoice.invoice_id && Number(inv.remaining_amount) > 0
+        inv => inv.status !== 'cancelled' && inv.status !== 'paid' && Number(inv.remaining_amount) > 0
       )
     }
   } catch (e) {
@@ -127,16 +127,16 @@ const submit = async () => {
   error.value = ''
   submitting.value = true
   try {
-    const res = await apiFetch(`/api/invoices/${props.invoice.invoice_id}/refund/reallocate/`, {
+    const res = await apiFetch(`/api/invoices/customers/${props.customerId}/credit/reallocate/`, {
       method: 'POST',
       body: JSON.stringify({ target_invoice_id: selectedInvoiceId.value, amount: amount.value })
     })
     const data = await res.json()
     if (res.ok) {
-      showToast('success', '✅ تم نقل المبلغ بنجاح')
+      showToast('success', '✅ تم تسديد الفاتورة من الرصيد بنجاح')
       emit('success')
     } else {
-      showToast('error', '❌ ' + (data.detail || 'تعذر نقل المبلغ'))
+      showToast('error', '❌ ' + (data.detail || 'تعذر تنفيذ العملية'))
     }
   } catch (e) {
     showToast('error', 'تعذر الاتصال بالسيرفر')

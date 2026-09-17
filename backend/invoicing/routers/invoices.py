@@ -10,11 +10,7 @@ router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
 can_access_invoices = require_tab("invoices")
 
-# ⚠️ ترتيب حاسم: كل مسار حرفي بجزء واحد (مثل /returns/, /sold-faulty-chassis/,
-# /{invoice_id}/pdf/) يجب أن يُسجَّل قبل `/{invoice_id}/` بجزء واحد، وإلا
-# سيُفسَّر النص الحرفي كمعرّف فاتورة ويفشل بخطأ 422 قبل الوصول للمسار الصحيح.
-# ملاحظة: /{invoice_id}/pdf/ بجزأين بعد المعرّف لا يتعارض إطلاقًا مع
-# /{invoice_id}/ بجزء واحد، لكن أُبقي على نفس عادة التسجيل المبكر للوضوح.
+# ⚠️ ترتيب حاسم: كل مسار حرفي بجزء واحد يجب أن يُسجَّل قبل `/{invoice_id}/`
 
 
 @router.post("/", response_model=schemas.InvoiceResponse)
@@ -59,20 +55,16 @@ def get_available_chassis(
     return invoices_crud.get_available_chassis_with_price(db)
 
 
-@router.get("/pending-refunds/", response_model=list[schemas.PendingInvoiceRefundResponse])
-def get_pending_refunds(
+# 🆕 سجل الاسترجاعات النقدية الفعلية (يحلّ محل "المدفوعات المعلقة" القديم بالكامل)
+@router.get("/credit-refunds/", response_model=schemas.PaginatedCreditRefunds)
+def get_credit_refunds(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: app_models.User = Depends(can_access_invoices)
 ):
-    return invoices_crud.get_pending_invoice_refunds(db)
-
-
-@router.get("/resolved-refunds/", response_model=list[schemas.ResolvedInvoiceRefundResponse])
-def get_resolved_refunds(
-    db: Session = Depends(get_db),
-    current_user: app_models.User = Depends(can_access_invoices)
-):
-    return invoices_crud.get_resolved_invoice_refunds(db)
+    items, total = invoices_crud.get_credit_refund_log(db, skip=skip, limit=limit)
+    return {"items": items, "total": total}
 
 
 @router.get("/returns/returnable-chassis/", response_model=list[schemas.ReturnableChassisResponse])
@@ -111,8 +103,76 @@ def get_sold_faulty_chassis(
     return invoices_crud.get_sold_faulty_chassis(db)
 
 
-# 🆕 توليد PDF لفاتورة واحدة. لا يُعدّل أي بيانات — قراءة فقط، بنفس صلاحية
-# عرض الفاتورة (can_access_invoices)، بلا أي فحص إضافي.
+# ====================== رصيد العميل ======================
+@router.get("/customers-with-credit/", response_model=list[schemas.CustomerCreditSummary])
+def get_customers_with_credit(
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.get_customers_with_credit(db)
+
+
+@router.get("/customers/{customer_id}/credit/", response_model=schemas.CustomerCreditBalanceResponse)
+def get_customer_credit_balance(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    customer = db.query(app_models.Customer).filter(app_models.Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="العميل غير موجود")
+    return {"customer_id": customer.id, "credit_balance": customer.credit_balance or 0}
+
+
+@router.get("/customers/{customer_id}/credit/ledger/", response_model=list[schemas.CreditActionResponse])
+def get_customer_credit_ledger(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.get_customer_credit_ledger(db, customer_id)
+
+
+@router.post("/customers/{customer_id}/credit/deposit/")
+def deposit_customer_credit(
+    customer_id: int,
+    data: schemas.CreditDeposit,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.deposit_customer_credit(db, customer_id, data, current_user.id)
+
+
+@router.post("/customers/{customer_id}/credit/adjust/")
+def adjust_customer_credit(
+    customer_id: int,
+    data: schemas.CreditAdjust,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.adjust_customer_credit(db, customer_id, data, current_user.id)
+
+
+@router.post("/customers/{customer_id}/credit/refund/")
+def credit_mark_refunded(
+    customer_id: int,
+    data: schemas.CreditRefundMark,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.credit_mark_refunded(db, customer_id, data.amount, current_user.id)
+
+
+@router.post("/customers/{customer_id}/credit/reallocate/")
+def credit_reallocate(
+    customer_id: int,
+    data: schemas.CreditReallocate,
+    db: Session = Depends(get_db),
+    current_user: app_models.User = Depends(can_access_invoices)
+):
+    return invoices_crud.credit_reallocate(db, customer_id, data, current_user.id)
+
+
 @router.get("/{invoice_id}/pdf/")
 def get_invoice_pdf(
     invoice_id: int,
@@ -126,8 +186,6 @@ def get_invoice_pdf(
     try:
         pdf_bytes = generate_invoice_pdf(invoice)
     except RuntimeError as e:
-        # 🛡️ خطأ إعداد الخط (ملف الخط غير موجود على السيرفر) — 500 واضح
-        # بدل فشل غامض، مع رسالة عربية تشرح الحل
         raise HTTPException(status_code=500, detail=str(e))
 
     filename = f"{invoice.invoice_number}.pdf"
@@ -171,8 +229,6 @@ def update_payment(
     return invoices_crud.update_payment(db, invoice_id, payment_id, data, current_user.id)
 
 
-# 🆕 حذف دفعة بالكامل (تصحيح خطأ إدخال) — راجع invoices_crud.delete_payment
-# للتفاصيل، خصوصًا لماذا لا يُشكّل هذا خطرًا على فواتير مكتملة الدفع
 @router.delete("/{invoice_id}/payments/{payment_id}/", response_model=schemas.InvoiceResponse)
 def delete_payment(
     invoice_id: int,
@@ -194,10 +250,6 @@ def update_invoice_item(
     return invoices_crud.update_invoice_item(db, invoice_id, item_id, data, current_user.id)
 
 
-# 🆕 حذف بند فاتورة عادي (خطأ إدخال، وليس إرجاع). النتيجة تختلف حسب الحالة:
-# - إن كانت الفاتورة بلا أي مدفوعات وهذا آخر بند: تُحذف الفاتورة بالكامل
-#   فعليًا (لا تُرجع InvoiceResponse، بل {"deleted": true}).
-# - إن وُجدت مدفوعات وهذا آخر بند: يتطلب `confirm=true` (409 أول مرة).
 @router.delete("/{invoice_id}/items/{item_id}/")
 def delete_invoice_item(
     invoice_id: int,
@@ -220,26 +272,6 @@ def cancel_invoice(
     current_user: app_models.User = Depends(can_access_invoices)
 ):
     return invoices_crud.cancel_invoice(db, invoice_id, data, current_user.id)
-
-
-@router.post("/{invoice_id}/refund/mark-refunded/", response_model=schemas.RefundActionResult)
-def mark_invoice_refunded(
-    invoice_id: int,
-    data: schemas.InvoiceRefundMark,
-    db: Session = Depends(get_db),
-    current_user: app_models.User = Depends(can_access_invoices)
-):
-    return invoices_crud.mark_invoice_refunded(db, invoice_id, data.amount, current_user.id)
-
-
-@router.post("/{invoice_id}/refund/reallocate/", response_model=schemas.RefundActionResult)
-def reallocate_invoice_refund(
-    invoice_id: int,
-    data: schemas.InvoiceRefundReallocate,
-    db: Session = Depends(get_db),
-    current_user: app_models.User = Depends(can_access_invoices)
-):
-    return invoices_crud.reallocate_invoice_refund(db, invoice_id, data, current_user.id)
 
 
 @router.get("/customers/{customer_id}/statement/", response_model=schemas.CustomerStatementResponse)

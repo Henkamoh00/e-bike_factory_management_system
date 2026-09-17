@@ -44,10 +44,13 @@ class InvoiceItemResponse(BaseModel):
 
 # ====================== الدفعات ======================
 class PaymentCreate(StrippedBaseModel):
-    amount: Decimal
+    amount: Decimal = Decimal("0")
     payment_method: str | None = None
     payment_date: datetime | None = None
     notes: str | None = None
+    # مبلغ يُستخدم من رصيد العميل كجزء (أو كل) هذه الدفعة، بدل الدفع
+    # النقدي بالكامل. يمكن الجمع بين مبلغ نقدي + رصيد في نفس الدفعة.
+    use_credit_amount: Decimal | None = None
 
 
 class PaymentUpdate(StrippedBaseModel):
@@ -65,56 +68,6 @@ class PaymentResponse(BaseModel):
     recorded_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# ====================== معالجة استرجاع المبالغ (على مستوى الفاتورة) ======================
-class InvoiceRefundMark(StrippedBaseModel):
-    amount: Decimal
-
-
-class InvoiceRefundReallocate(StrippedBaseModel):
-    target_invoice_id: int
-    amount: Decimal
-
-
-class RefundActionResult(BaseModel):
-    invoice_id: int
-    processed_amount: Decimal
-    remaining_unprocessed: Decimal
-    resolved: bool
-
-
-class PendingInvoiceRefundResponse(BaseModel):
-    invoice_id: int
-    invoice_number: str
-    invoice_status: str
-    customer_id: int
-    customer_name: str
-    paid_amount: Decimal
-    processed_amount: Decimal
-    remaining_unprocessed: Decimal
-    cancelled_at: datetime | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RefundActionLog(BaseModel):
-    action_type: str
-    amount: Decimal
-    target_invoice_number: str | None = None
-    created_at: datetime
-
-
-class ResolvedInvoiceRefundResponse(BaseModel):
-    invoice_id: int
-    invoice_number: str
-    customer_name: str
-    paid_amount: Decimal
-    # 🆕 يوضح للواجهة إن كانت المعالجة اكتملت 100% (تُعرض باهتة/مؤرشفة) أو
-    # لا تزال جزئية (تُعرض بشكل عادي مع إشارة "معالجة جزئية")، بدل الانتظار
-    # حتى الاكتمال الكامل لتظهر الإجراءات المسجَّلة فعليًا
-    fully_resolved: bool = True
-    actions: list[RefundActionLog]
 
 
 # ====================== إرجاع الدراجات المباعة ======================
@@ -176,6 +129,8 @@ class InvoiceCreate(StrippedBaseModel):
     invoice_date: datetime | None = None
     initial_payment_amount: Decimal | None = None
     initial_payment_method: str | None = None
+    # مبلغ يُستخدم من رصيد العميل كجزء من الدفعة الأولى عند الإنشاء
+    use_credit_amount: Decimal | None = None
 
 
 class InvoiceCancel(StrippedBaseModel):
@@ -215,6 +170,70 @@ class PaginatedInvoices(BaseModel):
     total: int
 
 
+# ====================== رصيد العميل ======================
+class CreditDeposit(StrippedBaseModel):
+    amount: Decimal
+    notes: str | None = None
+
+
+class CreditAdjust(StrippedBaseModel):
+    new_balance: Decimal
+    notes: str
+
+
+class CreditRefundMark(StrippedBaseModel):
+    amount: Decimal
+
+
+class CreditReallocate(StrippedBaseModel):
+    target_invoice_id: int
+    amount: Decimal
+
+
+class CreditActionResponse(BaseModel):
+    id: int
+    action_type: str
+    amount: Decimal
+    balance_after: Decimal
+    related_invoice_number: str | None = None
+    notes: str | None = None
+    created_by_username: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerCreditSummary(BaseModel):
+    customer_id: int
+    customer_name: str
+    credit_balance: Decimal
+
+
+class CustomerCreditBalanceResponse(BaseModel):
+    customer_id: int
+    credit_balance: Decimal
+
+
+# 🆕 سجل الاسترجاعات النقدية الفعلية (الخارجة من النظام) — يحلّ محل نظام
+# "المدفوعات المعلقة" القديم بالكامل. مصدره الوحيد: CustomerCreditAction
+# بنوع action_type == "refunded" (أي زر "استرجاع نقدي" من رصيد أي عميل).
+class CreditRefundLogResponse(BaseModel):
+    id: int
+    customer_id: int
+    customer_name: str
+    amount: Decimal
+    notes: str | None = None
+    created_by_username: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedCreditRefunds(BaseModel):
+    items: list[CreditRefundLogResponse]
+    total: int
+
+
 # ====================== كشف حساب عميل ======================
 class CustomerStatementResponse(BaseModel):
     customer_id: int
@@ -222,7 +241,9 @@ class CustomerStatementResponse(BaseModel):
     total_invoiced: Decimal
     total_paid: Decimal
     total_remaining: Decimal
-    total_pending_refund: Decimal
+    # 🆕 رصيد العميل الحالي وسجل حركاته الكامل
+    credit_balance: Decimal = Decimal("0")
+    credit_ledger: list[CreditActionResponse] = []
     invoices: list[InvoiceResponse]
 
 
@@ -245,7 +266,11 @@ class InvoiceStatsResponse(BaseModel):
     total_billed: Decimal
     total_collected: Decimal
     total_refunded: Decimal
-    total_pending: Decimal
+    # 🆕 مجموع أرصدة كل العملاء الحاليين (المحفظة الداخلية) — حقل إجباري
+    # في هذا الـ response_model، لذا لو لم يُرسله الـ crud سيرفض FastAPI
+    # الاستجابة بخطأ 500 واضح بدل أن يُسقطها بصمت — هذا يضمن اكتشاف أي
+    # قطع لاحق في السلسلة فورًا بدل أن يظهر كصفر صامت في الواجهة
+    total_credit_balance: Decimal
     total_gross_collected: Decimal
     total_outstanding: Decimal
     monthly_breakdown: list[MonthlyRevenuePoint]

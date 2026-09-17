@@ -7,8 +7,6 @@ from ..security import require_tab
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 
-# 🛡️ الوصول أصبح تابعًا لصلاحية التبويب "logs" الممنوحة ديناميكيًا من إدارة الأدوار
-# (admin يملكها دائمًا تلقائيًا، وأي دور آخر فقط إن مُنح تبويب "سجل النشاط" صراحة)
 can_view_logs = require_tab("logs")
 
 ACTION_CHOICES = [
@@ -17,9 +15,9 @@ ACTION_CHOICES = [
     "bulk_activate", "bulk_deactivate"
 ]
 
-# 🆕🛡️ نُظّفت من "sale" نهائيًا (نظام sales القديم حُذف بالكامل من المشروع
-# بلا أي داعٍ للإبقاء عليه، لأن المشروع لا يزال قيد التطوير ولا توجد بيانات
-# حقيقية يُخشى فقدان تصنيفها). استُبدلت بكيانات نظام الفوترة الفعلية.
+# 🆕 أُضيف "customer" لأن حركات رصيد العميل (إيداع/تعديل/استرجاع/تسديد)
+# باتت تُسجَّل بـ entity_type="customer" في audit_logs، وكانت غير مدرجة
+# هنا سابقًا فلا تظهر كخيار فلترة في واجهة سجل النشاط رغم تسجيلها فعليًا
 ENTITY_CHOICES = [
     "worker", "customer", "bike_type", "bike_color", "assembly",
     "invoice", "invoice_item", "payment", "chassis_return",

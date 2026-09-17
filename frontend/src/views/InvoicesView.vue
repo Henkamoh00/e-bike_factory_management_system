@@ -39,7 +39,7 @@
         <InvoicesListView v-if="activeSub === 'list'" />
         <CustomerStatementView v-else-if="activeSub === 'statement'" />
         <InvoiceStatsView v-else-if="activeSub === 'stats'" />
-        <PendingRefundsView v-else-if="activeSub === 'pending_refunds'" />
+        <PendingRefundsView v-else-if="activeSub === 'refunds'" />
         <PostSaleTrackingView v-else-if="activeSub === 'post_sale'" />
 
       </div>
@@ -59,11 +59,13 @@ import PostSaleTrackingView from '../components/invoicing/PostSaleTrackingView.v
 const router = useRouter()
 
 const subTabs = [
-  { id: 'list',             label: 'قائمة الفواتير',       icon: '🧾' },
-  { id: 'statement',        label: 'كشف حساب عميل',       icon: '📋' },
-  { id: 'stats',            label: 'الإحصائيات',           icon: '📊' },
-  { id: 'pending_refunds',  label: 'المدفوعات المعلقة',    icon: '💸' },
-  { id: 'post_sale',        label: 'متابعة ما بعد البيع',  icon: '🔄' },
+  { id: 'list',       label: 'قائمة الفواتير',   icon: '🧾' },
+  { id: 'statement',  label: 'كشف حساب عميل',   icon: '📋' },
+  { id: 'stats',      label: 'الإحصائيات',       icon: '📊' },
+  // 🆕 تم إلغاء "المدفوعات المعلقة" نهائيًا لصالح سجل الاسترجاعات النقدية
+  // الفعلية فقط (الخارجة حقًا من النظام)، عبر رصيد كل عميل
+  { id: 'refunds',    label: 'الاسترجاعات',      icon: '💸' },
+  { id: 'post_sale',  label: 'متابعة ما بعد البيع', icon: '🔄' },
 ]
 
 const activeSub = ref('list')

@@ -93,7 +93,8 @@ class PaymentRefundAction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False, index=True)
-    action_type = Column(String, nullable=False)  # "refunded" | "reallocated"
+    # "refunded" | "reallocated" | "credited" (🆕 تحويل تلقائي/يدوي لرصيد العميل)
+    action_type = Column(String, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     target_invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
     notes = Column(String, nullable=True)
@@ -130,4 +131,40 @@ class ChassisReturn(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     invoice_item = relationship("InvoiceItem", back_populates="chassis_return")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+
+
+# ====================== 🆕 رصيد العميل (المحفظة الداخلية) ======================
+class CustomerCreditAction(Base):
+    """
+    سجل كل حركة على رصيد العميل (Customer.credit_balance)، سواء تلقائية
+    (فائض من إلغاء/إرجاع فاتورة) أو يدوية (إيداع، تعديل، استرجاع نقدي،
+    استخدام على فاتورة، نقل لفاتورة أخرى). amount موجب = إضافة للرصيد،
+    سالب = خصم منه. balance_after = الرصيد الفعلي بعد هذه الحركة تحديدًا،
+    لضمان إمكانية إعادة بناء تاريخ الرصيد الكامل من هذا الجدول وحده.
+
+    action_type الممكنة:
+      - "deposit"               إيداع يدوي من الإدارة
+      - "manual_adjust"         تصحيح يدوي مباشر للرصيد
+      - "from_cancel"           فائض تلقائي من إلغاء فاتورة
+      - "from_return"           فائض تلقائي من إرجاع دراجة (تجاوز الدفعات للإجمالي بعد الإرجاع)
+      - "used_on_invoice"       استخدام الرصيد كدفعة عند إنشاء/تسجيل دفعة فاتورة
+      - "deposit_excess_payment" فائض دفعة نقدية تجاوزت المتبقي على الفاتورة
+      - "refunded"               استرجاع نقدي فعلي من الرصيد (خروج من النظام)
+      - "reallocated"            نقل جزء من الرصيد لسداد فاتورة أخرى
+    """
+    __tablename__ = "customer_credit_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    action_type = Column(String, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    balance_after = Column(Numeric(12, 2), nullable=False)
+    related_invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    notes = Column(String, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    related_invoice = relationship("Invoice", foreign_keys=[related_invoice_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
