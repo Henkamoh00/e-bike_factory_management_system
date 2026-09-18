@@ -205,7 +205,7 @@ def create_invoice(db: Session, data: schemas.InvoiceCreate, current_user_id: in
         conflicting = ", ".join({i.chassis_number for i in already_invoiced})
         raise HTTPException(
             status_code=409,
-            detail=f"🚫 الهياكل التالية مُباعة ضمن فاتورة أخرى بالفعل: {conflicting}"
+            detail=f"🚫 الدراجات التالية مُباعة ضمن فاتورة أخرى بالفعل: {conflicting}"
         )
 
     subtotal = sum((item.unit_price for item in data.items), Decimal("0"))
@@ -311,7 +311,7 @@ def create_invoice(db: Session, data: schemas.InvoiceCreate, current_user_id: in
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="🚫 تعارض أثناء إنشاء الفاتورة (رقم مكرر أو هيكل مباع للتو). يرجى المحاولة مجدداً."
+            detail="🚫 تعارض أثناء إنشاء الفاتورة (رقم مكرر أو دراجة مباعة للتو). يرجى المحاولة مجدداً."
         )
 
     db.refresh(invoice)
@@ -1084,7 +1084,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
             app_models.Fault.chassis_number == item.chassis_number,
         ).first()
         if not fault:
-            raise HTTPException(status_code=404, detail="العطل المرتبط غير موجود أو لا يخص هذا الهيكل")
+            raise HTTPException(status_code=404, detail="العطل المرتبط غير موجود أو لا يخص هذه الدراجة")
     elif data.create_fault_stage:
         stage_value = (
             data.create_fault_stage.value

@@ -247,7 +247,7 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
 
     # ====================== الترويسة ======================
     pdf.draw_right_text(
-        "نظام إدارة تجميع الدراجات الكهربائية",
+        "SAEA E-Bike Factory",
         font=FONT_NAME_BOLD, size=14, dy=8 * mm,
     )
     pdf.draw_right_text("فاتورة مبيعات", font=FONT_NAME_BOLD, size=12, dy=8 * mm)
@@ -371,7 +371,7 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
 
     # ====================== تذييل ======================
     pdf.spacer(dy=6 * mm)
-    footer_text = f"تم إنشاء هذا المستند تلقائيًا بتاريخ {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC"
+    footer_text = f"برج الكيفان، بتاريخ {datetime.now().strftime('%d-%m-%Y')} على الساعة {datetime.now().strftime('%H:%M')}"
     pdf.draw_right_text(footer_text, size=7, color=colors.HexColor("#9ca3af"), dy=5 * mm)
 
     pdf.save()

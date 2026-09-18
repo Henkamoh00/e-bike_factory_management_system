@@ -22,7 +22,7 @@
           <SearchableSelect
             v-model="form.related_fault_id"
             :options="faultOptions"
-            label="ربط بعطل معلَّق لهذا الهيكل (اختياري)"
+            label="ربط بعطل معلَّق لهذه الدراجة (اختياري)"
             placeholder="بدون ربط"
           />
         </div>
@@ -154,7 +154,7 @@ const loadReturnableChassis = async () => {
         if (match) form.value.invoice_item_id = match.invoice_item_id
       }
     }
-  } catch (e) { console.error('هياكل قابلة للإرجاع', e) }
+  } catch (e) { console.error('دراجات قابلة للإرجاع', e) }
 }
 
 const loadFaultsForSelectedChassis = async () => {
@@ -172,7 +172,7 @@ const loadFaultsForSelectedChassis = async () => {
       relatedFaults.value = data.items || []
     }
   } catch (e) {
-    console.error('أعطال الهيكل', e)
+    console.error('أعطال الدراجة', e)
   } finally {
     loadingFaults.value = false
   }

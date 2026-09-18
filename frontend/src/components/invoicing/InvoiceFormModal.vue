@@ -72,7 +72,7 @@
               <SearchableSelect
                 v-model="pendingChassis"
                 :options="availableChassisOptions"
-                placeholder="اختر هيكلًا لإضافته"
+                placeholder="اختر دراجة لإضافتها"
                 :allow-empty="false"
               />
             </div>
@@ -267,7 +267,7 @@ const loadAvailableChassis = async () => {
   try {
     const res = await apiFetch(`/api/invoices/available-chassis/`)
     if (res.ok) availableChassis.value = await res.json()
-  } catch (e) { console.error('هياكل متاحة', e) }
+  } catch (e) { console.error('دراجات متاحة', e) }
 }
 
 const searchCustomers = async (query) => {
