@@ -216,14 +216,17 @@ def get_full_chassis_history(db: Session, chassis_number: str):
             item_status = "returned"
             cancel_reason = ret.reason
             cancelled_at = ret.created_at
+            return_notes = ret.notes
         elif inv.status == "cancelled":
             item_status = "cancelled"
             cancel_reason = inv.cancel_reason
             cancelled_at = inv.cancelled_at
+            return_notes = None
         else:
             item_status = "active"
             cancel_reason = None
             cancelled_at = None
+            return_notes = None
 
         sales_history.append({
             "id": item.id,
@@ -235,6 +238,7 @@ def get_full_chassis_history(db: Session, chassis_number: str):
             "status": item_status,
             "cancelled_at": cancelled_at,
             "cancel_reason": cancel_reason,
+            "return_notes": return_notes,
             "created_by_username": inv.created_by.username if inv.created_by else None,
         })
 

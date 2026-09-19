@@ -172,7 +172,7 @@
                   {{ sale.invoice_number }} — {{ new Date(sale.sale_date).toLocaleDateString('ar-EG') }}
                 </p>
                 <p v-if="sale.status !== 'active' && sale.cancel_reason" class="text-xs mt-1" :class="sale.status === 'returned' ? 'text-orange-500' : 'text-red-500'">
-                  السبب: {{ sale.cancel_reason }}
+                  السبب: {{ (sale.status === 'returned' && sale.cancel_reason === 'سبب آخر' && sale.return_notes) ? sale.return_notes : sale.cancel_reason }}
                 </p>
               </div>
             </div>

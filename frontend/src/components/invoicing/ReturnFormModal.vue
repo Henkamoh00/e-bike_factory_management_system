@@ -50,10 +50,13 @@
           </span>
         </div>
 
+        <!-- 🆕🛡️ عند اختيار "سبب آخر": هذا الحقل أصبح إلزاميًا، لأن الباك
+             إند لم يعد يقبل أي قيمة حرة في reason (مقيّد بقائمة Enum ثابتة).
+             النص المكتوب هنا يُرسل ضمن notes وليس ضمن reason. -->
         <textarea
           v-if="reasonOption === OTHER_REASON"
           v-model="customReason"
-          placeholder="اكتب سبب الإرجاع بالتفصيل"
+          placeholder="اكتب سبب الإرجاع بالتفصيل (إلزامي عند اختيار سبب آخر)"
           class="w-full p-4 border-2 border-gray-200 rounded-2xl h-20 focus:border-orange-400 focus:outline-none mb-3"
         ></textarea>
 
@@ -88,6 +91,8 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'success'])
 
+// 🆕🛡️ هذه القيم الخمس يجب أن تطابق حرفيًا قيم ChassisReturnReason في
+// invoicing/schemas.py (الباك إند). أي تعديل هنا يتطلب تعديلًا مطابقًا هناك.
 const OTHER_REASON = 'سبب آخر'
 const REASON_CHASSIS = 'عطل في الهيكل'
 const REASON_ELECTRICAL = 'عطل في الكهرباء أو الغلاف'
@@ -122,10 +127,6 @@ const form = ref({
   related_fault_id: '',
   notes: '',
 })
-
-const finalReason = computed(() =>
-  reasonOption.value === OTHER_REASON ? customReason.value.trim() : reasonOption.value
-)
 
 // 🆕 هل سيُفتح عطل جديد تلقائيًا؟ فقط إذا كان السبب من نوع "عطل" معروف
 // المرحلة، ولم يتم ربط الإرجاع بعطل موجود مسبقًا يدويًا
@@ -192,18 +193,29 @@ const submit = async () => {
     showToast('error', 'يرجى اختيار سبب الإرجاع')
     return
   }
-  if (!finalReason.value) {
+  if (reasonOption.value === OTHER_REASON && !customReason.value.trim()) {
     showToast('error', 'يرجى كتابة السبب في الحقل النصي')
     return
   }
 
   loading.value = true
   try {
+    // 🆕🛡️ الباك إند يقبل الآن فقط القيم الثابتة الخمس في reason (Enum
+    // في invoicing/schemas.py). لذلك reason يُرسل دائمًا كما هو من
+    // reasonOption (بما فيها "سبب آخر" حرفيًا)، والنص الحر عند اختيار
+    // "سبب آخر" يُدمج داخل notes بدل reason — بدون هذا التغيير سيُرفض
+    // الطلب بخطأ 422 في كل مرة يختار فيها المستخدم "سبب آخر".
+    let combinedNotes = form.value.notes ? form.value.notes.trim() : ''
+    if (reasonOption.value === OTHER_REASON) {
+      const customText = customReason.value.trim()
+      combinedNotes = combinedNotes ? `${customText} — ${combinedNotes}` : customText
+    }
+
     const payload = {
       invoice_item_id: form.value.invoice_item_id,
-      reason: finalReason.value,
+      reason: reasonOption.value,
       related_fault_id: form.value.related_fault_id || null,
-      notes: form.value.notes || null,
+      notes: combinedNotes || null,
     }
     // 🆕 إرسال مرحلة العطل فقط إذا لم يُربط الإرجاع بعطل موجود مسبقًا
     if (willAutoCreateFault.value) {

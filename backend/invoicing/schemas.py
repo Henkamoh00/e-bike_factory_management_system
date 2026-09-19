@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from app.models import AssemblyStage
 
 
@@ -38,6 +39,12 @@ class InvoiceItemResponse(BaseModel):
     notes: str | None = None
     is_returned: bool = False
     return_reason: str | None = None
+    # 🆕🛡️ ملاحظات الإرجاع الفعلية (تحمل النص الحر عند اختيار "سبب آخر").
+    # أُضيفت مع تقييد reason بـ Enum: أي نص حر كتبه المستخدم عند اختيار
+    # "سبب آخر" لم يعد يُخزَّن داخل reason (أصبح مقيدًا بقيم ثابتة)، بل
+    # يُخزَّن هنا كي لا يُفقد أي أثر تاريخي (متوافق مع فلسفة عدم فقدان
+    # البيانات المعتمدة في كامل النظام).
+    return_notes: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,9 +78,28 @@ class PaymentResponse(BaseModel):
 
 
 # ====================== إرجاع الدراجات المباعة ======================
+# 🆕🛡️ Enum مقيِّد لسبب الإرجاع، مطابق حرفيًا لقائمة reasonOptions في
+# ReturnFormModal.vue. أي قيمة لا تطابق إحدى هذه الخمس تُرفض تلقائيًا
+# بخطأ 422 من FastAPI/Pydantic قبل الوصول لأي منطق عمل — يحمي هذا عمود
+# chassis_returns.reason (لا يزال String عاديًا في قاعدة البيانات، لا
+# تغيير في شكل التخزين) من أي نص عشوائي يدخل من مصدر غير الواجهة الرسمية
+# (Postman، سكربت خارجي، تطوير مستقبلي بالخطأ...).
+#
+# ⚠️ ملاحظة تشغيلية مهمة: القيم هنا نصوص عربية حرفية. أي تعديل مستقبلي
+# على قائمة reasonOptions في ReturnFormModal.vue (إضافة/حذف/تعديل حرف
+# واحد) يجب أن يُرافقه تعديل مطابق تمامًا هنا وإلا سيبدأ الباك إند برفض
+# طلبات صحيحة بخطأ 422 غامض نسبيًا للمستخدم النهائي.
+class ChassisReturnReason(str, Enum):
+    CHASSIS_FAULT = "عطل في الهيكل"
+    ELECTRICAL_FAULT = "عطل في الكهرباء أو الغلاف"
+    BROKEN = "الدراجة مكسورة"
+    SPEC_MISMATCH = "لا تطابق المواصفات المطلوبة"
+    OTHER = "سبب آخر"
+
+
 class ChassisReturnCreate(StrippedBaseModel):
     invoice_item_id: int
-    reason: str
+    reason: ChassisReturnReason
     related_fault_id: int | None = None
     create_fault_stage: AssemblyStage | None = None
     notes: str | None = None
@@ -266,10 +292,6 @@ class InvoiceStatsResponse(BaseModel):
     total_billed: Decimal
     total_collected: Decimal
     total_refunded: Decimal
-    # 🆕 مجموع أرصدة كل العملاء الحاليين (المحفظة الداخلية) — حقل إجباري
-    # في هذا الـ response_model، لذا لو لم يُرسله الـ crud سيرفض FastAPI
-    # الاستجابة بخطأ 500 واضح بدل أن يُسقطها بصمت — هذا يضمن اكتشاف أي
-    # قطع لاحق في السلسلة فورًا بدل أن يظهر كصفر صامت في الواجهة
     total_credit_balance: Decimal
     total_gross_collected: Decimal
     total_outstanding: Decimal

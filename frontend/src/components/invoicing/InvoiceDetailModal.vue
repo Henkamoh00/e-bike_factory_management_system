@@ -46,7 +46,7 @@
                     </span>
                   </div>
                   <div v-if="item.is_returned && item.return_reason" class="text-xs text-orange-500 mt-0.5">
-                    سبب الإرجاع: {{ item.return_reason }}
+                    سبب الإرجاع: {{ (item.return_reason === 'سبب آخر' && item.return_notes) ? item.return_notes : item.return_reason }}
                   </div>
                   <div v-if="item.notes" class="text-xs text-gray-400 mt-0.5">{{ item.notes }}</div>
                 </div>

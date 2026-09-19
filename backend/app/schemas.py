@@ -140,10 +140,10 @@ class ChassisSaleHistoryItem(BaseModel):
     customer_name: str | None = None
     sale_date: datetime
     notes: str | None = None
-    # "active" بيع نشط قائم | "returned" تم إرجاع الدراجة | "cancelled" الفاتورة ملغاة
     status: str = "active"
     cancelled_at: datetime | None = None
     cancel_reason: str | None = None
+    return_notes: str | None = None
     created_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

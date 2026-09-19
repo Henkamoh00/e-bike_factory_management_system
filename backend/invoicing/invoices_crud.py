@@ -73,11 +73,6 @@ def _record_credit_action(
     return action
 
 
-# 🆕🛡️ يُحسب الخصم دومًا "من جديد" مباشرة من (discount_type, discount_value)
-# مقابل subtotal الحالي، بدل استنتاجه عكسيًا من (subtotal - total_amount)
-# القديمين. discount_type و discount_value لا يتغيران أبدًا بعد إنشاء
-# الفاتورة، لذا هذه الدالة تُعطي دومًا القيمة الصحيحة للخصم بغض النظر عن
-# أي تعديلات لاحقة على subtotal أو عن أي إرجاع/حذف بنود.
 def _compute_discount_amount(invoice: models.Invoice) -> Decimal:
     if invoice.discount_type == "percentage" and invoice.discount_value:
         return invoice.subtotal * (invoice.discount_value / Decimal("100"))
@@ -86,9 +81,6 @@ def _compute_discount_amount(invoice: models.Invoice) -> Decimal:
     return Decimal("0")
 
 
-# مجموع أسعار البنود المُرجَعة فقط لهذه الفاتورة (تُخصَم من الإجمالي كسطر
-# منفصل وواضح، بينما تبقى محسوبة ضمن subtotal لأنها لا تزال "ظاهرة" في
-# الفاتورة بعلامة "مُرجَع" وليست محذوفة منها).
 def _get_returned_total(db: Session, invoice_id: int) -> Decimal:
     total = (
         db.query(func.sum(models.InvoiceItem.unit_price))
@@ -99,13 +91,6 @@ def _get_returned_total(db: Session, invoice_id: int) -> Decimal:
     return total or Decimal("0")
 
 
-# 🆕🛡️🛡️ الإصلاح الجذري لمشكلة "المدفوع يتجاوز الإجمالي": تُستدعى بعد أي
-# تعديل على total_amount (تعديل سعر بند، حذف بند، إرجاع). تنقل كامل الفائض
-# (وليس فرقًا/delta) دفعة واحدة لرصيد العميل، وتُخفِّض paid_amount نفسه على
-# الفاتورة ليصبح مساويًا لـ total_amount بالضبط — بحيث يبقى المدفوع ≤
-# الإجمالي دائمًا لهذه الفاتورة تحديدًا، بغض النظر عن أي فائض متراكم سابقًا
-# (حتى لو كان الفائض ناتجًا عن بيانات قديمة سابقة لهذا الإصلاح — تُصحَّح
-# تلقائيًا في أول عملية تالية تمر عبر هذه الدالة).
 def _settle_invoice_surplus(
     db: Session,
     invoice: models.Invoice,
@@ -132,13 +117,6 @@ def _settle_invoice_surplus(
     return excess
 
 
-# 🆕🛡️ تصحيح ذاتي عند القراءة: فواتير قديمة (من قبل تطبيق _settle_invoice_surplus
-# أعلاه) قد يكون مخزَّنًا فيها paid_amount أعلى فعليًا من total_amount —
-# فائض حدث وقته ولم يُحوَّل للرصيد بسبب الكود القديم. عند أول قراءة لهذه
-# الفاتورة بعد هذا التحديث، تُستخدم _settle_invoice_surplus لتصحيحها فورًا
-# (نقل الفائض للرصيد + خفض المدفوع + تصحيح الحالة)، فتتوافق البيانات
-# القديمة مع القاعدة الجديدة تلقائيًا دون الحاجة لسكربت هجرة منفصل، ودون
-# أن تبقى الفاتورة "مقفلة" بحالة paid خاطئة تمنع أي تصحيح يدوي لاحق.
 def _heal_invoice_surplus_if_needed(db: Session, invoice: models.Invoice):
     if invoice.status == "cancelled":
         return
@@ -220,8 +198,6 @@ def create_invoice(db: Session, data: schemas.InvoiceCreate, current_user_id: in
     if total_amount < 0:
         total_amount = Decimal("0")
 
-    # حساب مزيج الدفع (نقدي + رصيد) مع تحديد أي مبلغ نقدي زائد يعود
-    # تلقائيًا رصيدًا للعميل بدل رفض العملية
     requested_credit = data.use_credit_amount or Decimal("0")
     if requested_credit < 0:
         raise HTTPException(status_code=422, detail="⛔ قيمة الرصيد المستخدم غير صحيحة")
@@ -494,12 +470,6 @@ def update_payment(db: Session, invoice_id: int, payment_id: int, data: schemas.
 
 
 def delete_payment(db: Session, invoice_id: int, payment_id: int, current_user_id: int):
-    """
-    حذف دفعة بالكامل (تصحيح خطأ إدخال). ⚠️ لو كانت الدفعة المحذوفة مسجَّلة
-    من رصيد العميل (payment_method == "من رصيد العميل")، لا نُعيد المبلغ
-    للرصيد تلقائيًا هنا عمدًا — هذا المسار مخصَّص فقط لتصحيح خطأ إدخال
-    نقدي عادي.
-    """
     invoice = (
         db.query(models.Invoice)
         .filter(models.Invoice.id == invoice_id, models.Invoice.is_deleted == False)
@@ -579,8 +549,6 @@ def update_invoice_item(db: Session, invoice_id: int, item_id: int, data: schema
         item.unit_price = data.unit_price
         db.flush()
 
-        # subtotal يُعاد حسابه دومًا من جديد مباشرة من مجموع كل البنود
-        # الحالية في قاعدة البيانات، لضمان دقته دائمًا
         invoice.subtotal = db.query(func.sum(models.InvoiceItem.unit_price)).filter(
             models.InvoiceItem.invoice_id == invoice.id
         ).scalar() or Decimal("0")
@@ -592,9 +560,6 @@ def update_invoice_item(db: Session, invoice_id: int, item_id: int, data: schema
             new_total = Decimal("0")
         invoice.total_amount = new_total
 
-        # 🆕🛡️ ينقل أي فائض ناتج (تعديل السعر قلّل الإجمالي دون المدفوع)
-        # فورًا لرصيد العميل، ويخفض المدفوع المسجَّل على الفاتورة نفسها
-        # ليبقى ≤ الإجمالي دائمًا
         _settle_invoice_surplus(
             db, invoice, current_user_id, "from_adjustment",
             f"فائض من تعديل سعر بند {item.chassis_number} في الفاتورة {invoice.invoice_number}"
@@ -699,9 +664,6 @@ def delete_invoice_item(
     db.delete(item)
     db.flush()
 
-    # subtotal يُعاد حسابه دومًا من جديد مباشرة من مجموع البنود المتبقية
-    # فعليًا (البند المحذوف اختفى نهائيًا، بعكس الإرجاع الذي يُبقي البند
-    # ظاهرًا بعلامة "مُرجَع")
     invoice.subtotal = db.query(func.sum(models.InvoiceItem.unit_price)).filter(
         models.InvoiceItem.invoice_id == invoice.id
     ).scalar() or Decimal("0")
@@ -727,10 +689,6 @@ def delete_invoice_item(
         invoice.cancelled_by_id = current_user_id
         auto_cancelled = True
 
-        # الفاتورة أُلغيت تلقائيًا وعليها مدفوعات سابقة — الفائض بالكامل
-        # (paid_amount) يعود رصيدًا للعميل فورًا. الفاتورة الملغاة تُستبعد
-        # أصلاً من كل حسابات كشف الحساب، فلا حاجة لتعديل paid_amount نفسه
-        # هنا للحفاظ على الأثر التاريخي (بنفس منطق إلغاء الفاتورة اليدوي)
         if invoice.paid_amount and invoice.paid_amount > 0:
             customer = db.query(app_models.Customer).filter(
                 app_models.Customer.id == invoice.customer_id
@@ -743,12 +701,6 @@ def delete_invoice_item(
                 )
                 transferred_amount = invoice.paid_amount
     else:
-        # 🆕🛡️ الإصلاح الأساسي: ينقل أي فائض ناتج عن هذا الحذف (المدفوع
-        # أصبح أعلى من الإجمالي الجديد الأصغر) فورًا وبالكامل لرصيد
-        # العميل، ويخفض المدفوع نفسه على الفاتورة ليبقى ≤ الإجمالي —
-        # سابقًا كان هذا يحدث فقط عند حذف آخر بند (حالة auto_cancelled)،
-        # بينما حذف بند من فاتورة بها بنود متبقية كان يترك المدفوع مرتفعًا
-        # دون تصحيح، فيظهر الدَّين سالبًا خطأً في كشف حساب العميل.
         transferred_amount = _settle_invoice_surplus(
             db, invoice, current_user_id, "from_adjustment",
             f"فائض من حذف بند من الفاتورة {invoice.invoice_number} — البند المحذوف: {chassis_number} بسعر {deleted_item_price}"
@@ -844,6 +796,9 @@ def _attach_invoice_extras(db: Session, invoices: list):
             ret = returns_map.get(item.id)
             item.is_returned = ret is not None
             item.return_reason = ret.reason if ret else None
+            # 🆕🛡️ يُلحق نص ملاحظات الإرجاع أيضًا (وليس reason فقط)، لأن
+            # النص الحر لـ "سبب آخر" بات يُخزَّن هنا بعد تقييد reason بـ Enum
+            item.return_notes = ret.notes if ret else None
     return invoices
 
 
@@ -877,7 +832,6 @@ def get_invoices(
     total = query.count()
     invoices = query.order_by(desc(models.Invoice.id)).offset(skip).limit(limit).all()
 
-    # 🆕 تصحيح ذاتي لأي فاتورة قديمة تحمل مدفوعًا أعلى من إجمالها فعليًا
     for inv in invoices:
         _heal_invoice_surplus_if_needed(db, inv)
 
@@ -900,7 +854,6 @@ def get_invoice_by_id(db: Session, invoice_id: int):
     if not invoice:
         return None
 
-    # 🆕 تصحيح ذاتي عند فتح الفاتورة (المودال/PDF) إن كانت من بيانات قديمة
     _heal_invoice_surplus_if_needed(db, invoice)
 
     return _attach_invoice_extras(db, [invoice])[0]
@@ -931,10 +884,6 @@ def get_customer_statement(db: Session, customer_id: int):
         .all()
     )
 
-    # 🆕 تصحيح ذاتي لكل فاتورة نشطة لهذا العميل قبل حساب المجاميع — هذا هو
-    # ما يُصلح بطاقة "المتبقي (الدين)" في كشف الحساب، ويُظهر حركة الرصيد
-    # الناتجة في السجل فورًا (نستدعيه قبل جلب credit_ledger أدناه تحديدًا
-    # لهذا السبب)
     for inv in invoices:
         _heal_invoice_surplus_if_needed(db, inv)
 
@@ -943,11 +892,6 @@ def get_customer_statement(db: Session, customer_id: int):
     total_invoiced = sum((inv.total_amount for inv in invoices), Decimal("0"))
     total_paid = sum((inv.paid_amount for inv in invoices), Decimal("0"))
 
-    # "المتبقي" الصحيح هو مجموع المتبقي الفعلي لكل فاتورة على حدة (محصور
-    # دومًا بين 0 وما فوق)، وليس طرح إجمالي المدفوع من إجمالي الفواتير
-    # دفعة واحدة — الفرق يظهر فقط في حال بقي أي عدم اتساق فردي على مستوى
-    # فاتورة واحدة، وهو ما يُغطّى أصلاً الآن بالتصحيح الذاتي أعلاه، لكن هذا
-    # السطر يبقى كخط دفاع ثانٍ يمنع أي رقم سالب مهما حدث.
     total_remaining = sum(
         (max(Decimal("0"), inv.remaining_amount) for inv in invoices),
         Decimal("0")
@@ -1075,6 +1019,12 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
     if existing:
         raise HTTPException(status_code=400, detail="تم تسجيل إرجاع هذا البند مسبقاً")
 
+    # 🆕🛡️ استخراج القيمة النصية الفعلية من الـ Enum (data.reason هو الآن
+    # ChassisReturnReason بعد التحقق من Pydantic). نفس النمط المستخدم مع
+    # AssemblyStage في assembly_crud.py — يضمن تخزين نص عادي في عمود
+    # ChassisReturn.reason (String) وليس تمثيل الـ Enum الخام.
+    reason_value = data.reason.value if hasattr(data.reason, "value") else data.reason
+
     related_fault_id = data.related_fault_id
     auto_created_fault = False
 
@@ -1093,7 +1043,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
         )
         new_fault = app_models.Fault(
             chassis_number=item.chassis_number,
-            description=f"عطل اكتُشف عند إرجاع الدراجة من فاتورة {invoice.invoice_number} — السبب: {data.reason}",
+            description=f"عطل اكتُشف عند إرجاع الدراجة من فاتورة {invoice.invoice_number} — السبب: {reason_value}",
             related_stage=stage_value,
             status="pending",
             reported_by_id=current_user_id,
@@ -1105,7 +1055,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
 
     ret = models.ChassisReturn(
         invoice_item_id=item.id,
-        reason=data.reason,
+        reason=reason_value,
         related_fault_id=related_fault_id,
         notes=data.notes,
         created_by_id=current_user_id,
@@ -1113,11 +1063,6 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
     db.add(ret)
     db.flush()
 
-    # subtotal لا يُعدَّل أبدًا عند الإرجاع — يبقى دائمًا يحمل مجموع أسعار
-    # كل البنود الظاهرة في الفاتورة (الحالية والمُرجَعة معًا)، حتى يتضح
-    # للقارئ أن سعر البند المُرجَع مخصوم من الإجمالي الأصلي الكامل
-    # للفاتورة. فقط total_amount يُعاد حسابه بطرح كل من الخصم وقيمة كل
-    # البنود المُرجَعة من subtotal الثابت.
     discount_amount = _compute_discount_amount(invoice)
     returned_total = _get_returned_total(db, invoice.id)
     new_total = invoice.subtotal - discount_amount - returned_total
@@ -1145,9 +1090,6 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
         invoice.cancelled_by_id = current_user_id
         auto_cancelled = True
 
-        # الفاتورة أُلغيت بالكامل: كل المبلغ المدفوع فائض الآن، ينتقل
-        # بالكامل لرصيد العميل (الفاتورة الملغاة مستبعدة أصلاً من كل
-        # حسابات كشف الحساب، فلا حاجة لتعديل paid_amount نفسه)
         if invoice.paid_amount and invoice.paid_amount > 0:
             customer = invoice.customer or db.query(app_models.Customer).filter(
                 app_models.Customer.id == invoice.customer_id
@@ -1160,9 +1102,6 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
                 )
                 transferred_amount = invoice.paid_amount
     else:
-        # 🆕🛡️ الإصلاح الأساسي: ينقل أي فائض ناتج عن هذا الإرجاع (المدفوع
-        # أصبح أعلى من الإجمالي الجديد الأصغر) فورًا وبالكامل لرصيد
-        # العميل، ويخفض المدفوع نفسه على الفاتورة ليبقى ≤ الإجمالي
         transferred_amount = _settle_invoice_surplus(
             db, invoice, current_user_id, "from_return",
             f"فائض من إرجاع {item.chassis_number} في الفاتورة {invoice.invoice_number}"
@@ -1191,10 +1130,14 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
     if transferred_amount > 0:
         audit_label += f" — أُضيف {transferred_amount} لرصيد العميل"
 
+    # 🆕 الـ details يضم الآن السبب + الملاحظات معًا (بدل reason فقط سابقًا)
+    # لأن النص الحر عند "سبب آخر" بات يُخزَّن في notes وليس reason
+    audit_details = reason_value if not data.notes else f"{reason_value} — {data.notes}"
+
     audit_crud.log_action(
         db, "create", "chassis_return", ret.id, current_user_id,
         entity_label=audit_label,
-        details=data.reason
+        details=audit_details
     )
 
     return {
@@ -1489,19 +1432,6 @@ def get_invoice_stats(db: Session):
     ).scalar() or Decimal("0")
     total_refunded = abs(total_refunded_raw)
 
-    # 🆕🛡️🛡️ مجموع أرصدة كل العملاء الحاليين (المحفظة الداخلية).
-    # 🛡️ السبب الحقيقي لظهور القيمة صفرًا سابقًا: الفلتر القديم
-    # `is_deleted == False` يستبعد بصمت أي عميل قديم قيمة is_deleted عنده
-    # NULL (لم تُملأ عند الترحيل)، لأن NULL لا يُطابق أبدًا `== False` في
-    # SQL — بينما جلب عميل واحد بالـ id (كما في get_customer_statement) لا
-    # يستخدم هذا الفلتر أصلاً، فتظهر أرصدته الفردية بشكل صحيح رغم أن
-    # المجموع الكلي يتجاهله. الإصلاح هنا مزدوج:
-    # 1) الفلتر أصبح is_deleted.isnot(True) بدل == False، فيُعامل NULL
-    #    كـ"غير محذوف" (وهو المنطق السليم أصلاً).
-    # 2) الجمع يتم على مستوى بايثون عبر كل عميل على حدة (بنفس أسلوب
-    #    customer.credit_balance or Decimal("0") المُستخدم بنجاح في بقية
-    #    هذا الملف) بدل الاعتماد على func.sum/coalesce الخام، لتفادي أي
-    #    شذوذ محتمل في محرك القاعدة مع عمود Numeric.
     non_deleted_customers = db.query(app_models.Customer.credit_balance).filter(
         app_models.Customer.is_deleted.isnot(True)
     ).all()
@@ -1510,12 +1440,8 @@ def get_invoice_stats(db: Session):
         Decimal("0")
     )
 
-    # 🆕 "صافي المحصَّل": من مدفوعات الفواتير فقط (بدون أي جمع للرصيد
-    # عليه)، وبدون أي سقف صناعي — لو ظهر يومًا تجاوز حقيقي هنا فهو مؤشر
-    # خلل حقيقي يجب أن يظهر وليس أن يُخفى.
     total_collected = total_collected_payments
 
-    # 🆕 "الإجمالي الشامل (كل ما دخل الصندوق)" = صافي المحصَّل + المسترجَع + الأرصدة
     total_gross_collected = total_collected + total_refunded + total_credit_balance
 
     monthly_breakdown = []
