@@ -34,7 +34,7 @@ def get_workers(db: Session, skip: int = 0, limit: int = 20, search: str | None 
     🆕 نسخة مُصفَّحة (Paginated) من قائمة العمال البسيطة.
     تُرجع Tuple: (العناصر، الإجمالي) بدل قائمة كاملة.
     """
-    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    query = db.query(models.Worker).filter(models.Worker.is_deleted.is_(False))
     if search:
         query = query.filter(models.Worker.name.ilike(f"%{search}%"))
     total = query.count()
@@ -48,7 +48,7 @@ def search_workers_simple(db: Session, q: str | None = None, limit: int = 20):
     يرجع فقط id/name، بدون سجلات، ومحدود بـ limit صارم.
     لا يُستخدم للعرض الجدولي، بل لتغذية الـ dropdowns ديناميكيًا.
     """
-    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    query = db.query(models.Worker).filter(models.Worker.is_deleted.is_(False))
     if q:
         query = query.filter(models.Worker.name.ilike(f"%{q}%"))
     return query.order_by(models.Worker.name).limit(limit).all()
@@ -84,10 +84,11 @@ def soft_delete_worker(db: Session, worker_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "worker", worker.id, current_user_id, entity_label=worker.name)
     return worker
 
+
 def get_archived_workers(db: Session, skip: int = 0, limit: int = 20):
     query = db.query(models.Worker)\
               .options(joinedload(models.Worker.deleted_by))\
-              .filter(models.Worker.is_deleted == True)\
+              .filter(models.Worker.is_deleted.is_(True))\
               .order_by(desc(models.Worker.id))
     total = query.count()
     workers = query.offset(skip).limit(limit).all()
@@ -107,7 +108,7 @@ def restore_worker(db: Session, worker_id: int, current_user_id: int):
     # (مستقل عن قيد unique بقاعدة البيانات، لإعطاء رسالة عربية واضحة بدل خطأ تقني)
     duplicate = db.query(models.Worker).filter(
         models.Worker.name == worker.name,
-        models.Worker.is_deleted == False,
+        models.Worker.is_deleted.is_(False),
         models.Worker.id != worker.id
     ).first()
     if duplicate:

@@ -5,7 +5,7 @@ from . import models, audit_crud
 
 # ====================== WORKERS (تقرير للوحة الإدارة) ======================
 def get_workers_with_records(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
-    query = db.query(models.Worker).filter(models.Worker.is_deleted == False)
+    query = db.query(models.Worker).filter(models.Worker.is_deleted.is_(False))
     if search:
         query = query.filter(models.Worker.name.ilike(f"%{search}%"))
 
@@ -69,7 +69,7 @@ def bulk_soft_delete_workers(db: Session, ids: list[int], current_user_id: int):
 
 # ====================== BIKE TYPES / COLORS (تقرير للوحة الإدارة) ======================
 def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
-    query = db.query(models.BikeType).filter(models.BikeType.is_deleted == False)
+    query = db.query(models.BikeType).filter(models.BikeType.is_deleted.is_(False))
     if search:
         query = query.filter(models.BikeType.name.ilike(f"%{search}%"))
 
@@ -102,7 +102,7 @@ def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, searc
 
 
 def get_bike_colors_with_usage(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
-    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted == False)
+    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted.is_(False))
     if search:
         query = query.filter(models.BikeColor.name.ilike(f"%{search}%"))
 

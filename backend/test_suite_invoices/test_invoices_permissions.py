@@ -246,7 +246,7 @@ def test_dashboard_stats_counts_active_invoiced_chassis_as_sold(authenticated_cl
 
     # إرجاع أحد البندين يجب أن يُخرجه من "المُباع" فورًا (يعود متاحًا للبيع)
     authenticated_client.post(
-        "/api/invoices/returns/", json={"invoice_item_id": item1_id, "reason": "سبب"}
+        "/api/invoices/returns/", json={"invoice_item_id": item1_id, "reason": "الدراجة مكسورة"}
     )
     after_return = authenticated_client.get("/api/stats/").json()
     assert after_return["sold"] == 1

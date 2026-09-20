@@ -8,6 +8,7 @@ router = APIRouter(prefix="/api/chassis", tags=["chassis"])
 
 can_view_chassis = require_any_tab("assembly", "invoices", "faults")
 
+
 @router.get("/summary/", response_model=schemas.PaginatedChassisSummary)
 def get_chassis_summary_list(
     skip: int = Query(default=0, ge=0),
@@ -29,13 +30,16 @@ def get_chassis_summary_list(
     )
     return {"items": items, "total": total}
 
+
 @router.get("/available/")
 def get_available_chassis_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
     return chassis_crud.get_available_chassis(db)
 
+
 @router.get("/all/")
 def get_all_chassis_list(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):
     return chassis_crud.get_all_chassis_numbers(db)
+
 
 @router.get("/{chassis_number}/")
 def get_full_chassis_info(chassis_number: str, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_chassis)):

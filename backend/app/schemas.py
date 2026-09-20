@@ -7,6 +7,7 @@ from pydantic import field_validator
 
 _SKIP_STRIP_FIELDS = {"password", "hashed_password"}
 
+
 class StrippedBaseModel(BaseModel):
     @model_validator(mode="before")
     @classmethod
@@ -24,22 +25,28 @@ class StrippedBaseModel(BaseModel):
 
 MIN_PASSWORD_LENGTH = 8
 
+
 def _validate_password_strength(value: str) -> str:
     if len(value) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"كلمة المرور يجب أن تكون {MIN_PASSWORD_LENGTH} أحرف على الأقل")
     return value
 
 # ====================== WORKER ======================
+
+
 class WorkerBase(BaseModel):
     name: str
+
 
 class WorkerCreate(StrippedBaseModel):
     name: str
     phone: str | None = None
 
+
 class WorkerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
+
 
 class WorkerResponse(BaseModel):
     id: int
@@ -56,13 +63,17 @@ class Worker(WorkerBase):
     model_config = ConfigDict(from_attributes=True)
 
 # ====================== BIKE TYPE / COLOR ======================
+
+
 class BikeTypeCreate(StrippedBaseModel):
     name: str
     default_price: Decimal | None = None
 
+
 class BikeTypeUpdate(StrippedBaseModel):
     name: str | None = None
     default_price: Decimal | None = None
+
 
 class BikeTypeResponse(BaseModel):
     id: int
@@ -75,8 +86,10 @@ class BikeTypeResponse(BaseModel):
 class BikeColorCreate(StrippedBaseModel):
     name: str
 
+
 class BikeColorUpdate(StrippedBaseModel):
     name: str | None = None
+
 
 class BikeColorResponse(BaseModel):
     id: int
@@ -93,6 +106,7 @@ class AssemblyCreate(StrippedBaseModel):
     bike_type_name: str | None = None
     bike_color_name: str | None = None
     force: bool = False
+
 
 class AssemblyResponse(BaseModel):
     id: int
@@ -114,13 +128,16 @@ class CustomerBase(BaseModel):
     phone: str | None = None
     address: str | None = None
 
+
 class CustomerCreate(StrippedBaseModel, CustomerBase):
     pass
+
 
 class CustomerUpdate(StrippedBaseModel):
     name: str | None = None
     phone: str | None = None
     address: str | None = None
+
 
 class Customer(CustomerBase):
     id: int
@@ -156,13 +173,16 @@ class FaultCreate(StrippedBaseModel):
     related_stage: AssemblyStage | None = None
     status: str | None = "pending"
 
+
 class FaultCancel(StrippedBaseModel):
     reason: str | None = None
     confirm_no_reason: bool = False
 
+
 class FaultRepairCreate(StrippedBaseModel):
     worker_name: str
     notes: str | None = None
+
 
 class FaultRepairResponse(BaseModel):
     id: int
@@ -174,6 +194,7 @@ class FaultRepairResponse(BaseModel):
     recorded_by_username: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class FaultResponse(BaseModel):
     id: int
@@ -196,10 +217,12 @@ class FaultResponse(BaseModel):
 class BulkIds(StrippedBaseModel):
     ids: list[int]
 
+
 class BulkCancel(StrippedBaseModel):
     ids: list[int]
     reason: str | None = None
     confirm_no_reason: bool = False
+
 
 class BulkActionResult(BaseModel):
     success_count: int
@@ -214,6 +237,7 @@ class DashboardStats(BaseModel):
     in_progress: int
     sold: int
     pending_faults: int = 0
+
 
 class ChassisHistoryResponse(BaseModel):
     chassis_number: str
@@ -240,10 +264,12 @@ class RoleCreate(StrippedBaseModel):
     description: str | None = None
     allowed_tabs: list[str] = []
 
+
 class RoleUpdate(StrippedBaseModel):
     label: str | None = None
     description: str | None = None
     allowed_tabs: list[str] | None = None
+
 
 class RoleResponse(BaseModel):
     id: int
@@ -269,6 +295,7 @@ class UserCreate(StrippedBaseModel):
     def _check_password(cls, v):
         return _validate_password_strength(v)
 
+
 class UserUpdate(StrippedBaseModel):
     full_name: str | None = None
     role: str | None = None
@@ -281,6 +308,7 @@ class UserUpdate(StrippedBaseModel):
         if v is None:
             return v
         return _validate_password_strength(v)
+
 
 class UserResponse(BaseModel):
     id: int
@@ -295,9 +323,11 @@ class UserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class LoginRequest(StrippedBaseModel):
     username: str
     password: str
+
 
 class Token(BaseModel):
     access_token: str
@@ -373,17 +403,21 @@ class PaginatedWorkers(BaseModel):
     items: list[dict]
     total: int
 
+
 class PaginatedCustomers(BaseModel):
     items: list[dict]
     total: int
+
 
 class PaginatedBikeTypes(BaseModel):
     items: list[dict]
     total: int
 
+
 class PaginatedBikeColors(BaseModel):
     items: list[dict]
     total: int
+
 
 class PaginatedUsers(BaseModel):
     items: list[UserResponse]
@@ -408,21 +442,26 @@ class PaginatedFaults(BaseModel):
     items: list[FaultResponse]
     total: int
 
+
 class PaginatedChassisSummary(BaseModel):
     items: list[dict]
     total: int
+
 
 class PaginatedArchivedWorkers(BaseModel):
     items: list[ArchivedWorkerResponse]
     total: int
 
+
 class PaginatedArchivedCustomers(BaseModel):
     items: list[ArchivedCustomerResponse]
     total: int
 
+
 class PaginatedArchivedBikeOptions(BaseModel):
     items: list[ArchivedBikeOptionResponse]
     total: int
+
 
 class PaginatedArchivedUsers(BaseModel):
     items: list[ArchivedUserResponse]

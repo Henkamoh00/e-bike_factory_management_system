@@ -18,7 +18,7 @@ def _sanitize_tabs(tabs: list[str] | None) -> list[str]:
 def _to_response(db: Session, role: models.Role) -> schemas.RoleResponse:
     count = db.query(func.count(models.User.id)).filter(
         models.User.role_id == role.id,
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).scalar() or 0
     return schemas.RoleResponse(
         id=role.id, name=role.name, label=role.label,
@@ -92,7 +92,7 @@ def delete_role(role_id: int, db: Session = Depends(get_db), current_user: model
 
     in_use = db.query(func.count(models.User.id)).filter(
         models.User.role_id == role.id,
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).scalar() or 0
     if in_use > 0:
         raise HTTPException(status_code=400, detail=f"لا يمكن حذف هذا الدور، يوجد {in_use} مستخدم مرتبط به حالياً")

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -121,7 +122,8 @@ def get_customer_credit_balance(
     customer = db.query(app_models.Customer).filter(app_models.Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="العميل غير موجود")
-    return {"customer_id": customer.id, "credit_balance": customer.credit_balance or 0}
+    balance = customer.credit_balance if customer.credit_balance is not None else Decimal("0.00")
+    return {"customer_id": customer.id, "credit_balance": balance}
 
 
 @router.get("/customers/{customer_id}/credit/ledger/", response_model=list[schemas.CreditActionResponse])
@@ -133,7 +135,7 @@ def get_customer_credit_ledger(
     return invoices_crud.get_customer_credit_ledger(db, customer_id)
 
 
-@router.post("/customers/{customer_id}/credit/deposit/")
+@router.post("/customers/{customer_id}/credit/deposit/", response_model=schemas.CustomerCreditBalanceResponse)
 def deposit_customer_credit(
     customer_id: int,
     data: schemas.CreditDeposit,
@@ -143,7 +145,7 @@ def deposit_customer_credit(
     return invoices_crud.deposit_customer_credit(db, customer_id, data, current_user.id)
 
 
-@router.post("/customers/{customer_id}/credit/adjust/")
+@router.post("/customers/{customer_id}/credit/adjust/", response_model=schemas.CustomerCreditBalanceResponse)
 def adjust_customer_credit(
     customer_id: int,
     data: schemas.CreditAdjust,
@@ -153,7 +155,7 @@ def adjust_customer_credit(
     return invoices_crud.adjust_customer_credit(db, customer_id, data, current_user.id)
 
 
-@router.post("/customers/{customer_id}/credit/refund/")
+@router.post("/customers/{customer_id}/credit/refund/", response_model=schemas.CustomerCreditBalanceResponse)
 def credit_mark_refunded(
     customer_id: int,
     data: schemas.CreditRefundMark,
@@ -163,7 +165,7 @@ def credit_mark_refunded(
     return invoices_crud.credit_mark_refunded(db, customer_id, data.amount, current_user.id)
 
 
-@router.post("/customers/{customer_id}/credit/reallocate/")
+@router.post("/customers/{customer_id}/credit/reallocate/", response_model=schemas.CreditReallocateResponse)
 def credit_reallocate(
     customer_id: int,
     data: schemas.CreditReallocate,

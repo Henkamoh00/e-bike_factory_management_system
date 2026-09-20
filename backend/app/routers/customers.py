@@ -48,7 +48,7 @@ def get_customers(
 def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_customers)):
     existing = db.query(models.Customer).filter(
         models.Customer.name == customer.name,
-        models.Customer.is_deleted == False
+        models.Customer.is_deleted.is_(False)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العميل موجود مسبقاً")

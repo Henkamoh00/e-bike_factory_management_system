@@ -240,6 +240,10 @@ class CustomerCreditBalanceResponse(BaseModel):
     credit_balance: Decimal
 
 
+class CreditReallocateResponse(CustomerCreditBalanceResponse):
+    target_invoice_number: str
+
+
 # 🆕 سجل الاسترجاعات النقدية الفعلية (الخارجة من النظام) — يحلّ محل نظام
 # "المدفوعات المعلقة" القديم بالكامل. مصدره الوحيد: CustomerCreditAction
 # بنوع action_type == "refunded" (أي زر "استرجاع نقدي" من رصيد أي عميل).

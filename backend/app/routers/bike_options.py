@@ -42,7 +42,7 @@ def get_bike_types(
 def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeType).filter(
         models.BikeType.name == data.name,
-        models.BikeType.is_deleted == False
+        models.BikeType.is_deleted.is_(False)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="نوع الدراجة موجود مسبقاً")
@@ -109,7 +109,7 @@ def get_bike_colors(
 def create_bike_color(request: Request, data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     existing = db.query(models.BikeColor).filter(
         models.BikeColor.name == data.name,
-        models.BikeColor.is_deleted == False
+        models.BikeColor.is_deleted.is_(False)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="لون الدراجة موجود مسبقاً")

@@ -27,7 +27,6 @@ reportlab لا يدعم تشكيل الحروف العربية (Arabic shaping) 
 import io
 import os
 from decimal import Decimal
-from datetime import datetime
 
 import arabic_reshaper
 from bidi.algorithm import get_display
@@ -42,6 +41,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 from . import models
+from app.time_utils import format_local, to_local, utcnow
 from .verification import build_verification_url
 
 
@@ -232,19 +232,7 @@ class _InvoicePDFCanvas:
         self.c.save()
 
 
-def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
-    """
-    🆕 الدالة الرئيسية: تستقبل كائن Invoice كاملًا (بعد المرور على
-    invoices_crud._attach_invoice_extras — أي بعد تعبئة customer_name،
-    created_by_username، is_returned لكل بند، إلخ) وتُعيد بايتات PDF جاهزة.
-
-    🆕🛡️ تُضيف الآن رمز QR للتحقق من صحة الفاتورة (بلا أي هاش ظاهر كنص).
-    """
-    _ensure_fonts_registered()
-
-    buffer = io.BytesIO()
-    pdf = _InvoicePDFCanvas(buffer)
-
+def _draw_header(pdf: _InvoicePDFCanvas):
     # ====================== الترويسة ======================
     pdf.draw_right_text(
         "SAEA E-Bike Factory",
@@ -253,10 +241,12 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
     pdf.draw_right_text("فاتورة مبيعات", font=FONT_NAME_BOLD, size=12, dy=8 * mm)
     pdf.draw_line(dy=6 * mm)
 
+
+def _draw_invoice_info(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     # ====================== بيانات الفاتورة الأساسية ======================
     pdf.draw_row(
         [(f"رقم الفاتورة: {invoice.invoice_number}", 90, "right"),
-         (f"التاريخ: {invoice.invoice_date.strftime('%Y-%m-%d')}", 90, "left")],
+         (f"التاريخ: {format_local(invoice.invoice_date)}", 90, "left")],
         size=10, dy=7 * mm,
     )
     pdf.draw_row(
@@ -269,10 +259,12 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
 
     if invoice.status == "cancelled":
         pdf.draw_right_text(
-            f"⚠️ فاتورة ملغاة" + (f" — السبب: {invoice.cancel_reason}" if invoice.cancel_reason else ""),
+            "⚠️ فاتورة ملغاة" + (f" — السبب: {invoice.cancel_reason}" if invoice.cancel_reason else ""),
             font=FONT_NAME_BOLD, size=10, color=colors.HexColor("#b91c1c"), dy=7 * mm,
         )
 
+
+def _draw_verification_qr(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     # ====================== 🆕 رمز التحقق (QR) ======================
     try:
         verify_url = build_verification_url(invoice)
@@ -284,6 +276,8 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
         # ميزة إضافية — نتجاهل QR فقط ونكمل بقية المستند
         pass
 
+
+def _draw_items_table(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     pdf.spacer(dy=3 * mm)
 
     # ====================== جدول البنود ======================
@@ -309,11 +303,13 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
         )
         if getattr(item, "is_returned", False) and item.return_reason:
             pdf.draw_right_text(f"   سبب الإرجاع: {item.return_reason}", size=8,
-                                 color=colors.HexColor("#6b7280"), dy=5 * mm)
+                                color=colors.HexColor("#6b7280"), dy=5 * mm)
 
     pdf.spacer(dy=2 * mm)
     pdf.draw_line(dy=5 * mm)
 
+
+def _draw_totals(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     # ====================== الإجماليات ======================
     pdf.draw_row(
         [(f"المجموع الفرعي: {_money(invoice.subtotal)}", 180, "right")],
@@ -344,6 +340,8 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
         dy=8 * mm,
     )
 
+
+def _draw_payments(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     # ====================== الدفعات ======================
     if invoice.payments:
         pdf.draw_line(dy=4 * mm)
@@ -357,7 +355,7 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
         )
         for p in invoice.payments:
             pdf.draw_row(
-                [(p.payment_date.strftime("%Y-%m-%d"), 40, "right"),
+                [(format_local(p.payment_date), 40, "right"),
                  (_money(p.amount), 40, "center"),
                  (p.payment_method or "-", 45, "center"),
                  (getattr(p, "recorded_by_username", None) or "-", 45, "right")],
@@ -369,10 +367,35 @@ def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
         pdf.draw_line(dy=4 * mm)
         pdf.draw_right_text(f"ملاحظات: {invoice.notes}", size=9, dy=6 * mm)
 
+
+def _draw_footer(pdf: _InvoicePDFCanvas):
     # ====================== تذييل ======================
     pdf.spacer(dy=6 * mm)
-    footer_text = f"برج الكيفان، بتاريخ {datetime.now().strftime('%d-%m-%Y')} على الساعة {datetime.now().strftime('%H:%M')}"
+    now_local = to_local(utcnow())
+    footer_text = f"برج الكيفان، بتاريخ {now_local.strftime('%d-%m-%Y')} على الساعة {now_local.strftime('%H:%M')}"
     pdf.draw_right_text(footer_text, size=7, color=colors.HexColor("#9ca3af"), dy=5 * mm)
+
+
+def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
+    """
+    🆕 الدالة الرئيسية: تستقبل كائن Invoice كاملًا (بعد المرور على
+    invoices_crud._attach_invoice_extras — أي بعد تعبئة customer_name،
+    created_by_username، is_returned لكل بند، إلخ) وتُعيد بايتات PDF جاهزة.
+
+    🆕🛡️ تُضيف الآن رمز QR للتحقق من صحة الفاتورة (بلا أي هاش ظاهر كنص).
+    """
+    _ensure_fonts_registered()
+
+    buffer = io.BytesIO()
+    pdf = _InvoicePDFCanvas(buffer)
+
+    _draw_header(pdf)
+    _draw_invoice_info(pdf, invoice)
+    _draw_verification_qr(pdf, invoice)
+    _draw_items_table(pdf, invoice)
+    _draw_totals(pdf, invoice)
+    _draw_payments(pdf, invoice)
+    _draw_footer(pdf)
 
     pdf.save()
     return buffer.getvalue()

@@ -1,13 +1,14 @@
 import os
 import secrets
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import timedelta
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
 from . import models, schemas
+from .time_utils import utcnow
 
 # 🛡️ إجبار تعيين JWT_SECRET_KEY من متغيرات البيئة — لا قيمة افتراضية إطلاقًا.
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -56,7 +57,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -154,7 +155,7 @@ def get_current_user(
 
     user = (
         db.query(models.User)
-        .filter(models.User.username == username, models.User.is_deleted == False)
+        .filter(models.User.username == username, models.User.is_deleted.is_(False))
         .first()
     )
     if user is None or not user.is_active:

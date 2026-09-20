@@ -47,7 +47,7 @@ def reset_password(username: str, new_password: str | None = None) -> int:
     try:
         user = (
             db.query(models.User)
-            .filter(models.User.username == username, models.User.is_deleted == False)
+            .filter(models.User.username == username, models.User.is_deleted.is_(False))
             .first()
         )
 
@@ -58,7 +58,7 @@ def reset_password(username: str, new_password: str | None = None) -> int:
             # لتفادي الالتباس (مثال: أدمن مؤرشف بالخطأ ويحتاج استعادة أولاً وليس فقط تغيير كلمة مرور)
             archived = (
                 db.query(models.User)
-                .filter(models.User.username == username, models.User.is_deleted == True)
+                .filter(models.User.username == username, models.User.is_deleted.is_(True))
                 .first()
             )
             if archived:

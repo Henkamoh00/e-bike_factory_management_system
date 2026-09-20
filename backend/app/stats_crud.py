@@ -30,7 +30,7 @@ def get_dashboard_stats(db: Session):
         )
         .filter(
             invoicing_models.Invoice.status != "cancelled",
-            invoicing_models.Invoice.is_deleted == False,
+            invoicing_models.Invoice.is_deleted.is_(False),
             invoicing_models.ChassisReturn.id.is_(None),
         )
         .count()

@@ -47,7 +47,7 @@ def get_logs(
 
 @router.get("/meta/")
 def get_logs_meta(db: Session = Depends(get_db), current_user: models.User = Depends(can_view_logs)):
-    users = db.query(models.User).filter(models.User.is_deleted == False).order_by(models.User.username).all()
+    users = db.query(models.User).filter(models.User.is_deleted.is_(False)).order_by(models.User.username).all()
     return {
         "actions": ACTION_CHOICES,
         "entity_types": ENTITY_CHOICES,

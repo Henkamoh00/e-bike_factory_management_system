@@ -32,11 +32,13 @@ def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None 
         db.refresh(bike_type)
     return bike_type
 
+
 def search_bike_types_simple(db: Session, q: str | None = None, limit: int = 20):
-    query = db.query(models.BikeType).filter(models.BikeType.is_deleted == False)
+    query = db.query(models.BikeType).filter(models.BikeType.is_deleted.is_(False))
     if q:
         query = query.filter(models.BikeType.name.ilike(f"%{q}%"))
     return query.order_by(models.BikeType.name).limit(limit).all()
+
 
 def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, current_user_id: int | None = None):
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
@@ -57,6 +59,7 @@ def update_bike_type(db: Session, type_id: int, data: schemas.BikeTypeUpdate, cu
     audit_crud.log_action(db, "update", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
+
 def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
     bike_type = db.query(models.BikeType).filter(models.BikeType.id == type_id).first()
     if not bike_type:
@@ -67,10 +70,11 @@ def soft_delete_bike_type(db: Session, type_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "bike_type", bike_type.id, current_user_id, entity_label=bike_type.name)
     return bike_type
 
+
 def get_archived_bike_types(db: Session, skip: int = 0, limit: int = 20):
     query = db.query(models.BikeType)\
               .options(joinedload(models.BikeType.deleted_by))\
-              .filter(models.BikeType.is_deleted == True)\
+              .filter(models.BikeType.is_deleted.is_(True))\
               .order_by(desc(models.BikeType.id))
     total = query.count()
     types = query.offset(skip).limit(limit).all()
@@ -88,7 +92,7 @@ def restore_bike_type(db: Session, type_id: int, current_user_id: int):
 
     duplicate = db.query(models.BikeType).filter(
         models.BikeType.name == bike_type.name,
-        models.BikeType.is_deleted == False,
+        models.BikeType.is_deleted.is_(False),
         models.BikeType.id != bike_type.id
     ).first()
     if duplicate:
@@ -134,10 +138,11 @@ def get_or_create_bike_color(db: Session, name: str, current_user_id: int | None
 
 
 def search_bike_colors_simple(db: Session, q: str | None = None, limit: int = 20):
-    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted == False)
+    query = db.query(models.BikeColor).filter(models.BikeColor.is_deleted.is_(False))
     if q:
         query = query.filter(models.BikeColor.name.ilike(f"%{q}%"))
     return query.order_by(models.BikeColor.name).limit(limit).all()
+
 
 def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate, current_user_id: int | None = None):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
@@ -156,6 +161,7 @@ def update_bike_color(db: Session, color_id: int, data: schemas.BikeColorUpdate,
     audit_crud.log_action(db, "update", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color
 
+
 def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
     bike_color = db.query(models.BikeColor).filter(models.BikeColor.id == color_id).first()
     if not bike_color:
@@ -166,10 +172,11 @@ def soft_delete_bike_color(db: Session, color_id: int, current_user_id: int):
     audit_crud.log_action(db, "delete", "bike_color", bike_color.id, current_user_id, entity_label=bike_color.name)
     return bike_color
 
+
 def get_archived_bike_colors(db: Session, skip: int = 0, limit: int = 20):
     query = db.query(models.BikeColor)\
               .options(joinedload(models.BikeColor.deleted_by))\
-              .filter(models.BikeColor.is_deleted == True)\
+              .filter(models.BikeColor.is_deleted.is_(True))\
               .order_by(desc(models.BikeColor.id))
     total = query.count()
     colors = query.offset(skip).limit(limit).all()
@@ -187,7 +194,7 @@ def restore_bike_color(db: Session, color_id: int, current_user_id: int):
 
     duplicate = db.query(models.BikeColor).filter(
         models.BikeColor.name == bike_color.name,
-        models.BikeColor.is_deleted == False,
+        models.BikeColor.is_deleted.is_(False),
         models.BikeColor.id != bike_color.id
     ).first()
     if duplicate:

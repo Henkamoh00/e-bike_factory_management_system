@@ -15,11 +15,7 @@ extend-ignore =
     E501,
     W503,
     E203,
-    E712,
-    E302,
-    E305,
-    E221,
-    E261
+    E712
 per-file-ignores =
     __init__.py:F401
     test_suite/conftest.py:E402

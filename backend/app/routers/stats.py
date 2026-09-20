@@ -8,6 +8,7 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 can_access_stats = require_tab("stats")
 
+
 @router.get("/", response_model=schemas.DashboardStats)
 def get_dashboard_stats(db: Session = Depends(get_db), current_user: models.User = Depends(can_access_stats)):
     return stats_crud.get_dashboard_stats(db)

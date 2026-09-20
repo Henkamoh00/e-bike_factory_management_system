@@ -57,7 +57,7 @@ def soft_delete_customer(db: Session, customer_id: int, current_user_id: int):
 
 
 def search_customers_simple(db: Session, q: str | None = None, limit: int = 20):
-    query = db.query(models.Customer).filter(models.Customer.is_deleted == False)
+    query = db.query(models.Customer).filter(models.Customer.is_deleted.is_(False))
     if q:
         query = query.filter(models.Customer.name.ilike(f"%{q}%"))
     return query.order_by(models.Customer.name).limit(limit).all()
@@ -69,7 +69,7 @@ def search_customers_simple(db: Session, q: str | None = None, limit: int = 20):
 # يُسجَّل عليه إرجاع (ChassisReturn) — بنفس المنطق المستخدم تمامًا في
 # chassis_crud._get_active_invoiced_chassis_numbers وstats_crud.get_dashboard_stats
 def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
-    query = db.query(models.Customer).filter(models.Customer.is_deleted == False)
+    query = db.query(models.Customer).filter(models.Customer.is_deleted.is_(False))
     if search:
         query = query.filter(models.Customer.name.ilike(f"%{search}%"))
 
@@ -94,7 +94,7 @@ def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search
         .filter(
             invoicing_models.Invoice.customer_id.in_(customer_ids),
             invoicing_models.Invoice.status != "cancelled",
-            invoicing_models.Invoice.is_deleted == False,
+            invoicing_models.Invoice.is_deleted.is_(False),
             invoicing_models.ChassisReturn.id.is_(None),
         )
         .all()
@@ -128,7 +128,7 @@ def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search
 def get_archived_customers(db: Session, skip: int = 0, limit: int = 20):
     query = db.query(models.Customer)\
               .options(joinedload(models.Customer.deleted_by))\
-              .filter(models.Customer.is_deleted == True)\
+              .filter(models.Customer.is_deleted.is_(True))\
               .order_by(desc(models.Customer.id))
     total = query.count()
     customers = query.offset(skip).limit(limit).all()
@@ -146,7 +146,7 @@ def restore_customer(db: Session, customer_id: int, current_user_id: int):
 
     duplicate = db.query(models.Customer).filter(
         models.Customer.name == customer.name,
-        models.Customer.is_deleted == False,
+        models.Customer.is_deleted.is_(False),
         models.Customer.id != customer.id
     ).first()
     if duplicate:

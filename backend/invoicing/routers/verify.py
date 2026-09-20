@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from app.database import get_db
 from app.rate_limit import limiter
+from app.time_utils import format_local
 from .. import invoices_crud
 from ..verification import resolve_invoice_from_token, VERIFY_PATH_PREFIX
 
@@ -216,7 +217,7 @@ def _invoice_page(invoice) -> str:
       </div>
       <div class="row">
         <span class="label">تاريخ الإصدار</span>
-        <span class="value">{invoice.invoice_date.strftime('%Y-%m-%d')}</span>
+        <span class="value">{format_local(invoice.invoice_date)}</span>
       </div>
       {cancel_note}
 

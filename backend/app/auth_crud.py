@@ -3,17 +3,13 @@ from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 from . import models, schemas, audit_crud
 from .security import hash_password, verify_password
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from .models import RefreshToken
+from .time_utils import utcnow, is_expired
 
 
-# توجد مشكلة في طريقة تعريف الوقت ومقرانة الحقول المتعلقة بالوقت المجلوبة من قاعدة البيانات
-# الطرق المختلفة مثل التاريخ مرتبط بالمنطقة الزمنية وبدونه
-# datetime.now_utc()
-# datetime.utcnow()
-# datetime.now(timezone.utc).replace(tzinfo=None)
-# datetime.now(timezone.utc)
-# 📌 راجع backend/NOTES.md — قسم "تضارب محتمل في طريقة التعامل مع الوقت (timezone)"
+# 📌 التعامل مع الوقت موحَّد عبر app/time_utils.py (utcnow / ensure_utc / is_expired)
+# ممنوع datetime.utcnow() ومقارنة aware مع naive مباشرة — راجع قسم "قواعد ثابتة" في NOTES.md
 
 
 def _get_role_by_name(db: Session, name: str) -> models.Role:
@@ -40,7 +36,7 @@ def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | No
     # حتى لا يبقى اسم المستخدم "محجوزًا للأبد" بعد الحذف الناعم
     existing = db.query(models.User).filter(
         models.User.username == data.username,
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).first()
     if existing:
         raise ValueError("اسم المستخدم موجود مسبقاً")
@@ -68,7 +64,7 @@ def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | No
 def authenticate_user(db: Session, username: str, password: str):
     user = db.query(models.User).options(joinedload(models.User.role_obj)).filter(
         models.User.username == username,
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).first()
     if not user or not verify_password(password, user.hashed_password):
         return None
@@ -81,7 +77,7 @@ def get_users(db: Session, skip: int = 0, limit: int = 20, search: str | None = 
     """🆕 مُصفَّحة الآن: تُرجع Tuple (items, total)"""
     query = db.query(models.User)\
               .options(joinedload(models.User.role_obj))\
-              .filter(models.User.is_deleted == False)
+              .filter(models.User.is_deleted.is_(False))
 
     if search:
         query = query.filter(models.User.username.ilike(f"%{search}%"))
@@ -174,7 +170,7 @@ def bulk_activate_users(db: Session, ids: list[int], current_user_id: int | None
     # ولا يتم تفعيلهم إلا عبر مسار /restore/ المحصور بالأدمن فقط
     users = db.query(models.User).filter(
         models.User.id.in_(ids),
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).all()
     found_ids = {u.id for u in users}
     failed_ids = [i for i in ids if i not in found_ids]
@@ -214,7 +210,7 @@ def bulk_soft_delete_users(db: Session, ids: list[int], current_user_id: int):
 def get_archived_users(db: Session, skip: int = 0, limit: int = 20):
     query = db.query(models.User)\
               .options(joinedload(models.User.role_obj), joinedload(models.User.deleted_by))\
-              .filter(models.User.is_deleted == True)\
+              .filter(models.User.is_deleted.is_(True))\
               .order_by(desc(models.User.id))
     total = query.count()
     users = query.offset(skip).limit(limit).all()
@@ -234,7 +230,7 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
     # 🛡️ فحص مسبق بالكود: منع الاستعادة لو يوجد مستخدم نشط حاليًا بنفس اسم المستخدم
     duplicate = db.query(models.User).filter(
         models.User.username == user.username,
-        models.User.is_deleted == False,
+        models.User.is_deleted.is_(False),
         models.User.id != user.id
     ).first()
     if duplicate:
@@ -261,7 +257,7 @@ def create_refresh_token(db: Session, user_id: int, days_valid: int, user_agent:
     db_token = RefreshToken(
         token_hash=RefreshToken.hash_token(raw_token),
         user_id=user_id,
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days_valid),
+        expires_at=utcnow() + timedelta(days=days_valid),
         user_agent=user_agent,
         ip_address=ip_address,
     )
@@ -288,18 +284,17 @@ def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User 
         # نُبطل كل توكنات هذا المستخدم فورًا كإجراء احترازي (يجبره على تسجيل دخول جديد بكل الأجهزة)
         db.query(RefreshToken).filter(
             RefreshToken.user_id == db_token.user_id,
-            RefreshToken.revoked == False
+            RefreshToken.revoked.is_(False)
         ).update({"revoked": True})
         db.commit()
         return None
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None) if db_token.expires_at.tzinfo is None else datetime.now(timezone.utc)
-    if db_token.expires_at < now:
+    if is_expired(db_token.expires_at):
         return None
 
     user = db.query(models.User).filter(
         models.User.id == db_token.user_id,
-        models.User.is_deleted == False
+        models.User.is_deleted.is_(False)
     ).first()
     if not user or not user.is_active:
         return None
@@ -324,6 +319,6 @@ def revoke_all_user_tokens(db: Session, user_id: int):
     """يُستخدم عند تغيير كلمة المرور، تعطيل/حذف المستخدم، أو الاشتباه بالاختراق"""
     db.query(RefreshToken).filter(
         RefreshToken.user_id == user_id,
-        RefreshToken.revoked == False
+        RefreshToken.revoked.is_(False)
     ).update({"revoked": True})
     db.commit()

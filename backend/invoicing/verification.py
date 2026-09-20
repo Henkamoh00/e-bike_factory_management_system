@@ -112,7 +112,7 @@ def resolve_invoice_from_token(db: Session, token: str) -> models.Invoice | None
 
     invoice = (
         db.query(models.Invoice)
-        .filter(models.Invoice.id == invoice_id, models.Invoice.is_deleted == False)
+        .filter(models.Invoice.id == invoice_id, models.Invoice.is_deleted.is_(False))
         .first()
     )
     if not invoice:

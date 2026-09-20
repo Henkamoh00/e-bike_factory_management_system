@@ -66,13 +66,21 @@ def test_create_invoice_chassis_already_sold_conflict(authenticated_client, cust
     assert second.status_code == 409
 
 
-def test_create_invoice_initial_payment_exceeds_total_rejected(authenticated_client, customer, make_chassis):
+def test_create_invoice_initial_payment_surplus_goes_to_customer_credit(authenticated_client, customer, make_chassis):
+    """الدفعة الأولى الزائدة لا تُرفض: تُسدَّد الفاتورة بالكامل ويُضاف الفائض لرصيد العميل."""
     chassis = make_chassis()
     response = _create_invoice(
         authenticated_client, customer.id, [_item(chassis, "500.00")],
         initial_payment_amount="600.00",
     )
-    assert response.status_code == 422
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "paid"
+    assert data["paid_amount"] == "500.00"
+    assert data["remaining_amount"] == "0.00"
+
+    credit = authenticated_client.get(f"/api/invoices/customers/{customer.id}/credit/").json()
+    assert credit["credit_balance"] == "100.00"
 
 
 def test_create_invoice_full_initial_payment_marks_paid(authenticated_client, customer, make_chassis):
@@ -191,7 +199,7 @@ def test_delete_invoice_item_returned_item_rejected(authenticated_client, custom
 
     ret = authenticated_client.post(
         "/api/invoices/returns/",
-        json={"invoice_item_id": item1_id, "reason": "عطل تصنيع"},
+        json={"invoice_item_id": item1_id, "reason": "الدراجة مكسورة"},
     )
     assert ret.status_code == 200, ret.text
 
@@ -209,7 +217,7 @@ def test_update_invoice_item_returned_item_rejected(authenticated_client, custom
 
     ret = authenticated_client.post(
         "/api/invoices/returns/",
-        json={"invoice_item_id": item1_id, "reason": "عطل تصنيع"},
+        json={"invoice_item_id": item1_id, "reason": "الدراجة مكسورة"},
     )
     assert ret.status_code == 200, ret.text
 
@@ -238,7 +246,8 @@ def test_add_payment_success(authenticated_client, customer, make_chassis):
     assert data["status"] == "partially_paid"
 
 
-def test_add_payment_exceeds_remaining_rejected(authenticated_client, customer, make_chassis):
+def test_add_payment_exceeding_remaining_surplus_goes_to_credit(authenticated_client, customer, make_chassis):
+    """دفعة أكبر من المتبقي لا تُرفض: تُسدَّد الفاتورة ويُضاف الفائض لرصيد العميل."""
     chassis = make_chassis()
     created = _create_invoice(authenticated_client, customer.id, [_item(chassis, "1000.00")])
     invoice_id = created.json()["id"]
@@ -247,7 +256,13 @@ def test_add_payment_exceeds_remaining_rejected(authenticated_client, customer, 
         f"/api/invoices/{invoice_id}/payments/",
         json={"amount": "1500.00"},
     )
-    assert response.status_code == 422
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "paid"
+    assert data["paid_amount"] == "1000.00"
+
+    credit = authenticated_client.get(f"/api/invoices/customers/{customer.id}/credit/").json()
+    assert credit["credit_balance"] == "500.00"
 
 
 def test_add_payment_zero_or_negative_rejected(authenticated_client, customer, make_chassis):

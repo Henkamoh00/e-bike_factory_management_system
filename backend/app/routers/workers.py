@@ -46,7 +46,7 @@ def create_worker(
 ):
     existing = db.query(models.Worker).filter(
         models.Worker.name == worker.name,
-        models.Worker.is_deleted == False
+        models.Worker.is_deleted.is_(False)
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="العامل موجود مسبقاً")

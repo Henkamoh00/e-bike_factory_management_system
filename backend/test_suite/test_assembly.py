@@ -3,10 +3,8 @@ test_assembly.py - تسجيل مراحل التجميع بحسب رقم الشا
 المسار الفعلي: POST /api/assembly/record/?force=true|false
 المراحل (AssemblyStage): تجميع_الهيكل / توصيل_الكهرباء_والغلاف / تجميع_كامل
 
-ملاحظة مهمة: راوتر assembly.py يُلحق فقط recorded_by_username على الكائن
-المُعاد، ولا يُلحق worker_name إطلاقًا. لذلك حقل worker_name في استجابة
-هذا المسار يبقى None دائمًا حسب الكود الحالي — نتحقق من اسم العامل عبر
-قاعدة البيانات مباشرة بدل الاعتماد على هذا الحقل غير المُعبَّأ.
+ملاحظة: راوتر assembly.py يُعبّئ في الاستجابة worker_name و bike_type_name
+و bike_color_name و recorded_by_username من العلاقات (لا تُخزَّن في السجل نفسه).
 """
 from app.assembly_crud import STAGE_ASSEMBLY, STAGE_COVER, STAGE_COMPLETE
 from app import models
@@ -40,8 +38,10 @@ def test_register_assembly_stage_success(authenticated_client, db_session):
     data = response.json()
     assert data["chassis_number"] == CHASSIS
     assert data["stage"] == STAGE_ASSEMBLY
-    # worker_name غير مُعبَّأ في هذا المسار تحديدًا (سلوك حالي للكود، وليس خطأ)
-    assert data["worker_name"] is None
+    assert data["worker_name"] == "عامل الهيكل"
+    assert data["bike_type_name"] == "نوع تجريبي"
+    assert data["bike_color_name"] is None  # اللون لا يُسجَّل في مرحلة تجميع الهيكل
+    assert data["recorded_by_username"] == "test_admin"
 
     record = (
         db_session.query(models.AssemblyRecord)

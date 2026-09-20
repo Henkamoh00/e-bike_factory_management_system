@@ -54,6 +54,7 @@ class Worker(Base):
     created_by = relationship("User", foreign_keys=[created_by_id])
     deleted_by = relationship("User", foreign_keys=[deleted_by_id])
 
+
 class BikeType(Base):
     __tablename__ = "bike_types"
 
@@ -112,6 +113,7 @@ class AssemblyRecord(Base):
         UniqueConstraint('chassis_number', 'stage', name='uq_assembly_chassis_stage'),
     )
 
+
 class Customer(Base):
     __tablename__ = "customers"
 
@@ -133,6 +135,8 @@ class Customer(Base):
 
     created_by = relationship("User", foreign_keys=[created_by_id])
     deleted_by = relationship("User", foreign_keys=[deleted_by_id])
+
+
 class Fault(Base):
     __tablename__ = "faults"
 
