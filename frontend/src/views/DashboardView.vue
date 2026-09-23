@@ -42,16 +42,16 @@
             activeTab === tab.id
               ? 'bg-indigo-50 text-indigo-700 font-semibold'
               : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
-            // 🆕 تمييز بصري خفيف لزر الفواتير لأنه ينقل لصفحة مستقلة
-            // (وليس تبديل تبويب داخلي مثل بقية الأزرار)
-            tab.id === 'invoices' ? 'ring-1 ring-inset ring-amber-200' : ''
+            // 🆕 تمييز بصري خفيف لأزرار الصفحات المستقلة (الفواتير/المخزون)
+            // لأنها تنقل فعليًا (وليست تبديل تبويب داخلي مثل بقية الأزرار)
+            standalonePages.includes(tab.id) ? 'ring-1 ring-inset ring-amber-200' : ''
           ]"
           class="w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 text-sm"
         >
           <span class="text-base sm:text-lg">{{ tab.icon }}</span>
           <span class="truncate">{{ tab.label }}</span>
           <span
-            v-if="tab.id === 'invoices'"
+            v-if="standalonePages.includes(tab.id)"
             class="mr-auto text-[10px] text-amber-600"
             title="ينتقل لصفحة مستقلة"
           >
@@ -65,7 +65,7 @@
       </nav>
 
       <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
-        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 3.0 · نظام التجميع الكهربائي</p>
+        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 3.1 · نظام التجميع الكهربائي</p>
         <p class="text-xs text-slate-500 text-center mb-2 truncate">
           {{ user?.full_name || user?.username }} — {{ user?.role }}
         </p>
@@ -189,6 +189,10 @@ import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 import LogsTab from '../components/admin/tabs/LogsTab.vue'
 import ArchiveTab from '../components/admin/tabs/ArchiveTab.vue'
 
+// 🆕 قائمة معرّفات التبويبات التي تنقل فعليًا (router.push) لصفحة مستقلة
+// عن نظام التبويبات الداخلي في DashboardView، بدل عرضها في <main>
+const standalonePages = ['invoices', 'inventory']
+
 const visibleTabs = computed(() => getAllowedTabs(user.value?.role, user.value?.allowed_tabs))
 const canAccessTab = (tabId) => isTabAllowed(tabId, user.value?.role, user.value?.allowed_tabs)
 const noAccess = computed(() => visibleTabs.value.length === 0)
@@ -232,11 +236,11 @@ const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === acti
 const switchTab = (tab) => {
   if (!canAccessTab(tab)) return
 
-  // 🆕 "الفواتير" تنقل فعلي (router.push) لصفحة مستقلة تمامًا عن نظام
-  // التبويبات الداخلي في DashboardView — راجع القرار المعماري المحفوظ
-  if (tab === 'invoices') {
+  // 🆕 "الفواتير" و"المخزون" تنقل فعلي (router.push) لصفحة مستقلة تمامًا
+  // عن نظام التبويبات الداخلي في DashboardView — راجع القرار المعماري المحفوظ
+  if (standalonePages.includes(tab)) {
     isSidebarOpen.value = false
-    router.push({ name: 'Invoices' })
+    router.push({ name: tab === 'invoices' ? 'Invoices' : 'Inventory' })
     return
   }
 

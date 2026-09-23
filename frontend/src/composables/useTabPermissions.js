@@ -10,6 +10,8 @@ export const TAB_DEFINITIONS = [
   // 🆕 "sales" استُبدل نهائيًا بـ "invoices" — نظام فوترة كامل يفتح صفحة
   // مستقلة (router.push) بدل تبويب داخلي، لذا الأيقونة مختلفة قصدًا للتمييز
   { id: 'invoices',  label: 'الفواتير',       icon: '🧾' },
+  // 🆕 نظام إدارة المخزون (قطع الغيار) — نفس القرار المعماري: صفحة مستقلة
+  { id: 'inventory', label: 'المخزون',        icon: '📦' },
   { id: 'faults',    label: 'الأعطال',        icon: '⚠️' },
   { id: 'workers',   label: 'العمال',         icon: '👷' },
   { id: 'customers', label: 'العملاء',        icon: '🧑‍🤝‍🧑' },

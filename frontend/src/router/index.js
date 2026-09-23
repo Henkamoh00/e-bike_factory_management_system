@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import InvoicesView from '../views/InvoicesView.vue'
+import InventoryView from '../views/InventoryView.vue'
 import NotFoundView from '../views/NotFoundView.vue'
 import { useAuth } from '../composables/useAuth'
 import { isTabAllowed, getDefaultTab } from '../composables/useTabPermissions'
@@ -33,6 +34,14 @@ const routes = [
     name: 'Invoices',
     component: InvoicesView,
     meta: { requiresAuth: true, tabId: 'invoices' }
+  },
+  {
+    // 🆕 نظام إدارة المخزون (قطع الغيار): نفس القرار المعماري تمامًا
+    // كالفواتير — صفحة مستقلة (router.push) وليست تبويبًا داخليًا
+    path: '/inventory',
+    name: 'Inventory',
+    component: InventoryView,
+    meta: { requiresAuth: true, tabId: 'inventory' }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -72,9 +81,9 @@ router.beforeEach(async (to) => {
     return { name: 'Dashboard', query: { tab: defaultTab } }
   }
 
-  // 🆕 حماية صفحة الفواتير: نفس منطق فحص allowed_tabs المستخدم في Dashboard،
-  // لكن هنا نُعيد المستخدم للوحة الإدارة (وليس لتبويب آخر داخل نفس الصفحة)
-  // لأن /invoices مسار مستقل بالكامل
+  // 🆕 حماية صفحات مستقلة (الفواتير/المخزون): نفس منطق فحص allowed_tabs
+  // المستخدم في Dashboard، لكن هنا نُعيد المستخدم للوحة الإدارة (وليس
+  // لتبويب آخر داخل نفس الصفحة) لأن هذه المسارات مستقلة بالكامل
   if (to.meta.tabId && isAuthenticated.value) {
     if (!isTabAllowed(to.meta.tabId, role, allowedTabs)) {
       return { name: 'Dashboard', query: { tab: getDefaultTab(role, allowedTabs) } }

@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 from .routers import workers, bike_options, customers, faults, chassis, assembly, stats, auth, users, roles, logs
 from invoicing.routers.invoices import router as invoices_router
 from invoicing.routers.verify import router as invoice_verify_router
+from inventory.routers.inventory import router as inventory_router
 from .rate_limit import limiter
 from .security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 
@@ -108,11 +109,8 @@ app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(logs.router)
 app.include_router(invoices_router)
-
-# 🆕🛡️ راوتر التحقق العام من صحة الفواتير — مسار عشوائي بعيد تمامًا عن
-# /api/، بلا تسجيل دخول، وبلا ظهور في /docs (راجع invoicing/verification.py
-# و invoicing/routers/verify.py). يُستدعى فقط من مسح رمز QR على فاتورة PDF.
 app.include_router(invoice_verify_router)
+app.include_router(inventory_router)
 
 
 @app.get("/")

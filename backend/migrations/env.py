@@ -20,7 +20,7 @@ from app.database import Base
 from app.database import DATABASE_URL
 import app.models
 import invoicing.models
-
+import inventory.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -255,7 +255,11 @@ class ResponseMessage(BaseModel):
 
 
 # ====================== ROLES ======================
-ALL_TAB_IDS = ["stats", "users", "settings", "assembly", "invoices", "faults", "workers", "customers", "logs", "archive"]
+# 🆕 أُضيف "inventory" (نظام إدارة قطع الغيار/المخزون)
+ALL_TAB_IDS = [
+    "stats", "users", "settings", "assembly", "invoices", "faults",
+    "workers", "customers", "logs", "archive", "inventory"
+]
 
 
 class RoleCreate(StrippedBaseModel):

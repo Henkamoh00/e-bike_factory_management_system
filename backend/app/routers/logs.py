@@ -18,10 +18,11 @@ ACTION_CHOICES = [
 # 🆕 أُضيف "customer" لأن حركات رصيد العميل (إيداع/تعديل/استرجاع/تسديد)
 # باتت تُسجَّل بـ entity_type="customer" في audit_logs، وكانت غير مدرجة
 # هنا سابقًا فلا تظهر كخيار فلترة في واجهة سجل النشاط رغم تسجيلها فعليًا
+# 🆕 أُضيف "part" و"stock_movement" لأجل نظام إدارة المخزون الجديد
 ENTITY_CHOICES = [
     "worker", "customer", "bike_type", "bike_color", "assembly",
     "invoice", "invoice_item", "payment", "chassis_return",
-    "fault", "fault_repair", "user", "role"
+    "fault", "fault_repair", "user", "role", "part", "stock_movement"
 ]
 
 
