@@ -1,4 +1,4 @@
-        <template>
+<template>
   <transition name="slide-down">
     <div v-if="count > 0" class="sticky top-0 z-20 bg-indigo-600 text-white rounded-2xl px-5 py-3 mb-4 flex items-center justify-between gap-4 shadow-lg">
       <div class="flex items-center gap-3">

@@ -45,13 +45,7 @@ def cancel_fault(db: Session, fault_id: int, payload: schemas.FaultCancel, curre
 
 
 def _find_responsible_record(db: Session, chassis_number: str, related_stage: str):
-    """
-    🆕 دالة مشتركة: تبحث أولاً عن سجل تجميع بنفس المرحلة تحديدًا (مثلاً
-    'تجميع_الهيكل')، فإن لم تجد (لأن العامل نفّذ المرحلتين دفعة واحدة عبر
-    'تجميع_كامل')، ترجع لسجل 'تجميع_كامل' كخيار احتياطي. تُستخدم في كل
-    من عرض قائمة الأعطال (_attach_fault_extras) وفي اقتراح العامل عند
-    التصليح (get_suggested_worker_for_fault) لضمان نفس السلوك في الحالتين.
-    """
+
     if not related_stage:
         return None
     record = (

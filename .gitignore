@@ -23,3 +23,26 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# ===== Python (backend) =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+.env.*
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ===== قواعد بيانات محلية / اختبار =====
+*.sqlite3
+*.sqlite
+*.db
+
+# ===== استثناء ملفات القيم النموذجية من قاعدة .env.* أعلاه =====
+!.env.example

@@ -166,7 +166,6 @@ def get_chassis_summary(
     records_by_chassis = _group_by_chassis(db.query(models.AssemblyRecord).all())
     faults_by_chassis = _group_by_chassis(db.query(models.Fault).all())
 
-    # 🆕 "المُباع" الآن مصدره الوحيد نظام الفوترة (بعد حذف sales القديم)
     invoiced_map = {
         item.chassis_number: item.invoice
         for item in _get_active_invoice_items(db, with_customer=True)
@@ -202,10 +201,6 @@ def get_full_chassis_history(db: Session, chassis_number: str):
         else:
             record.worker_name = "غير معروف"
 
-    # 🆕🛡️ سجل البيع الآن مبني بالكامل على نظام الفوترة بدل جدول sales
-    # القديم الذي أُزيل نهائيًا. نجلب كل بنود الفواتير الخاصة بهذا الهيكل عبر
-    # كل تاريخه (حتى الملغاة/المُرجَعة، حفاظًا على الأثر الكامل)، ونحدد حالة
-    # كل بند: نشط (active) / مُرجَع (returned) / على فاتورة ملغاة (cancelled)
     items = (
         db.query(invoicing_models.InvoiceItem)
         .join(invoicing_models.Invoice)

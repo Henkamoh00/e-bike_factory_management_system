@@ -241,7 +241,9 @@ def _invoice_page(invoice) -> str:
         </div>
         <div class="row" style="border:none; padding:6px 0;">
           <span class="label">المتبقي</span>
-          <span class="value" style="color:{'#dc2626' if Decimal(invoice.remaining_amount or 0) > 0 else '#0f172a'};">{_money(invoice.remaining_amount)}</span>
+          <span class="value" style="color:{
+            '#dc2626' if Decimal(invoice.remaining_amount or 0) > 0 else '#0f172a'
+          };">{_money(invoice.remaining_amount)}</span>
         </div>
       </div>
     </div>

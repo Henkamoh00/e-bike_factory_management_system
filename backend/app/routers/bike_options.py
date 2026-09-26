@@ -39,7 +39,12 @@ def get_bike_types(
 # 🛡️ الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-types/")
 @limiter.limit("20/day", key_func=get_rate_limit_key)
-def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def create_bike_type(
+    request: Request,
+    data: schemas.BikeTypeCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     existing = db.query(models.BikeType).filter(
         models.BikeType.name == data.name,
         models.BikeType.is_deleted.is_(False)
@@ -50,7 +55,12 @@ def create_bike_type(request: Request, data: schemas.BikeTypeCreate, db: Session
 
 
 @router.put("/bike-types/{type_id}/")
-def update_bike_type(type_id: int, data: schemas.BikeTypeUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
+def update_bike_type(
+    type_id: int,
+    data: schemas.BikeTypeUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_settings),
+):
     try:
         return bike_options_crud.update_bike_type(db, type_id, data, current_user.id)
     except ValueError as e:
@@ -58,7 +68,11 @@ def update_bike_type(type_id: int, data: schemas.BikeTypeUpdate, db: Session = D
 
 
 @router.delete("/bike-types/{type_id}/")
-def delete_bike_type(type_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
+def delete_bike_type(
+    type_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_settings),
+):
     try:
         bike_options_crud.soft_delete_bike_type(db, type_id, current_user.id)
         return {"message": "تم حذف نوع الدراجة بنجاح", "status": "success"}
@@ -106,7 +120,12 @@ def get_bike_colors(
 # 🛡️ الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-colors/")
 @limiter.limit("20/day", key_func=get_rate_limit_key)
-def create_bike_color(request: Request, data: schemas.BikeColorCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def create_bike_color(
+    request: Request,
+    data: schemas.BikeColorCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     existing = db.query(models.BikeColor).filter(
         models.BikeColor.name == data.name,
         models.BikeColor.is_deleted.is_(False)
@@ -117,7 +136,12 @@ def create_bike_color(request: Request, data: schemas.BikeColorCreate, db: Sessi
 
 
 @router.put("/bike-colors/{color_id}/")
-def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
+def update_bike_color(
+    color_id: int,
+    data: schemas.BikeColorUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_settings),
+):
     try:
         return bike_options_crud.update_bike_color(db, color_id, data, current_user.id)
     except ValueError as e:
@@ -125,7 +149,11 @@ def update_bike_color(color_id: int, data: schemas.BikeColorUpdate, db: Session 
 
 
 @router.delete("/bike-colors/{color_id}/")
-def delete_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_settings)):
+def delete_bike_color(
+    color_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_settings),
+):
     try:
         bike_options_crud.soft_delete_bike_color(db, color_id, current_user.id)
         return {"message": "تم حذف اللون بنجاح", "status": "success"}
@@ -157,7 +185,11 @@ def get_archived_bike_types(
 
 
 @router.post("/bike-types/{type_id}/restore/")
-def restore_bike_type(type_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def restore_bike_type(
+    type_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive),
+):
     try:
         bike_options_crud.restore_bike_type(db, type_id, current_user.id)
         return {"message": "تم استعادة النوع بنجاح", "status": "success"}
@@ -177,7 +209,11 @@ def get_archived_bike_colors(
 
 
 @router.post("/bike-colors/{color_id}/restore/")
-def restore_bike_color(color_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def restore_bike_color(
+    color_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive),
+):
     try:
         bike_options_crud.restore_bike_color(db, color_id, current_user.id)
         return {"message": "تم استعادة اللون بنجاح", "status": "success"}

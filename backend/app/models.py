@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum as SQLEnum, UniqueConstraint, Numeric
+from sqlalchemy import (
+                        Boolean,
+                        Column,
+                        DateTime,
+                        Enum as SQLEnum,
+                        ForeignKey,
+                        Integer,
+                        Numeric,
+                        String,
+                        UniqueConstraint,
+                    )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import sqlalchemy as sa

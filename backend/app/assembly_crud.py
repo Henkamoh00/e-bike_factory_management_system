@@ -64,7 +64,10 @@ def _validate_stage_transition(chassis_number: str, stage: str, all_records: lis
     if STAGE_COMPLETE in existing_stages and stage != STAGE_COMPLETE:
         raise HTTPException(
             status_code=409,
-            detail=f"🚫 الهيكل ({chassis_number}) مسجَّل بمرحلة '{_label(STAGE_COMPLETE)}' — لا يمكن إضافة أي مرحلة أخرى."
+            detail=(
+                f"🚫 الهيكل ({chassis_number}) مسجَّل بمرحلة "
+                f"'{_label(STAGE_COMPLETE)}' — لا يمكن إضافة أي مرحلة أخرى."
+            )
         )
 
     if stage == STAGE_COMPLETE and STAGE_ASSEMBLY in existing_stages:
@@ -117,7 +120,10 @@ def _update_existing_stage_record(
         existing_worker_name = same_stage_records[0].worker.name if same_stage_records[0].worker else "غير معروف"
         raise HTTPException(
             status_code=409,
-            detail=f"⚠️ مرحلة '{_label(stage)}' للهيكل ({assembly.chassis_number}) سبق أن قام بها '{existing_worker_name}'. هل أنت متأكد من تسجيلها باسم '{assembly.worker_name}'؟",
+            detail=(
+                f"⚠️ مرحلة '{_label(stage)}' للهيكل ({assembly.chassis_number}) "
+                f"سبق أن قام بها '{existing_worker_name}'. هل أنت متأكد من تسجيلها باسم '{assembly.worker_name}'؟"
+            ),
             headers={"X-Confirm-Required": "true"},
         )
 
@@ -156,7 +162,10 @@ def _create_new_stage_record(
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail=f"🚫 تم تسجيل مرحلة '{_label(stage)}' لهذا الهيكل ({assembly.chassis_number}) للتو من جهاز أو حساب آخر. يرجى تحديث الصفحة والمحاولة مجدداً."
+            detail=(
+                f"🚫 تم تسجيل مرحلة '{_label(stage)}' لهذا الهيكل ({assembly.chassis_number}) "
+                "للتو من جهاز أو حساب آخر. يرجى تحديث الصفحة والمحاولة مجدداً."
+            )
         )
     db.refresh(record)
     audit_crud.log_action(

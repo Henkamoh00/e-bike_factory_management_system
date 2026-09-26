@@ -54,7 +54,12 @@ def create_worker(
 
 
 @router.put("/{worker_id}/")
-def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
+def update_worker(
+    worker_id: int,
+    worker: schemas.WorkerUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_workers),
+):
     try:
         return workers_crud.update_worker(db, worker_id, worker, current_user.id)
     except ValueError as e:
@@ -62,7 +67,11 @@ def update_worker(worker_id: int, worker: schemas.WorkerUpdate, db: Session = De
 
 
 @router.delete("/{worker_id}/")
-def delete_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_workers)):
+def delete_worker(
+    worker_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_workers),
+):
     try:
         workers_crud.soft_delete_worker(db, worker_id, current_user.id)
         return {"message": "تم حذف العامل بنجاح", "status": "success"}
@@ -94,7 +103,11 @@ def get_archived_workers(
 
 
 @router.post("/{worker_id}/restore/")
-def restore_worker(worker_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def restore_worker(
+    worker_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive),
+):
     try:
         workers_crud.restore_worker(db, worker_id, current_user.id)
         return {"message": "تم استعادة العامل بنجاح", "status": "success"}

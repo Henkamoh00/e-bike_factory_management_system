@@ -35,7 +35,11 @@ def get_roles(db: Session = Depends(get_db), current_user: models.User = Depends
 
 
 @router.post("/", response_model=schemas.RoleResponse)
-def create_role(data: schemas.RoleCreate, db: Session = Depends(get_db), current_user: models.User = Depends(admin_only)):
+def create_role(
+    data: schemas.RoleCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only),
+):
     name = data.name.strip().lower().replace(" ", "_")
     if not name:
         raise HTTPException(status_code=400, detail="اسم الدور مطلوب")
@@ -58,7 +62,12 @@ def create_role(data: schemas.RoleCreate, db: Session = Depends(get_db), current
 
 
 @router.put("/{role_id}/", response_model=schemas.RoleResponse)
-def update_role(role_id: int, data: schemas.RoleUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(admin_only)):
+def update_role(
+    role_id: int,
+    data: schemas.RoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only),
+):
     role = db.query(models.Role).filter(models.Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="الدور غير موجود")

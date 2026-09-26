@@ -565,7 +565,13 @@ def _apply_item_price_change(
     _apply_payment_status(invoice)
 
 
-def update_invoice_item(db: Session, invoice_id: int, item_id: int, data: schemas.InvoiceItemUpdate, current_user_id: int):
+def update_invoice_item(
+    db: Session,
+    invoice_id: int,
+    item_id: int,
+    data: schemas.InvoiceItemUpdate,
+    current_user_id: int,
+):
     invoice = _get_invoice_for_update(db, invoice_id)
     _ensure_invoice_open(invoice, "لا يمكن تعديل بنود فاتورة ملغاة")
     item = _get_invoice_item(db, invoice_id, item_id)
@@ -696,7 +702,8 @@ def delete_invoice_item(
     else:
         transferred_amount = _settle_invoice_surplus(
             db, invoice, current_user_id, "from_adjustment",
-            f"فائض من حذف بند من الفاتورة {invoice.invoice_number} — البند المحذوف: {chassis_number} بسعر {deleted_item_price}"
+            f"فائض من حذف بند من الفاتورة {invoice.invoice_number} — "
+            f"البند المحذوف: {chassis_number} بسعر {deleted_item_price}"
         )
         _apply_payment_status(invoice)
 
@@ -732,7 +739,10 @@ def cancel_invoice(db: Session, invoice_id: int, data: schemas.InvoiceCancel, cu
     if invoice.paid_amount > 0 and not data.confirm_refund:
         raise HTTPException(
             status_code=400,
-            detail=f"⚠️ هذه الفاتورة عليها مبلغ مدفوع ({invoice.paid_amount}). يرجى تأكيد أن هذا المبلغ سيُضاف تلقائيًا لرصيد العميل."
+            detail=(
+                f"⚠️ هذه الفاتورة عليها مبلغ مدفوع ({invoice.paid_amount}). "
+                "يرجى تأكيد أن هذا المبلغ سيُضاف تلقائيًا لرصيد العميل."
+            )
         )
 
     invoice.status = "cancelled"
@@ -1085,7 +1095,10 @@ def _return_audit_label(
     auto_cancelled: bool,
     transferred_amount: Decimal,
 ) -> str:
-    label = f"{item.chassis_number} — إرجاع من فاتورة {invoice.invoice_number} (خصم {item.unit_price} من الإجمالي تلقائيًا)"
+    label = (
+        f"{item.chassis_number} — إرجاع من فاتورة {invoice.invoice_number} "
+        f"(خصم {item.unit_price} من الإجمالي تلقائيًا)"
+    )
     if auto_created_fault:
         label += f" — فُتح عطل جديد تلقائيًا (#{related_fault_id})"
     if auto_cancelled:
@@ -1171,7 +1184,9 @@ def get_returns(db: Session, skip: int = 0, limit: int = 20):
     query = (
         db.query(models.ChassisReturn)
         .options(
-            joinedload(models.ChassisReturn.invoice_item).joinedload(models.InvoiceItem.invoice).joinedload(models.Invoice.customer),
+            joinedload(models.ChassisReturn.invoice_item)
+            .joinedload(models.InvoiceItem.invoice)
+            .joinedload(models.Invoice.customer),
             joinedload(models.ChassisReturn.created_by),
         )
         .order_by(desc(models.ChassisReturn.created_at), desc(models.ChassisReturn.id))

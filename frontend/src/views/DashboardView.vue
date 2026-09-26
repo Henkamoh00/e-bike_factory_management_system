@@ -65,7 +65,7 @@
       </nav>
 
       <div class="px-5 sm:px-6 py-4 sm:py-5 border-t border-slate-100">
-        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 3.1 · نظام التجميع الكهربائي</p>
+        <p class="text-[11px] sm:text-xs text-slate-400 text-center">إصدار 1.0.0 · نظام التجميع الكهربائي</p>
         <p class="text-xs text-slate-500 text-center mb-2 truncate">
           {{ user?.full_name || user?.username }} — {{ user?.role }}
         </p>

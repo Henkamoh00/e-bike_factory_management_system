@@ -45,7 +45,11 @@ def get_customers(
 # 🛡️🆕 إضافة عميل تبقى متاحة لمن يملك invoices أيضًا (وليس فقط customers)
 # لأن "+ إضافة عميل جديد" داخل فورم الفاتورة يعتمد على هذا المسار مباشرة
 @router.post("/")
-def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_customers)):
+def create_customer(
+    customer: schemas.CustomerCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_customers),
+):
     existing = db.query(models.Customer).filter(
         models.Customer.name == customer.name,
         models.Customer.is_deleted.is_(False)
@@ -56,7 +60,12 @@ def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_
 
 
 @router.put("/{customer_id}/")
-def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_customers)):
+def update_customer(
+    customer_id: int,
+    customer: schemas.CustomerUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_customers),
+):
     try:
         return customers_crud.update_customer(db, customer_id, customer, current_user.id)
     except ValueError as e:
@@ -64,7 +73,11 @@ def update_customer(customer_id: int, customer: schemas.CustomerUpdate, db: Sess
 
 
 @router.delete("/{customer_id}/")
-def delete_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_manage_customers)):
+def delete_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_manage_customers),
+):
     try:
         customers_crud.soft_delete_customer(db, customer_id, current_user.id)
         return {"message": "تم حذف العميل بنجاح", "status": "success"}
@@ -96,7 +109,11 @@ def get_archived_customers(
 
 
 @router.post("/{customer_id}/restore/")
-def restore_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_view_archive)):
+def restore_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_view_archive),
+):
     try:
         customers_crud.restore_customer(db, customer_id, current_user.id)
         return {"message": "تم استعادة العميل بنجاح", "status": "success"}

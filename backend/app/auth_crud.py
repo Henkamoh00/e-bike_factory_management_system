@@ -74,7 +74,7 @@ def authenticate_user(db: Session, username: str, password: str):
 
 
 def get_users(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
-    """🆕 مُصفَّحة الآن: تُرجع Tuple (items, total)"""
+    """مُصفَّحة الآن: تُرجع Tuple (items, total)"""
     query = db.query(models.User)\
               .options(joinedload(models.User.role_obj))\
               .filter(models.User.is_deleted.is_(False))
@@ -251,7 +251,13 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
     return user
 
 
-def create_refresh_token(db: Session, user_id: int, days_valid: int, user_agent: str | None = None, ip_address: str | None = None) -> str:
+def create_refresh_token(
+    db: Session,
+    user_id: int,
+    days_valid: int,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+) -> str:
     """ينشئ refresh token جديد، يخزّن الهاش فقط، ويرجع القيمة الخام (لتُوضع في الكوكي مرة واحدة فقط)"""
     raw_token = RefreshToken.generate_raw_token()
     db_token = RefreshToken(

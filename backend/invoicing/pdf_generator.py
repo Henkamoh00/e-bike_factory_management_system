@@ -45,6 +45,10 @@ from app.time_utils import format_local, to_local, utcnow
 from .verification import build_verification_url
 
 
+# ====================== بيانات الشركة (من متغيرات البيئة) ======================
+COMPANY_NAME = os.getenv("COMPANY_NAME", "Company Name")
+COMPANY_ADDRESS = os.getenv("COMPANY_ADDRESS", "Company City")
+
 # ====================== إعداد الخط العربي ======================
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fonts")
 FONT_REGULAR_PATH = os.path.join(_ASSETS_DIR, "Arabic-Regular.ttf")
@@ -235,7 +239,7 @@ class _InvoicePDFCanvas:
 def _draw_header(pdf: _InvoicePDFCanvas):
     # ====================== الترويسة ======================
     pdf.draw_right_text(
-        "SAEA E-Bike Factory",
+        COMPANY_NAME,
         font=FONT_NAME_BOLD, size=14, dy=8 * mm,
     )
     pdf.draw_right_text("فاتورة مبيعات", font=FONT_NAME_BOLD, size=12, dy=8 * mm)
@@ -336,7 +340,11 @@ def _draw_totals(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
     pdf.draw_row(
         [(f"المتبقي: {_money(invoice.remaining_amount)}", 180, "right")],
         bold=True, size=10,
-        color=colors.HexColor("#b91c1c") if invoice.remaining_amount and Decimal(invoice.remaining_amount) > 0 else colors.black,
+        color=(
+            colors.HexColor("#b91c1c")
+            if invoice.remaining_amount and Decimal(invoice.remaining_amount) > 0
+            else colors.black
+        ),
         dy=8 * mm,
     )
 
@@ -372,7 +380,10 @@ def _draw_footer(pdf: _InvoicePDFCanvas):
     # ====================== تذييل ======================
     pdf.spacer(dy=6 * mm)
     now_local = to_local(utcnow())
-    footer_text = f"برج الكيفان، بتاريخ {now_local.strftime('%d-%m-%Y')} على الساعة {now_local.strftime('%H:%M')}"
+    footer_text = (
+        f"{COMPANY_ADDRESS}، بتاريخ {now_local.strftime('%d-%m-%Y')} "
+        f"على الساعة {now_local.strftime('%H:%M')}"
+    )
     pdf.draw_right_text(footer_text, size=7, color=colors.HexColor("#9ca3af"), dy=5 * mm)
 
 

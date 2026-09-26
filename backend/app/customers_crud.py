@@ -63,11 +63,6 @@ def search_customers_simple(db: Session, q: str | None = None, limit: int = 20):
     return query.order_by(models.Customer.name).limit(limit).all()
 
 
-# 🆕🛡️ إصلاح حرج: كانت هذه الدالة تستعلم عن models.Sale (الجدول القديم الذي
-# حُذف نهائيًا مع كل نظام sales). الآن تعتمد حصريًا على نظام الفوترة:
-# "عملية شراء نشطة" = بند فاتورة (InvoiceItem) على فاتورة غير ملغاة، ولم
-# يُسجَّل عليه إرجاع (ChassisReturn) — بنفس المنطق المستخدم تمامًا في
-# chassis_crud._get_active_invoiced_chassis_numbers وstats_crud.get_dashboard_stats
 def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
     query = db.query(models.Customer).filter(models.Customer.is_deleted.is_(False))
     if search:
@@ -81,8 +76,6 @@ def get_customers_with_sales(db: Session, skip: int = 0, limit: int = 20, search
 
     customer_ids = [c.id for c in customers]
 
-    # 🆕 جلب كل بنود الفواتير النشطة (غير ملغاة الفاتورة + غير مُرجَعة) لعملاء
-    # هذه الصفحة بطلب واحد، مع joinedload للفاتورة لتفادي N+1 عند قراءة customer_id
     active_items = (
         db.query(invoicing_models.InvoiceItem)
         .join(invoicing_models.Invoice)

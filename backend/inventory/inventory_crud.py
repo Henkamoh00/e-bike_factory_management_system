@@ -229,7 +229,7 @@ def _attach_movement_extras(movements):
 
 
 def get_movements(db: Session, skip: int = 0, limit: int = 20, part_id: int | None = None,
-                   movement_type: str | None = None):
+                  movement_type: str | None = None):
     query = db.query(models.StockMovement).options(
         joinedload(models.StockMovement.part),
         joinedload(models.StockMovement.supplier),

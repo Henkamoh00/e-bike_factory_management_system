@@ -22,7 +22,11 @@ can_view_faults = require_any_tab("faults", "invoices")
 
 
 @router.post("/", response_model=schemas.FaultResponse)
-def create_fault(fault: schemas.FaultCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+def create_fault(
+    fault: schemas.FaultCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults),
+):
     db_fault = faults_crud.create_fault(db, fault, current_user.id)
     return faults_crud._attach_fault_extras(db, [db_fault])[0]
 
@@ -48,7 +52,12 @@ def get_all_faults(
 
 
 @router.post("/{fault_id}/repair/", response_model=schemas.FaultRepairResponse)
-def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+def repair_fault(
+    fault_id: int,
+    repair: schemas.FaultRepairCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults),
+):
     try:
         db_repair = faults_crud.create_fault_repair(db, fault_id, repair, current_user.id)
         db_repair.recorded_by_username = current_user.username
@@ -58,7 +67,12 @@ def repair_fault(fault_id: int, repair: schemas.FaultRepairCreate, db: Session =
 
 
 @router.post("/{fault_id}/cancel/", response_model=schemas.FaultResponse)
-def cancel_fault(fault_id: int, payload: schemas.FaultCancel, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+def cancel_fault(
+    fault_id: int,
+    payload: schemas.FaultCancel,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults),
+):
     try:
         fault = faults_crud.cancel_fault(db, fault_id, payload, current_user.id)
         return faults_crud._attach_fault_extras(db, [fault])[0]
@@ -67,7 +81,11 @@ def cancel_fault(fault_id: int, payload: schemas.FaultCancel, db: Session = Depe
 
 
 @router.get("/{fault_id}/suggested-worker/")
-def suggested_worker(fault_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(can_access_faults)):
+def suggested_worker(
+    fault_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(can_access_faults),
+):
     suggestion = faults_crud.get_suggested_worker_for_fault(db, fault_id)
     if not suggestion:
         return {"worker_id": None, "worker_name": None}

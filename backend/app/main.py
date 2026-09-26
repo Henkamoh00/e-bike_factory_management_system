@@ -1,3 +1,4 @@
+import os
 import secrets
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,12 +41,8 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
 
-# 🛡️🆕 Middleware حماية CSRF (نمط Double Submit Cookie)
-# يُنفَّذ على أي طلب غير آمن (POST/PUT/DELETE/PATCH) قادم من عميل يحمل جلسة
-# كوكيز (access أو refresh). المسارات المُستثناة: تسجيل الدخول (لا جلسة بعد)
-# وتسجيل الخروج (إجراء آمن نسبيًا، ولمنع قفل المستخدم في حال فقد كوكي CSRF).
-# ⚠️ صفحة التحقق العامة (invoice_verify_router) لا تحتاج استثناء هنا أصلاً
-# لأنها GET فقط، والـ GET مُستثنى بالفعل ضمن SAFE_METHODS.
+# حماية CSRF (نمط Double Submit Cookie): تُطبَّق على أي طلب غير آمن من عميل
+# يحمل جلسة كوكيز. مستثنى: تسجيل الدخول والخروج. الطلبات GET آمنة أصلاً.
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 CSRF_EXEMPT_PATHS = {
     "/api/auth/login/",
@@ -70,16 +67,14 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-# 🛡️🛡️ الترتيب حاسم: CSRFProtectionMiddleware و SlowAPIMiddleware يجب أن
-# يُضافا قبل CORSMiddleware حتى يبقى CORSMiddleware الطبقة الخارجية الأولى
+# الترتيب حاسم: يجب إضافة CSRF وSlowAPI قبل CORS ليبقى CORS الطبقة الخارجية
 app.add_middleware(CSRFProtectionMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
+# النطاقات المسموحة من متغير البيئة CORS_ORIGINS (مفصولة بفواصل)
+_DEFAULT_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 origins = [
-    "https://electricbikemanager.app",
-    "https://electricbikemanager.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    o.strip() for o in os.getenv("CORS_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()
 ]
 
 app.add_middleware(
@@ -91,7 +86,7 @@ app.add_middleware(
         "Content-Type",
         "Authorization",
         "ngrok-skip-browser-warning",
-        CSRF_HEADER_NAME,  # 🛡️🆕 يجب السماح به صراحة ليصل هيدر CSRF
+        CSRF_HEADER_NAME,
     ],
     expose_headers=["X-Confirm-Required"],
 )
