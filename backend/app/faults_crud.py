@@ -160,9 +160,6 @@ def get_suggested_worker_for_fault(db: Session, fault_id: int):
     if not db_fault or not db_fault.related_stage:
         return None
 
-    # 🛡️ إصلاح: كانت هذه الدالة تبحث فقط عن سجل بنفس المرحلة الدقيقة،
-    # فلا تجد شيئًا إن كان العامل نفّذ المرحلتين معًا عبر 'تجميع_كامل' —
-    # الآن تستخدم نفس منطق الرجوع الاحتياطي المستخدم في قائمة الأعطال
     record = _find_responsible_record(db, db_fault.chassis_number, db_fault.related_stage)
     if record and record.worker:
         return {"worker_id": record.worker.id, "worker_name": record.worker.name}

@@ -19,7 +19,7 @@ def search_bike_types(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """🆕 بحث خفيف للقوائم المنسدلة"""
+    """بحث خفيف للقوائم المنسدلة"""
     types = bike_options_crud.search_bike_types_simple(db, q=q, limit=limit)
     return [{"id": t.id, "name": t.name} for t in types]
 
@@ -36,7 +36,7 @@ def get_bike_types(
     return {"items": items, "total": total}
 
 
-# 🛡️ الحد الآن لكل مستخدم بدل IP
+# الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-types/")
 @limiter.limit("20/day", key_func=get_rate_limit_key)
 def create_bike_type(
@@ -80,7 +80,7 @@ def delete_bike_type(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
+# حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bike-types/bulk-delete/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_bike_types(
@@ -100,7 +100,7 @@ def search_bike_colors(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """🆕 بحث خفيف للقوائم المنسدلة"""
+    """بحث خفيف للقوائم المنسدلة"""
     colors = bike_options_crud.search_bike_colors_simple(db, q=q, limit=limit)
     return [{"id": c.id, "name": c.name} for c in colors]
 
@@ -117,7 +117,7 @@ def get_bike_colors(
     return {"items": items, "total": total}
 
 
-# 🛡️ الحد الآن لكل مستخدم بدل IP
+# الحد الآن لكل مستخدم بدل IP
 @router.post("/bike-colors/")
 @limiter.limit("20/day", key_func=get_rate_limit_key)
 def create_bike_color(
@@ -161,7 +161,7 @@ def delete_bike_color(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
+# حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bike-colors/bulk-delete/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_bike_colors(

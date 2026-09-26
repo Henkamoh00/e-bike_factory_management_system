@@ -17,11 +17,11 @@ class Part(Base):
     name = Column(String, unique=True, index=True, nullable=False)
     unit = Column(String, nullable=False)  # وحدة القياس: قطعة / متر / كغ ...
 
-    # 🆕 الرصيد الحالي محسوب ومُخزَّن مباشرة (مثل Customer.credit_balance)،
+    # الرصيد الحالي محسوب ومُخزَّن مباشرة (مثل Customer.credit_balance)،
     # يُحدَّث تلقائيًا مع كل حركة عبر inventory_crud.record_movement
     current_stock = Column(Numeric(12, 3), nullable=False, default=0)
 
-    # 🆕 بدل حد أدنى تلقائي للتنبيه (غير منطقي هنا لعدم انتظام الاستهلاك):
+    # بدل حد أدنى تلقائي للتنبيه (غير منطقي هنا لعدم انتظام الاستهلاك):
     # علم يدوي بسيط يُفعَّله الموظف عند ملاحظة نفاد القطعة، ليظهر ضمن
     # "قائمة الطلبات" المجمَّعة، ويُلغى تلقائيًا يدويًا بعد الطلب
     flagged_for_reorder = Column(Boolean, default=False, nullable=False)
@@ -38,7 +38,7 @@ class Part(Base):
 
 class Supplier(Base):
     """
-    🆕 مورّد بسيط (اسم فقط). يُنشأ إما صراحة عبر /api/inventory/suppliers/
+    مورّد بسيط (اسم فقط). يُنشأ إما صراحة عبر /api/inventory/suppliers/
     أو ضمنيًا (get-or-create) عند كتابة اسم مورّد جديد أثناء تسجيل حركة
     وارد — نفس نمط get_or_create_worker تمامًا.
     """
@@ -73,14 +73,14 @@ class StockMovement(Base):
     quantity = Column(Numeric(12, 3), nullable=False)
     balance_after = Column(Numeric(12, 3), nullable=False)
 
-    # 🆕 السعر لحظة الوارد فقط (يبقى None دائمًا في حركات الصادر)
+    # السعر لحظة الوارد فقط (يبقى None دائمًا في حركات الصادر)
     unit_price = Column(Numeric(12, 2), nullable=True)
 
-    # 🆕 المورّد الآن علاقة حقيقية بجدول suppliers بدل نص حر — يُملأ فقط
+    # المورّد الآن علاقة حقيقية بجدول suppliers بدل نص حر — يُملأ فقط
     # في حركات الوارد (get-or-create عبر inventory_crud.record_movement)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
 
-    # 🆕 ربط توثيقي اختياري فقط بدراجة معيّنة (نص حر، بلا قيد FK)، لا يُستخدم
+    # ربط توثيقي اختياري فقط بدراجة معيّنة (نص حر، بلا قيد FK)، لا يُستخدم
     # في أي حساب آلي — تمامًا مثل تخزين chassis_number كنص عادي في بقية النظام
     related_chassis_number = Column(String, nullable=True, index=True)
 

@@ -34,7 +34,7 @@ def login(request: Request, response: Response, payload: schemas.LoginRequest, d
         ip_address=request.client.host if request.client else None,
     )
 
-    # 🛡️ التوكنات + كوكي CSRF توضع كلها هنا (set_auth_cookies تضبط الثلاثة معًا)
+    # التوكنات + كوكي CSRF توضع كلها هنا (set_auth_cookies تضبط الثلاثة معًا)
     set_auth_cookies(response, access_token, raw_refresh_token)
 
     return user

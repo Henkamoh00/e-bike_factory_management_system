@@ -6,11 +6,6 @@ from . import models, schemas, audit_crud
 
 # ====================== BIKE TYPE ======================
 def get_or_create_bike_type(db: Session, name: str, current_user_id: int | None = None, default_price=None):
-    """
-    🛡️ إصلاح خطأ حقيقي: كانت هذه الدالة تتجاهل السعر الافتراضي تمامًا عند
-    الإنشاء (المُعامل default_price لم يكن موجودًا أصلاً)، فيُنشأ النوع دائمًا
-    بسعر NULL بغض النظر عمّا أرسله المستخدم في الفورم.
-    """
     bike_type = db.query(models.BikeType).filter(models.BikeType.name == name).first()
     if not bike_type:
         bike_type = models.BikeType(name=name, created_by_id=current_user_id, default_price=default_price)

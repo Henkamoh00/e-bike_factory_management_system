@@ -19,7 +19,7 @@
           <span class="text-sm text-gray-600">لا يوجد سبب محدد، متابعة الإلغاء بدون كتابة سبب</span>
         </label>
 
-        <!-- 🆕 تأكيد إضافي اختياري (مثال: رد مبلغ مدفوع للعميل عند إلغاء فاتورة) -->
+        <!-- تأكيد إضافي اختياري (مثال: رد مبلغ مدفوع للعميل عند إلغاء فاتورة) -->
         <label v-if="requireExtraConfirm" class="flex items-start gap-2 mt-4 p-3 bg-amber-50 rounded-xl cursor-pointer select-none">
           <input type="checkbox" v-model="extraConfirmed" class="w-4 h-4 accent-amber-600 mt-0.5" />
           <span class="text-sm text-amber-700">{{ extraConfirmText }}</span>
@@ -52,7 +52,7 @@ const props = defineProps({
   subtitle: { type: String, default: '' },
   icon: { type: String, default: '⚠️' },
   loading: { type: Boolean, default: false },
-  // 🆕 تأكيد إضافي اختياري لا علاقة له بسبب الإلغاء (مثال: تأكيد رد مبلغ)
+  // تأكيد إضافي اختياري لا علاقة له بسبب الإلغاء (مثال: تأكيد رد مبلغ)
   requireExtraConfirm: { type: Boolean, default: false },
   extraConfirmText: { type: String, default: '' }
 })

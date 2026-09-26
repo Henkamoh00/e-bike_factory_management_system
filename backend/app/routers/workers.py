@@ -34,7 +34,7 @@ def get_workers_full(
     return {"items": items, "total": total}
 
 
-# 🛡️ الحد الآن لكل مستخدم (user:{username}) بدل IP — يمنع تشارك عدة عمال
+# الحد الآن لكل مستخدم (user:{username}) بدل IP — يمنع تشارك عدة عمال
 # خلف نفس IP نفس السقف اليومي
 @router.post("/")
 @limiter.limit("20/day", key_func=get_rate_limit_key)
@@ -79,7 +79,7 @@ def delete_worker(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
+# حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_workers(

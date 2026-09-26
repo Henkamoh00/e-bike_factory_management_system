@@ -16,14 +16,14 @@ const markHadSession = () => localStorage.setItem(HAD_SESSION_KEY, '1')
 const clearHadSession = () => localStorage.removeItem(HAD_SESSION_KEY)
 const hadSessionBefore = () => localStorage.getItem(HAD_SESSION_KEY) === '1'
 
-// 🛡️🆕 يقرأ قيمة كوكي CSRF (غير httpOnly، لذا قابل للقراءة من JS هنا فقط
+// يقرأ قيمة كوكي CSRF (غير httpOnly، لذا قابل للقراءة من JS هنا فقط
 // لغرض إرفاقه بالهيدر — هذا هو جوهر نمط Double Submit Cookie)
 const getCsrfToken = () => {
   const match = document.cookie.match(new RegExp('(^| )' + CSRF_COOKIE_NAME + '=([^;]+)'))
   return match ? decodeURIComponent(match[2]) : null
 }
 
-// 🛡️🆕 يبني هيدرز الطلب مع إرفاق CSRF تلقائيًا للطلبات غير الآمنة (غير GET)
+// يبني هيدرز الطلب مع إرفاق CSRF تلقائيًا للطلبات غير الآمنة (غير GET)
 const buildHeaders = (method, extraHeaders = {}) => {
   const headers = { 'Content-Type': 'application/json', ...extraHeaders }
   const safe = ['GET', 'HEAD', 'OPTIONS'].includes((method || 'GET').toUpperCase())

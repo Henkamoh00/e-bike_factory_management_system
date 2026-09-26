@@ -66,10 +66,10 @@ class StockMovementCreate(StrippedBaseModel):
     part_id: int
     movement_type: Literal["in", "out"]
     quantity: Decimal
-    # 🆕 السعر (معنى له فقط عند movement_type == "in"؛ يُتجاهل صراحة في
+    # السعر (معنى له فقط عند movement_type == "in"؛ يُتجاهل صراحة في
     # حركات الصادر داخل inventory_crud.record_movement)
     unit_price: Decimal | None = None
-    # 🆕 اسم المورّد كنص حر: يُحوَّل إلى معرّف عبر get-or-create تلقائيًا
+    # اسم المورّد كنص حر: يُحوَّل إلى معرّف عبر get-or-create تلقائيًا
     supplier_name: str | None = None
     related_chassis_number: str | None = None
     notes: str | None = None

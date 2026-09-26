@@ -27,16 +27,13 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    // 🆕 صفحة الفواتير أصبحت مستقلة تمامًا عن نظام تبويبات DashboardView
-    // (وليست v-else-if داخل <main>)، لأن نظام الفوترة أكبر وأعقد من أن
-    // يُحشر كتبويب عادي — راجع الخطة المحفوظة بخصوص هذا القرار المعماري
     path: '/invoices',
     name: 'Invoices',
     component: InvoicesView,
     meta: { requiresAuth: true, tabId: 'invoices' }
   },
   {
-    // 🆕 نظام إدارة المخزون (قطع الغيار): نفس القرار المعماري تمامًا
+    // نظام إدارة المخزون (قطع الغيار): نفس القرار المعماري تمامًا
     // كالفواتير — صفحة مستقلة (router.push) وليست تبويبًا داخليًا
     path: '/inventory',
     name: 'Inventory',
@@ -55,7 +52,7 @@ const router = createRouter({
   routes
 })
 
-// 🛡️ فحص الجلسة الأولي يحدث مرة واحدة فقط طوال عمر التطبيق (SPA)،
+// فحص الجلسة الأولي يحدث مرة واحدة فقط طوال عمر التطبيق (SPA)،
 // ويستخدم checkInitialSession() بدل fetchCurrentUser() تحديدًا لتفادي
 // طلبات الشبكة غير الضرورية عند عدم وجود جلسة سابقة معروفة أصلًا
 // (راجع التعليق التفصيلي داخل useAuth.js لفهم المنطق الكامل)
@@ -81,7 +78,7 @@ router.beforeEach(async (to) => {
     return { name: 'Dashboard', query: { tab: defaultTab } }
   }
 
-  // 🆕 حماية صفحات مستقلة (الفواتير/المخزون): نفس منطق فحص allowed_tabs
+  // حماية صفحات مستقلة (الفواتير/المخزون): نفس منطق فحص allowed_tabs
   // المستخدم في Dashboard، لكن هنا نُعيد المستخدم للوحة الإدارة (وليس
   // لتبويب آخر داخل نفس الصفحة) لأن هذه المسارات مستقلة بالكامل
   if (to.meta.tabId && isAuthenticated.value) {

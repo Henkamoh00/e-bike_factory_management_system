@@ -39,7 +39,7 @@ class InvoiceItemResponse(BaseModel):
     notes: str | None = None
     is_returned: bool = False
     return_reason: str | None = None
-    # 🆕🛡️ ملاحظات الإرجاع الفعلية (تحمل النص الحر عند اختيار "سبب آخر").
+    # ملاحظات الإرجاع الفعلية (تحمل النص الحر عند اختيار "سبب آخر").
     # أُضيفت مع تقييد reason بـ Enum: أي نص حر كتبه المستخدم عند اختيار
     # "سبب آخر" لم يعد يُخزَّن داخل reason (أصبح مقيدًا بقيم ثابتة)، بل
     # يُخزَّن هنا كي لا يُفقد أي أثر تاريخي (متوافق مع فلسفة عدم فقدان
@@ -78,7 +78,7 @@ class PaymentResponse(BaseModel):
 
 
 # ====================== إرجاع الدراجات المباعة ======================
-# 🆕🛡️ Enum مقيِّد لسبب الإرجاع، مطابق حرفيًا لقائمة reasonOptions في
+# Enum مقيِّد لسبب الإرجاع، مطابق حرفيًا لقائمة reasonOptions في
 # ReturnFormModal.vue. أي قيمة لا تطابق إحدى هذه الخمس تُرفض تلقائيًا
 # بخطأ 422 من FastAPI/Pydantic قبل الوصول لأي منطق عمل — يحمي هذا عمود
 # chassis_returns.reason (لا يزال String عاديًا في قاعدة البيانات، لا
@@ -244,8 +244,8 @@ class CreditReallocateResponse(CustomerCreditBalanceResponse):
     target_invoice_number: str
 
 
-# 🆕 سجل الاسترجاعات النقدية الفعلية (الخارجة من النظام) — يحلّ محل نظام
-# "المدفوعات المعلقة" القديم بالكامل. مصدره الوحيد: CustomerCreditAction
+#سجل الاسترجاعات النقدية الفعلية (الخارجة من النظام)
+# مصدره الوحيد: CustomerCreditAction
 # بنوع action_type == "refunded" (أي زر "استرجاع نقدي" من رصيد أي عميل).
 class CreditRefundLogResponse(BaseModel):
     id: int
@@ -271,7 +271,6 @@ class CustomerStatementResponse(BaseModel):
     total_invoiced: Decimal
     total_paid: Decimal
     total_remaining: Decimal
-    # 🆕 رصيد العميل الحالي وسجل حركاته الكامل
     credit_balance: Decimal = Decimal("0")
     credit_ledger: list[CreditActionResponse] = []
     invoices: list[InvoiceResponse]

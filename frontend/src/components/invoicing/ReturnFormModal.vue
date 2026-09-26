@@ -37,7 +37,7 @@
           <option v-for="r in reasonOptions" :key="r" :value="r">{{ r }}</option>
         </select>
 
-        <!-- 🆕 تنبيه: إذا كان السبب عطلاً ولم يُربط بعطل موجود، سيُفتح عطل جديد تلقائيًا -->
+        <!-- تنبيه: إذا كان السبب عطلاً ولم يُربط بعطل موجود، سيُفتح عطل جديد تلقائيًا -->
         <div
           v-if="willAutoCreateFault"
           class="text-xs bg-red-50 text-red-600 rounded-xl px-3 py-2 mb-3 flex items-start gap-2"
@@ -50,9 +50,6 @@
           </span>
         </div>
 
-        <!-- 🆕🛡️ عند اختيار "سبب آخر": هذا الحقل أصبح إلزاميًا، لأن الباك
-             إند لم يعد يقبل أي قيمة حرة في reason (مقيّد بقائمة Enum ثابتة).
-             النص المكتوب هنا يُرسل ضمن notes وليس ضمن reason. -->
         <textarea
           v-if="reasonOption === OTHER_REASON"
           v-model="customReason"
@@ -91,7 +88,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'success'])
 
-// 🆕🛡️ هذه القيم الخمس يجب أن تطابق حرفيًا قيم ChassisReturnReason في
+// هذه القيم الخمس يجب أن تطابق حرفيًا قيم ChassisReturnReason في
 // invoicing/schemas.py (الباك إند). أي تعديل هنا يتطلب تعديلًا مطابقًا هناك.
 const OTHER_REASON = 'سبب آخر'
 const REASON_CHASSIS = 'عطل في الهيكل'
@@ -105,7 +102,7 @@ const reasonOptions = [
   OTHER_REASON,
 ]
 
-// 🆕 خريطة سبب الإرجاع ↔ مرحلة التجميع المرتبطة، تُستخدم لإنشاء عطل تلقائيًا
+// خريطة سبب الإرجاع ↔ مرحلة التجميع المرتبطة، تُستخدم لإنشاء عطل تلقائيًا
 const FAULT_STAGE_MAP = {
   [REASON_CHASSIS]: 'تجميع_الهيكل',
   [REASON_ELECTRICAL]: 'توصيل_الكهرباء_والغلاف',
@@ -128,7 +125,7 @@ const form = ref({
   notes: '',
 })
 
-// 🆕 هل سيُفتح عطل جديد تلقائيًا؟ فقط إذا كان السبب من نوع "عطل" معروف
+// هل سيُفتح عطل جديد تلقائيًا؟ فقط إذا كان السبب من نوع "عطل" معروف
 // المرحلة، ولم يتم ربط الإرجاع بعطل موجود مسبقًا يدويًا
 const autoFaultStage = computed(() => FAULT_STAGE_MAP[reasonOption.value] || null)
 const willAutoCreateFault = computed(() => !!autoFaultStage.value && !form.value.related_fault_id)
@@ -200,11 +197,6 @@ const submit = async () => {
 
   loading.value = true
   try {
-    // 🆕🛡️ الباك إند يقبل الآن فقط القيم الثابتة الخمس في reason (Enum
-    // في invoicing/schemas.py). لذلك reason يُرسل دائمًا كما هو من
-    // reasonOption (بما فيها "سبب آخر" حرفيًا)، والنص الحر عند اختيار
-    // "سبب آخر" يُدمج داخل notes بدل reason — بدون هذا التغيير سيُرفض
-    // الطلب بخطأ 422 في كل مرة يختار فيها المستخدم "سبب آخر".
     let combinedNotes = form.value.notes ? form.value.notes.trim() : ''
     if (reasonOption.value === OTHER_REASON) {
       const customText = customReason.value.trim()
@@ -217,7 +209,7 @@ const submit = async () => {
       related_fault_id: form.value.related_fault_id || null,
       notes: combinedNotes || null,
     }
-    // 🆕 إرسال مرحلة العطل فقط إذا لم يُربط الإرجاع بعطل موجود مسبقًا
+    // إرسال مرحلة العطل فقط إذا لم يُربط الإرجاع بعطل موجود مسبقًا
     if (willAutoCreateFault.value) {
       payload.create_fault_stage = autoFaultStage.value
     }

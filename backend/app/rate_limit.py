@@ -6,7 +6,7 @@ from fastapi import Request
 from jose import jwt, JWTError
 
 
-# 🛡️🆕 قائمة عناوين IP الخاصة بالبروكسي/Load Balancer الموثوق فقط.
+# قائمة عناوين IP الخاصة بالبروكسي/Load Balancer الموثوق فقط.
 # لا يُوثَق بهيدر X-Forwarded-For إلا إذا كان الطلب قادمًا فعليًا من أحد
 # هذه العناوين مباشرة (أي أن request.client.host هو عنوان البروكسي نفسه).
 # بدون هذا الفحص، أي مهاجم يستطيع إرسال X-Forwarded-For مزيّف مختلف مع كل
@@ -28,7 +28,7 @@ if not TRUSTED_PROXY_IPS:
 def get_client_ip(request: Request) -> str:
     direct_ip = get_remote_address(request)
 
-    # 🛡️ الوثوق بـ X-Forwarded-For فقط إذا كان الاتصال المباشر قادمًا من
+    # الوثوق بـ X-Forwarded-For فقط إذا كان الاتصال المباشر قادمًا من
     # بروكسي معروف ومُدرَج صراحة في القائمة الموثوقة
     if direct_ip in TRUSTED_PROXY_IPS:
         forwarded = request.headers.get("X-Forwarded-For")
@@ -40,7 +40,7 @@ def get_client_ip(request: Request) -> str:
     return direct_ip
 
 
-# 🛡️🆕 مفتاح Rate Limiting معتمد على هوية المستخدم (من توكن الوصول) بدل IP.
+# مفتاح Rate Limiting معتمد على هوية المستخدم (من توكن الوصول) بدل IP.
 # السبب: عدة عمال (operators) قد يعملون خلف نفس IP العام لشبكة الورشة الداخلية،
 # فربط الحد بـ IP يجعلهم يتشاركون نفس السقف اليومي/الساعي بالخطأ — بينما الهدف
 # الفعلي من هذه الحدود هو منع إساءة استخدام حساب واحد وليس منع نشاط الورشة كلها.

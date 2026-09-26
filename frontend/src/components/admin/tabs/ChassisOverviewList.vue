@@ -330,7 +330,7 @@ const currentStageLabel = (chassis) => {
   return 'لم تبدأ بعد'
 }
 
-// 🆕 حالات سجل البيع الثلاث: نشط / مُرجَع / ملغى
+// حالات سجل البيع الثلاث: نشط / مُرجَع / ملغى
 const saleStatusIcon = (status) => ({ active: '✅', returned: '🔄', cancelled: '✖️' }[status] || '✅')
 const saleCardClass = (status) => ({
   active: 'bg-emerald-50',

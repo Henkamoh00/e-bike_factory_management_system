@@ -62,9 +62,6 @@
             <span class="text-xs text-gray-400">{{ new Date(r.created_at).toLocaleDateString('ar-EG') }}</span>
           </div>
           <div class="text-sm text-gray-500 mb-1">{{ r.invoice_number }} — {{ r.customer_name }}</div>
-          <!-- 🆕🛡️ السبب أصبح دائمًا إحدى القيم الثابتة الخمس (Enum) في
-               الباك إند. عند "سبب آخر"، النص الفعلي مخزَّن في notes، لذا
-               نعرضه هنا بدل التسمية العامة "سبب آخر" ليبقى واضحًا للمستخدم. -->
           <div class="text-sm text-gray-700">السبب: {{ effectiveReason(r) }}</div>
           <div v-if="r.notes && r.reason !== OTHER_REASON_LABEL" class="text-xs text-gray-400 mt-1">{{ r.notes }}</div>
           <div class="text-xs text-gray-400 mt-1" v-if="r.created_by_username">سجَّله: {{ r.created_by_username }}</div>
@@ -88,7 +85,7 @@ import ReturnFormModal from './ReturnFormModal.vue'
 
 const { apiFetch } = useAuth()
 
-// 🆕🛡️ يجب أن تطابق OTHER القيمة الموجودة في ChassisReturnReason (باك إند)
+// يجب أن تطابق OTHER القيمة الموجودة في ChassisReturnReason (باك إند)
 // وفي reasonOptions (ReturnFormModal.vue)
 const OTHER_REASON_LABEL = 'سبب آخر'
 
@@ -99,7 +96,7 @@ const loadingReturns = ref(false)
 const showReturnModal = ref(false)
 const prefilledChassis = ref('')
 
-// 🆕 يعرض النص الفعلي (notes) بدل التسمية العامة "سبب آخر" إن وُجد
+// يعرض النص الفعلي (notes) بدل التسمية العامة "سبب آخر" إن وُجد
 const effectiveReason = (r) => (r.reason === OTHER_REASON_LABEL && r.notes) ? r.notes : r.reason
 
 const loadSoldFaulty = async () => {

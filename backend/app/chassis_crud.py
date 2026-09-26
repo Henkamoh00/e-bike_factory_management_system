@@ -29,10 +29,6 @@ def _get_active_invoice_items(db: Session, with_customer: bool = False):
 
 
 def _get_active_invoiced_chassis_numbers(db: Session) -> set:
-    """
-    🛡️ الهياكل التي عليها فعليًا بند فاتورة نشط (غير ملغى، وغير مُرجَع).
-    هذا هو المصدر الوحيد الآن لتحديد "المُباع" بعد حذف نظام sales القديم.
-    """
     return {item.chassis_number for item in _get_active_invoice_items(db)}
 
 

@@ -197,7 +197,7 @@ const searchSuppliers = async (query) => {
   return data.map(s => ({ label: s.name, value: s.name }))
 }
 
-// 🆕 عند اختيار قطعة لسطر معيّن، نحفظ وحدة القياس الخاصة بها لعرضها في
+// عند اختيار قطعة لسطر معيّن، نحفظ وحدة القياس الخاصة بها لعرضها في
 // حقل الكمية (placeholder) — لا علاقة له بمنطق العمل، فقط تسهيل إدخال
 const partsCache = ref({})
 const onSelectPart = async (line, partId) => {
@@ -238,7 +238,7 @@ const validate = () => {
   return true
 }
 
-// 🆕 كل سطر يُرسَل كطلب POST مستقل تمامًا لأن الحركات غير مرتبطة ببعضها
+// كل سطر يُرسَل كطلب POST مستقل تمامًا لأن الحركات غير مرتبطة ببعضها
 // بأي شكل في قاعدة البيانات — الفورم هنا مجرد تسهيل لإدخال عدة قطع معًا
 const submit = async () => {
   if (!validate()) return

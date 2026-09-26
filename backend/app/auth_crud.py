@@ -32,7 +32,7 @@ def _attach_role(user: models.User) -> models.User:
 
 
 def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | None = None):
-    # 🛡️ فحص مسبق بالكود: يستثني المستخدمين المؤرشفين (is_deleted=True)
+    # فحص مسبق بالكود: يستثني المستخدمين المؤرشفين (is_deleted=True)
     # حتى لا يبقى اسم المستخدم "محجوزًا للأبد" بعد الحذف الناعم
     existing = db.query(models.User).filter(
         models.User.username == data.username,
@@ -53,7 +53,7 @@ def create_user(db: Session, data: schemas.UserCreate, current_user_id: int | No
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        # شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
         db.rollback()
         raise ValueError("اسم المستخدم موجود مسبقاً")
     db.refresh(user)
@@ -117,7 +117,7 @@ def update_user(db: Session, user_id: int, data: schemas.UserUpdate, current_use
     db.commit()
     db.refresh(user)
 
-    # 🛡️ عند تغيير كلمة المرور: إبطال كل refresh tokens الحالية للمستخدم فورًا.
+    # عند تغيير كلمة المرور: إبطال كل refresh tokens الحالية للمستخدم فورًا.
     # بدون هذا، أي جهاز يملك refresh token قديم (مثلاً جهاز مخترق) يبقى قادرًا
     # على تجديد access token رغم تغيير كلمة المرور، مما يُفشل الغرض الأمني من الخطوة.
     if password_changed:
@@ -138,7 +138,7 @@ def soft_delete_user(db: Session, user_id: int, current_user_id: int):
     user.is_active = False
     user.deleted_by_id = current_user_id
     db.commit()
-    # 🛡️ إبطال كل جلسات المستخدم فورًا عند الحذف الناعم، حتى لا يبقى بإمكانه
+    # إبطال كل جلسات المستخدم فورًا عند الحذف الناعم، حتى لا يبقى بإمكانه
     # تجديد access token عبر refresh token قديم رغم أرشفة حسابه
     revoke_all_user_tokens(db, user.id)
     audit_crud.log_action(db, "delete", "user", user.id, current_user_id, entity_label=user.username)
@@ -154,7 +154,7 @@ def bulk_deactivate_users(db: Session, ids: list[int], current_user_id: int):
     for u in users:
         u.is_active = False
     db.commit()
-    # 🛡️ إبطال جلسات كل مستخدم عُطِّل، لنفس السبب أعلاه
+    # إبطال جلسات كل مستخدم عُطِّل، لنفس السبب أعلاه
     for u in users:
         revoke_all_user_tokens(db, u.id)
     audit_crud.log_action(
@@ -165,9 +165,6 @@ def bulk_deactivate_users(db: Session, ids: list[int], current_user_id: int):
 
 
 def bulk_activate_users(db: Session, ids: list[int], current_user_id: int | None = None):
-    # 🛡️ إصلاح: استبعاد المستخدمين المؤرشفين (is_deleted=True) من التفعيل الجماعي
-    # حتى لا تنتج حالة بيانات متضاربة (is_deleted=True مع is_active=True)
-    # ولا يتم تفعيلهم إلا عبر مسار /restore/ المحصور بالأدمن فقط
     users = db.query(models.User).filter(
         models.User.id.in_(ids),
         models.User.is_deleted.is_(False)
@@ -196,7 +193,7 @@ def bulk_soft_delete_users(db: Session, ids: list[int], current_user_id: int):
         u.is_active = False
         u.deleted_by_id = current_user_id
     db.commit()
-    # 🛡️ إبطال جلسات كل مستخدم حُذف حذفًا ناعمًا جماعيًا
+    # إبطال جلسات كل مستخدم حُذف حذفًا ناعمًا جماعيًا
     for u in users:
         revoke_all_user_tokens(db, u.id)
     audit_crud.log_action(
@@ -227,7 +224,7 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
     if not user.is_deleted:
         raise ValueError("المستخدم غير مؤرشف أصلاً")
 
-    # 🛡️ فحص مسبق بالكود: منع الاستعادة لو يوجد مستخدم نشط حاليًا بنفس اسم المستخدم
+    # فحص مسبق بالكود: منع الاستعادة لو يوجد مستخدم نشط حاليًا بنفس اسم المستخدم
     duplicate = db.query(models.User).filter(
         models.User.username == user.username,
         models.User.is_deleted.is_(False),
@@ -244,7 +241,7 @@ def restore_user(db: Session, user_id: int, current_user_id: int):
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        # شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
         db.rollback()
         raise ValueError(f"لا يمكن استعادة المستخدم، يوجد مستخدم نشط حاليًا بنفس اسم المستخدم '{user.username}'")
     audit_crud.log_action(db, "restore", "user", user.id, current_user_id, entity_label=user.username)
@@ -274,7 +271,7 @@ def create_refresh_token(
 
 def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User | None:
     """
-    🛡️ يتحقق من صلاحية الـ refresh token ثم يُبطله فورًا (rotation) —
+    يتحقق من صلاحية الـ refresh token ثم يُبطله فورًا (rotation) —
     كل استخدام لتوكن التحديث يُنتج توكنًا جديدًا ويُلغي القديم.
     هذا يمنع إعادة استخدام توكن مسروق قديم (replay attack)، ويكشف السرقة:
     لو استُخدم توكن مُبطَل سابقًا، فهذا مؤشر قوي على أن نسخة منه سُرِّبت.
@@ -286,7 +283,7 @@ def verify_and_rotate_refresh_token(db: Session, raw_token: str) -> models.User 
         return None
 
     if db_token.revoked:
-        # 🛡️ إبطال احترازي شامل: لو توكن مُبطَل استُخدم مجددًا، على الأرجح سُرِّب.
+        # إبطال احترازي شامل: لو توكن مُبطَل استُخدم مجددًا، على الأرجح سُرِّب.
         # نُبطل كل توكنات هذا المستخدم فورًا كإجراء احترازي (يجبره على تسجيل دخول جديد بكل الأجهزة)
         db.query(RefreshToken).filter(
             RefreshToken.user_id == db_token.user_id,

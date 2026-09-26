@@ -146,10 +146,7 @@ class Customer(CustomerBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ====================== سجل بيع الهيكل (🆕 مبني على نظام الفوترة) ======================
-# 🛡️ حلّت محل SaleResponse القديمة بعد حذف نظام sales نهائيًا. تُبنى بيانات
-# هذا النموذج من bند فاتورة (InvoiceItem) + الفاتورة + سجل الإرجاع إن وُجد،
-# راجع chassis_crud.get_full_chassis_history لمصدر البيانات الفعلي.
+# ====================== سجل بيع الهيكل ( مبني على نظام الفوترة) ======================
 class ChassisSaleHistoryItem(BaseModel):
     id: int
     invoice_number: str
@@ -255,7 +252,7 @@ class ResponseMessage(BaseModel):
 
 
 # ====================== ROLES ======================
-# 🆕 أُضيف "inventory" (نظام إدارة قطع الغيار/المخزون)
+# أُضيف "inventory" (نظام إدارة قطع الغيار/المخزون)
 ALL_TAB_IDS = [
     "stats", "users", "settings", "assembly", "invoices", "faults",
     "workers", "customers", "logs", "archive", "inventory"

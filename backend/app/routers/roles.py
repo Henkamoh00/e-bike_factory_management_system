@@ -78,7 +78,7 @@ def update_role(
         role.description = data.description
 
     if data.allowed_tabs is not None:
-        # 🛡️ حماية حاسمة: لا يمكن تقييد صلاحيات دور admin أبداً، مهما أرسل الطلب
+        # حماية حاسمة: لا يمكن تقييد صلاحيات دور admin أبداً، مهما أرسل الطلب
         # يمنع هذا قفل النظام بالكامل بالخطأ (لا يبقى أي مستخدم بصلاحية كاملة)
         if role.name == models.RoleNames.ADMIN:
             role.allowed_tabs = list(schemas.ALL_TAB_IDS)

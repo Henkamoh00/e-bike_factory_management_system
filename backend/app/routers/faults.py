@@ -7,10 +7,10 @@ from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/faults", tags=["faults"])
 
-# 🛡️ إدارة الأعطال الفعلية (إنشاء/تصليح/إلغاء) تبقى حكرًا على تبويب "faults" فقط
+# إدارة الأعطال الفعلية (إنشاء/تصليح/إلغاء) تبقى حكرًا على تبويب "faults" فقط
 can_access_faults = require_tab("faults")
 
-# 🛡️🆕 القراءة فقط مفتوحة لمن يملك "faults" أو "invoices" — لأن
+# القراءة فقط مفتوحة لمن يملك "faults" أو "invoices" — لأن
 # ReturnFormModal.vue يستعلم عن الأعطال المعلّقة لهيكل معيّن عند تسجيل
 # إرجاع دراجة، ليربط الإرجاع بعطل موجود مسبقًا بدل فتح عطل مكرر تلقائيًا.
 # ⚠️ هذا الاستثناء يخص "القراءة" فقط، ولا يجوز توسيعه إلى الإنشاء/التصليح/
@@ -92,7 +92,7 @@ def suggested_worker(
     return suggestion
 
 
-# 🛡️🆕 حد على bulk-cancel — الآن لكل مستخدم
+# حد على bulk-cancel — الآن لكل مستخدم
 @router.post("/bulk-cancel/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_cancel_faults(
@@ -107,7 +107,7 @@ def bulk_cancel_faults(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-repair — الآن لكل مستخدم
+# حد على bulk-repair — الآن لكل مستخدم
 @router.post("/bulk-repair/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_repair_faults(

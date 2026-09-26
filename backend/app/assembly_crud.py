@@ -153,7 +153,7 @@ def _create_new_stage_record(
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️🛡️ خط الدفاع الثاني والنهائي: شبكة أمان تلتقط UNIQUE constraint
+        # خط الدفاع الثاني والنهائي: شبكة أمان تلتقط UNIQUE constraint
         # violation في الحالة النادرة جدًا التي يفلت منها القفل في
         # create_assembly_record (مثلاً: قاعدة بيانات لا تدعم SELECT FOR UPDATE
         # بنفس الصرامة، أو مستوى عزل معاملات مختلف). بدل رمي خطأ 500 غامض
@@ -184,7 +184,7 @@ def create_assembly_record(
     stage = assembly.stage.value if hasattr(assembly.stage, 'value') else assembly.stage
     worker = workers_crud.get_or_create_worker(db, assembly.worker_name, current_user_id)
 
-    # 🛡️🛡️ خط الدفاع الأول ضد Race Condition: SELECT ... FOR UPDATE
+    # خط الدفاع الأول ضد Race Condition: SELECT ... FOR UPDATE
     # يقفل كل السجلات الحالية المرتبطة بهذا الهيكل تحديدًا (على مستوى الصفوف)
     # داخل معاملة قاعدة البيانات الحالية. أي طلب متزامن آخر لنفس chassis_number
     # (بما فيه طلب إنشاء أول سجل من الصفر) سينتظر في طابور حتى ينتهي commit

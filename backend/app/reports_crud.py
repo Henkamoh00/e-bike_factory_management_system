@@ -93,7 +93,7 @@ def get_bike_types_with_usage(db: Session, skip: int = 0, limit: int = 20, searc
             "id": t.id,
             "name": t.name,
             "usage_count": usage_by_type.get(t.id, 0),
-            # 🆕 يُعرض في واجهة إعدادات أنواع الدراجات
+            #  يُعرض في واجهة إعدادات أنواع الدراجات
             "default_price": t.default_price,
         }
         for t in types

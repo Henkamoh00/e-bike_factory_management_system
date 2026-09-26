@@ -7,7 +7,7 @@ from ..rate_limit import limiter, get_rate_limit_key
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
-# 🛡️🆕 إصلاح: مستخدم يملك تبويب "invoices" فقط (بلا "customers") كان
+# إصلاح: مستخدم يملك تبويب "invoices" فقط (بلا "customers") كان
 # محجوبًا بالكامل عن أي endpoint هنا، رغم أن تدفق الفوترة يحتاج بالضرورة
 # إلى: البحث السريع عن عميل (اختياره في الفاتورة)، القائمة الكاملة (تبويب
 # "كشف حساب عميل")، وإضافة عميل جديد من داخل فورم الفاتورة مباشرة.
@@ -25,7 +25,7 @@ def search_customers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(can_view_customers)
 ):
-    """🆕 بحث خفيف للقوائم المنسدلة (SaleModal مثلاً)"""
+    """بحث خفيف للقوائم المنسدلة"""
     customers = customers_crud.search_customers_simple(db, q=q, limit=limit)
     return [{"id": c.id, "name": c.name} for c in customers]
 
@@ -42,7 +42,7 @@ def get_customers(
     return {"items": items, "total": total}
 
 
-# 🛡️🆕 إضافة عميل تبقى متاحة لمن يملك invoices أيضًا (وليس فقط customers)
+# إضافة عميل تبقى متاحة لمن يملك invoices أيضًا (وليس فقط customers)
 # لأن "+ إضافة عميل جديد" داخل فورم الفاتورة يعتمد على هذا المسار مباشرة
 @router.post("/")
 def create_customer(
@@ -85,7 +85,7 @@ def delete_customer(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد على bulk-delete — الآن لكل مستخدم
+# حد على bulk-delete — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_delete_customers(

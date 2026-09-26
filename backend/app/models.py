@@ -70,7 +70,7 @@ class BikeType(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
-    # 🆕 سعر افتراضي لهذا النوع — يُستخدم لتعبئة سعر البند تلقائيًا عند إنشاء
+    # سعر افتراضي لهذا النوع — يُستخدم لتعبئة سعر البند تلقائيًا عند إنشاء
     # فاتورة (لا يزال قابلاً للتعديل يدويًا لكل فاتورة). اختياري: قد يُترك فارغًا
     # عند إنشاء النوع لأول مرة ويُضبط لاحقًا من الإعدادات.
     default_price = Column(Numeric(10, 2), nullable=True)
@@ -134,7 +134,7 @@ class Customer(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # 🆕 رصيد العميل (محفظة داخلية): يتغذى تلقائيًا من فائض إلغاء/إرجاع
+    #  رصيد العميل (محفظة داخلية): يتغذى تلقائيًا من فائض إلغاء/إرجاع
     # الفواتير، أو يدويًا عبر إيداع مباشر. لا يُسحب نقدًا مباشرة أبدًا إلا
     # عبر مسارات محددة (استرجاع نقدي من الرصيد) — راجع CustomerCreditAction
     # في invoicing/models.py لسجل كل حركة على هذا الرصيد.

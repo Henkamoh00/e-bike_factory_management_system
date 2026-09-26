@@ -18,9 +18,6 @@ def get_dashboard_stats(db: Session):
         if assembly_crud.is_chassis_complete(records)
     )
 
-    # 🆕🛡️ "تم بيعها" أصبح يُحسب من نظام الفوترة (بند فاتورة نشط على فاتورة
-    # غير ملغاة وغير مُرجَع) بدل جدول sales القديم الذي أُزيل نهائيًا —
-    # هذا هو سبب عدم ظهور الدراجات المباعة حديثًا في هذا الكارد سابقًا
     sold = (
         db.query(invoicing_models.InvoiceItem)
         .join(invoicing_models.Invoice)

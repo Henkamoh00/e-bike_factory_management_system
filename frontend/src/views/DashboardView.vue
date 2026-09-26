@@ -42,7 +42,7 @@
             activeTab === tab.id
               ? 'bg-indigo-50 text-indigo-700 font-semibold'
               : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800',
-            // 🆕 تمييز بصري خفيف لأزرار الصفحات المستقلة (الفواتير/المخزون)
+            // تمييز بصري خفيف لأزرار الصفحات المستقلة (الفواتير/المخزون)
             // لأنها تنقل فعليًا (وليست تبديل تبويب داخلي مثل بقية الأزرار)
             standalonePages.includes(tab.id) ? 'ring-1 ring-inset ring-amber-200' : ''
           ]"
@@ -189,7 +189,7 @@ import SettingsTab from '../components/admin/tabs/SettingsTab.vue'
 import LogsTab from '../components/admin/tabs/LogsTab.vue'
 import ArchiveTab from '../components/admin/tabs/ArchiveTab.vue'
 
-// 🆕 قائمة معرّفات التبويبات التي تنقل فعليًا (router.push) لصفحة مستقلة
+// قائمة معرّفات التبويبات التي تنقل فعليًا (router.push) لصفحة مستقلة
 // عن نظام التبويبات الداخلي في DashboardView، بدل عرضها في <main>
 const standalonePages = ['invoices', 'inventory']
 
@@ -236,8 +236,6 @@ const currentTabIcon  = computed(() => visibleTabs.value.find(t => t.id === acti
 const switchTab = (tab) => {
   if (!canAccessTab(tab)) return
 
-  // 🆕 "الفواتير" و"المخزون" تنقل فعلي (router.push) لصفحة مستقلة تمامًا
-  // عن نظام التبويبات الداخلي في DashboardView — راجع القرار المعماري المحفوظ
   if (standalonePages.includes(tab)) {
     isSidebarOpen.value = false
     router.push({ name: tab === 'invoices' ? 'Invoices' : 'Inventory' })

@@ -184,7 +184,7 @@ def record_movement(db: Session, data: schemas.StockMovementCreate, current_user
 
     part.current_stock = new_balance
 
-    # 🆕 السعر والمورّد لهما معنى فقط في حركات الوارد — يُتجاهلان صراحة في الصادر
+    # السعر والمورّد لهما معنى فقط في حركات الوارد — يُتجاهلان صراحة في الصادر
     is_incoming = data.movement_type == "in"
     supplier_id = None
     if is_incoming and data.supplier_name:

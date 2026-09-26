@@ -84,7 +84,7 @@ def reset_password(username: str, new_password: str | None = None) -> int:
 
         user.hashed_password = hash_password(new_password)
 
-        # 🛡️ إعادة تفعيل الحساب تلقائيًا إن كان معطلاً — سيناريو شائع في حالات
+        # إعادة تفعيل الحساب تلقائيًا إن كان معطلاً — سيناريو شائع في حالات
         # الطوارئ (أدمن معطَّل بالخطأ بلا أدمن آخر لتفعيله عبر الواجهة)
         was_inactive = not user.is_active
         if was_inactive:
@@ -93,7 +93,7 @@ def reset_password(username: str, new_password: str | None = None) -> int:
         db.commit()
         db.refresh(user)
 
-        # 🛡️ إبطال كل الجلسات الحالية فورًا، بنفس منطق تغيير كلمة المرور
+        # إبطال كل الجلسات الحالية فورًا، بنفس منطق تغيير كلمة المرور
         # العادي عبر الواجهة (auth_crud.update_user) — أي جهاز قديم لن يستطيع
         # تجديد التوكن بعد الآن
         revoke_all_user_tokens(db, user.id)

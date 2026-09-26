@@ -20,7 +20,7 @@ app/time_utils.py
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-# 🛡️ على Windows لا توجد قاعدة بيانات مناطق زمنية في النظام (تحتاج حزمة tzdata).
+#  على Windows لا توجد قاعدة بيانات مناطق زمنية في النظام (تحتاج حزمة tzdata).
 # الجزائر UTC+1 ثابتة بلا توقيت صيفي، فنتراجع لإزاحة ثابتة مطابقة تمامًا
 # عند غياب البيانات، بدل أن ينهار التطبيق عند الاستيراد.
 try:

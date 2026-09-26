@@ -187,7 +187,7 @@
       </div>
     </div>
 
-    <!-- 🆕 لا يُغلق كشف الحساب المنبثق تلقائيًا عند فتح فاتورة/فاتورة جديدة من داخله؛
+    <!--لا يُغلق كشف الحساب المنبثق تلقائيًا عند فتح فاتورة/فاتورة جديدة من داخله؛
          يبقى مفتوحًا خلفها، وإغلاق نافذة الفاتورة يُعيد المستخدم إليه تلقائيًا (بمثابة زر رجوع) -->
     <CustomerStatementCardModal
       v-if="cardCustomerId"
@@ -234,7 +234,7 @@
       @success="handleReallocateSuccess"
     />
 
-    <!-- 🆕 إنشاء فاتورة مباشرة لعميل مُحدَّد -->
+    <!-- إنشاء فاتورة مباشرة لعميل مُحدَّد -->
     <InvoiceFormModal
       v-if="newInvoiceTarget"
       :preset-customer-id="newInvoiceTarget.customer_id"
@@ -276,11 +276,11 @@ const creditActionLabels = {
   used_on_invoice: 'تسديد فاتورة',
   deposit_excess_payment: 'فائض دفعة نقدية',
   refunded: 'استرجاع نقدي',
-  reallocated: 'تسديد فاتورة', // توافق مع سجلات قديمة قبل توحيد التسمية
+  reallocated: 'تسديد فاتورة',
 }
 const creditActionLabel = (t) => creditActionLabels[t] || t
 
-// 🆕 باجينيشن (10 بكل صفحة) لسجل حركات الرصيد في قسم "البحث السريع"
+// باجينيشن (10 بكل صفحة) لسجل حركات الرصيد في قسم "البحث السريع"
 const quickLedgerItems = computed(() => quickStatement.value?.credit_ledger || [])
 const quickLedgerPg = usePagination(quickLedgerItems, 10)
 
@@ -337,7 +337,7 @@ const openCard = (customer) => { cardCustomerId.value = customer.id }
 const selectedInvoice = ref(null)
 const openInvoiceDetail = (inv) => { selectedInvoice.value = inv }
 
-// 🆕 لا نُغلق كشف الحساب (card) عند فتح فاتورة من داخله — يبقى بالخلفية،
+// لا نُغلق كشف الحساب (card) عند فتح فاتورة من داخله — يبقى بالخلفية،
 // وإغلاق نافذة الفاتورة (@close="selectedInvoice = null") يُعيد المستخدم
 // إليه تلقائيًا، وهذا هو "زر الرجوع" المطلوب دون الحاجة لأي زر إضافي
 const handleOpenInvoiceFromCard = (inv) => {
@@ -415,13 +415,13 @@ const handleReallocateSuccess = async () => {
   await refreshAfterCreditAction()
 }
 
-// 🆕 فاتورة جديدة مباشرة لعميل مُحدَّد
+// فاتورة جديدة مباشرة لعميل مُحدَّد
 const newInvoiceTarget = ref(null)
 
 const openNewInvoice = (stmt) => {
   newInvoiceTarget.value = { customer_id: stmt.customer_id, customer_name: stmt.customer_name }
 }
-// 🆕 لا نُغلق كشف الحساب (card) عند فتح فاتورة جديدة من داخله — نفس منطق
+// لا نُغلق كشف الحساب (card) عند فتح فاتورة جديدة من داخله — نفس منطق
 // handleOpenInvoiceFromCard أعلاه، لإتاحة الرجوع التلقائي إليه بعد الإغلاق
 const openNewInvoiceFromCard = (stmt) => {
   newInvoiceTarget.value = { customer_id: stmt.customer_id, customer_name: stmt.customer_name }

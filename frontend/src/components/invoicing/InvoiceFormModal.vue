@@ -187,7 +187,7 @@
       </div>
     </div>
 
-    <!-- 🆕 تأكيد وجود فائض قبل الإرسال الفعلي -->
+    <!-- تأكيد وجود فائض قبل الإرسال الفعلي -->
     <div v-if="showSurplusConfirm" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
@@ -226,7 +226,7 @@ import CustomerFormModal from '../admin/modals/CustomerFormModal.vue'
 const { apiFetch } = useAuth()
 const { showToast } = useToast()
 
-// 🆕 يسمح بفتح المودال مسبوقًا باختيار عميل محدد (من كشف حساب العميل)
+// يسمح بفتح المودال مسبوقًا باختيار عميل محدد (من كشف حساب العميل)
 const props = defineProps({
   presetCustomerId: { type: [Number, String], default: null },
   presetCustomerName: { type: String, default: '' },
@@ -368,7 +368,7 @@ const validateForm = () => {
   return true
 }
 
-// 🆕 بوابة تحقّق أولًا، ثم تعرض تأكيد الفائض إن وُجد قبل الإرسال الفعلي
+// بوابة تحقّق أولًا، ثم تعرض تأكيد الفائض إن وُجد قبل الإرسال الفعلي
 const submit = () => {
   if (!validateForm()) return
   if (surplusAmount.value > 0) {

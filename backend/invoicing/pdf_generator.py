@@ -1,15 +1,15 @@
 """
 invoicing/pdf_generator.py
 
-🆕 توليد PDF لفاتورة واحدة (نظام الفوترة). ميزة عرض بحتة، لا تُعدّل أي
+توليد PDF لفاتورة واحدة (نظام الفوترة). ميزة عرض بحتة، لا تُعدّل أي
 بيانات — تقرأ فقط من كائن Invoice (بعد _attach_invoice_extras) وتُنتج
 ملف PDF بايتات جاهزة للإرجاع مباشرة في الاستجابة.
 
-🆕🛡️ تتضمن الآن رمز QR للتحقق من صحة الفاتورة (راجع invoicing/verification.py):
+تتضمن الآن رمز QR للتحقق من صحة الفاتورة (راجع invoicing/verification.py):
 الرمز يحتوي رابطًا لصفحة تحقق عامة على مسار منفصل تمامًا عن التطبيق، ولا
 يُطبع أي هاش أو توكن كنص ظاهر على الفاتورة إطلاقًا — فقط رمز QR.
 
-🛡️ ملاحظة تقنية حاسمة (عربي + RTL):
+ملاحظة تقنية حاسمة (عربي + RTL):
 reportlab لا يدعم تشكيل الحروف العربية (Arabic shaping) ولا ترتيب النص
 من اليمين لليسار (bidi) بشكل أصلي. لذلك كل نص عربي يُمرَّر أولاً عبر:
   1) arabic_reshaper.reshape(text)  → يُشكّل الحروف (يربط الحروف ببعضها
@@ -62,7 +62,7 @@ _fonts_registered = False
 
 def _ensure_fonts_registered():
     """
-    🛡️ تسجيل الخط مرة واحدة فقط لكل عملية تشغيل (تسجيل نفس اسم الخط مرتين
+    تسجيل الخط مرة واحدة فقط لكل عملية تشغيل (تسجيل نفس اسم الخط مرتين
     يرمي خطأ من reportlab). لو ملف الخط غير موجود، نرمي خطأ عربي واضح بدل
     فشل غامض لاحقًا أثناء الرسم.
     """
@@ -84,7 +84,7 @@ def _ensure_fonts_registered():
 
 def _ar(text) -> str:
     """
-    🆕 يُحضّر أي نص عربي (أو مختلط) للرسم الصحيح في reportlab:
+    يُحضّر أي نص عربي (أو مختلط) للرسم الصحيح في reportlab:
     reshape ثم bidi. يتعامل بأمان مع None وبالأرقام (يُحوّلها لنص أولاً).
     """
     if text is None:
@@ -103,7 +103,7 @@ def _money(value) -> str:
 
 def _generate_qr_image_reader(url: str) -> ImageReader:
     """
-    🆕🛡️ يُنشئ رمز QR يحمل رابط صفحة التحقق فقط (لا يظهر أي هاش أو توكن
+    يُنشئ رمز QR يحمل رابط صفحة التحقق فقط (لا يظهر أي هاش أو توكن
     كنص مقروء على الفاتورة نفسها — التوكن موجود فقط داخل الرابط المُشفَّر
     ضمن الرمز).
     """
@@ -134,14 +134,14 @@ STATUS_LABELS_AR = {
 
 class _InvoicePDFCanvas:
     """
-    🆕 غلاف بسيط حول reportlab.canvas.Canvas لتسهيل رسم الفاتورة سطرًا بسطر
+    غلاف بسيط حول reportlab.canvas.Canvas لتسهيل رسم الفاتورة سطرًا بسطر
     مع دعم عربي RTL، وإدارة تلقائية للانتقال لصفحة جديدة عند امتلاء الصفحة
     الحالية (مهم للفواتير ذات عدد بنود كبير).
     """
 
     PAGE_WIDTH, PAGE_HEIGHT = A4
     MARGIN = 18 * mm
-    RIGHT_X = PAGE_WIDTH - MARGIN  # 🆕 نبدأ الرسم من أقصى اليمين (RTL)
+    RIGHT_X = PAGE_WIDTH - MARGIN  # نبدأ الرسم من أقصى اليمين (RTL)
     LEFT_X = MARGIN
 
     def __init__(self, buffer):
@@ -181,7 +181,7 @@ class _InvoicePDFCanvas:
     def draw_row(self, cells: list[tuple[str, float, str]], font=FONT_NAME, size=9,
                  color=colors.black, dy=6 * mm, bold=False):
         """
-        🆕 يرسم صفًا بعدة أعمدة من اليمين لليسار.
+        يرسم صفًا بعدة أعمدة من اليمين لليسار.
         cells: قائمة (نص, عرض_العمود_بالملم, محاذاة) حيث محاذاة ∈ {"right", "left", "center"}
         """
         self._new_page_if_needed(dy)
@@ -204,7 +204,7 @@ class _InvoicePDFCanvas:
 
     def draw_qr_block(self, image_reader: ImageReader, caption: str, qr_size_mm: float = 26):
         """
-        🆕🛡️ يرسم رمز QR في الجهة اليسرى (بعيدًا عن نصوص RTL) مع تعليق
+        يرسم رمز QR في الجهة اليسرى (بعيدًا عن نصوص RTL) مع تعليق
         تحته، ويحجز المساحة اللازمة عبر نظام الـ y الموحّد حتى لا يتداخل
         مع أي محتوى لاحق أو سابق.
         """
@@ -269,13 +269,13 @@ def _draw_invoice_info(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
 
 
 def _draw_verification_qr(pdf: _InvoicePDFCanvas, invoice: models.Invoice):
-    # ====================== 🆕 رمز التحقق (QR) ======================
+    # ====================== رمز التحقق (QR) ======================
     try:
         verify_url = build_verification_url(invoice)
         qr_reader = _generate_qr_image_reader(verify_url)
         pdf.draw_qr_block(qr_reader, "امسح للتحقق من صحة الفاتورة")
     except RuntimeError:
-        # 🛡️ لو لم تُعرَّف متغيرات بيئة التحقق (INVOICE_VERIFICATION_SECRET_KEY
+        # لو لم تُعرَّف متغيرات بيئة التحقق (INVOICE_VERIFICATION_SECRET_KEY
         # أو INVOICE_VERIFY_BASE_URL)، لا نُفشل توليد الفاتورة بالكامل بسبب
         # ميزة إضافية — نتجاهل QR فقط ونكمل بقية المستند
         pass
@@ -389,11 +389,11 @@ def _draw_footer(pdf: _InvoicePDFCanvas):
 
 def generate_invoice_pdf(invoice: models.Invoice) -> bytes:
     """
-    🆕 الدالة الرئيسية: تستقبل كائن Invoice كاملًا (بعد المرور على
+    الدالة الرئيسية: تستقبل كائن Invoice كاملًا (بعد المرور على
     invoices_crud._attach_invoice_extras — أي بعد تعبئة customer_name،
     created_by_username، is_returned لكل بند، إلخ) وتُعيد بايتات PDF جاهزة.
 
-    🆕🛡️ تُضيف الآن رمز QR للتحقق من صحة الفاتورة (بلا أي هاش ظاهر كنص).
+    تُضيف الآن رمز QR للتحقق من صحة الفاتورة (بلا أي هاش ظاهر كنص).
     """
     _ensure_fonts_registered()
 

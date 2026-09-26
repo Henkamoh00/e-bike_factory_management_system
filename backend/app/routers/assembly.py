@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/assembly", tags=["assembly"])
 
 can_manage_assembly = require_tab("assembly")
 
-# 🛡️🆕 حد 200/يوم لكل مستخدم على تسجيل عمليات التجميع — مسار كتابة حساس
+# حد 200/يوم لكل مستخدم على تسجيل عمليات التجميع — مسار كتابة حساس
 # (كل تسجيل يُنشئ سجل تجميع، وقد يُنشئ ضمنيًا عاملاً/نوع دراجة/لون دراجة جديد)
 # كان بلا أي حد سابقًا رغم ذلك. الحد مرتبط بالمستخدم (user:{username}) وليس IP
 # حتى لا يتشارك عدة عمال يعملون خلف نفس IP نفس السقف اليومي.
@@ -31,7 +31,7 @@ def create_assembly_record(
             current_user_id=current_user.id,
             force=force,
         )
-        # 🆕 تعبئة الحقول الاشتقاقية في الاستجابة (AssemblyResponse) من العلاقات
+        # تعبئة الحقول الاشتقاقية في الاستجابة (AssemblyResponse) من العلاقات
         record.worker_name = record.worker.name if record.worker else None
         record.bike_type_name = record.bike_type.name if record.bike_type else None
         record.bike_color_name = record.bike_color.name if record.bike_color else None

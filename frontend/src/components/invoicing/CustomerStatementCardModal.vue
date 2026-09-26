@@ -15,7 +15,7 @@
                 <p class="text-sm text-gray-400">كشف الحساب الكامل</p>
               </div>
             </div>
-            <!-- 🆕 فاتورة جديدة مباشرة لهذا العميل + عدد فواتيره -->
+            <!-- فاتورة جديدة مباشرة لهذا العميل + عدد فواتيره -->
             <div class="flex flex-col items-end gap-1 shrink-0">
               <button
                 @click="$emit('add-invoice', statement)"
@@ -174,11 +174,11 @@ const creditActionLabels = {
   used_on_invoice: 'تسديد فاتورة',
   deposit_excess_payment: 'فائض دفعة نقدية',
   refunded: 'استرجاع نقدي',
-  reallocated: 'تسديد فاتورة', // توافق مع سجلات قديمة قبل توحيد التسمية
+  reallocated: 'تسديد فاتورة',
 }
 const creditActionLabel = (t) => creditActionLabels[t] || t
 
-// 🆕 باجينيشن (10 بكل صفحة) لسجل حركات الرصيد كي لا تطول القائمة داخل المودال
+// باجينيشن (10 بكل صفحة) لسجل حركات الرصيد كي لا تطول القائمة داخل المودال
 const creditLedgerItems = computed(() => statement.value?.credit_ledger || [])
 const ledgerPg = usePagination(creditLedgerItems, 10)
 

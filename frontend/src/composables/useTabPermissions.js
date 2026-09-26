@@ -1,16 +1,9 @@
-// مصدر واحد للحقيقة لكتالوج التبويبات (id/label/icon فقط)
-// صلاحيات كل دور أصبحت ديناميكية الآن، تُدار من الباك إند (جدول roles)
-// وتصل مع بيانات المستخدم كحقل allowed_tabs
-
 export const TAB_DEFINITIONS = [
   { id: 'stats',     label: 'الإحصائيات',    icon: '📈' },
   { id: 'users',     label: 'المستخدمون',     icon: '👤' },
   { id: 'settings',  label: 'الإعدادات',      icon: '🛠️' },
   { id: 'assembly',  label: 'الورشة',         icon: '⚙️' },
-  // 🆕 "sales" استُبدل نهائيًا بـ "invoices" — نظام فوترة كامل يفتح صفحة
-  // مستقلة (router.push) بدل تبويب داخلي، لذا الأيقونة مختلفة قصدًا للتمييز
   { id: 'invoices',  label: 'الفواتير',       icon: '🧾' },
-  // 🆕 نظام إدارة المخزون (قطع الغيار) — نفس القرار المعماري: صفحة مستقلة
   { id: 'inventory', label: 'المخزون',        icon: '📦' },
   { id: 'faults',    label: 'الأعطال',        icon: '⚠️' },
   { id: 'workers',   label: 'العمال',         icon: '👷' },
@@ -21,7 +14,7 @@ export const TAB_DEFINITIONS = [
 
 const ALL_TAB_IDS = TAB_DEFINITIONS.map(t => t.id)
 
-// 🛡️ admin دائمًا بكل الصلاحيات بغض النظر عمّا هو مخزّن فعليًا
+// admin دائمًا بكل الصلاحيات بغض النظر عمّا هو مخزّن فعليًا
 // (حماية من قفل النظام بالكامل بالخطأ عبر تبويب إدارة الأدوار)
 function resolveAllowedIds(role, allowedTabs) {
   if (role === 'admin') return ALL_TAB_IDS

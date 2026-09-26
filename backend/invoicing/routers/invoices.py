@@ -56,7 +56,6 @@ def get_available_chassis(
     return invoices_crud.get_available_chassis_with_price(db)
 
 
-# 🆕 سجل الاسترجاعات النقدية الفعلية (يحلّ محل "المدفوعات المعلقة" القديم بالكامل)
 @router.get("/credit-refunds/", response_model=schemas.PaginatedCreditRefunds)
 def get_credit_refunds(
     skip: int = Query(default=0, ge=0),

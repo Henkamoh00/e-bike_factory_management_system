@@ -10,7 +10,7 @@ from .database import get_db
 from . import models, schemas
 from .time_utils import utcnow
 
-# 🛡️ إجبار تعيين JWT_SECRET_KEY من متغيرات البيئة — لا قيمة افتراضية إطلاقًا.
+# إجبار تعيين JWT_SECRET_KEY من متغيرات البيئة — لا قيمة افتراضية إطلاقًا.
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError(
@@ -31,7 +31,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 ACCESS_COOKIE_NAME = "ebike_access"
 REFRESH_COOKIE_NAME = "ebike_refresh"
 
-# 🛡️🆕 حماية CSRF — نمط Double Submit Cookie:
+# حماية CSRF — نمط Double Submit Cookie:
 # - CSRF cookie غير httpOnly (يجب أن يقرأها JS ليرسلها بالهيدر يدويًا)
 # - أي طلب مُغيِّر للحالة (POST/PUT/DELETE/PATCH) من عميل يحمل جلسة كوكيز
 #   يجب أن يُرفق هيدر X-CSRF-Token مطابقًا تمامًا لقيمة الكوكي
@@ -78,7 +78,7 @@ def generate_csrf_token() -> str:
 
 
 def set_csrf_cookie(response: Response, token: str):
-    """🛡️🆕 يضبط كوكي CSRF غير httpOnly — يجب أن يبقى قابلاً للقراءة من JS"""
+    """يضبط كوكي CSRF غير httpOnly — يجب أن يبقى قابلاً للقراءة من JS"""
     response.set_cookie(
         key=CSRF_COOKIE_NAME,
         value=token,
@@ -108,7 +108,7 @@ def set_auth_cookies(response: Response, access_token: str, raw_refresh_token: s
         value=raw_refresh_token,
         **_cookie_kwargs(REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60),
     )
-    # 🛡️🆕 كوكي CSRF جديد يُصدَر مع كل جلسة (login أو refresh) لمنع إعادة استخدام
+    # كوكي CSRF جديد يُصدَر مع كل جلسة (login أو refresh) لمنع إعادة استخدام
     # توكن CSRF قديم عبر جلسات مختلفة
     set_csrf_cookie(response, generate_csrf_token())
 

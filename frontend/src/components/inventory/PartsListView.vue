@@ -134,7 +134,7 @@ const fetchPartsPage = async ({ skip, limit, search }) => {
 
 const pg = useServerPagination(fetchPartsPage, 10)
 
-// 🆕 يُرجع اسم القطعة كقيمة (value) بدل المعرّف، لأن فلتر get_parts في
+// يُرجع اسم القطعة كقيمة (value) بدل المعرّف، لأن فلتر get_parts في
 // الباك إند يستقبل نصًا (search) ويبحث بـ ilike، وليس معرّف قطعة محدد
 const searchPartsForFilter = async (query) => {
   const params = new URLSearchParams({ limit: 20 })

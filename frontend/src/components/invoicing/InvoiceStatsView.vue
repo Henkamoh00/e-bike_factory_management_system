@@ -61,7 +61,7 @@
           </div>
         </div>
 
-        <!-- 🆕 صف يضم: المسترجَع، مجموع الأرصدة، الإجمالي الشامل -->
+        <!-- صف يضم: المسترجَع، مجموع الأرصدة، الإجمالي الشامل -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div class="bg-amber-50 rounded-2xl p-5">
             <div class="flex items-center gap-2 text-xs text-amber-600 mb-2">

@@ -26,7 +26,7 @@ os.environ.pop("REDIS_URL", None)       # إجبار slowapi على وضع ال�
 BACKEND_DIR = TEST_SUITE_DIR.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
-# 🛡️ noqa: E402 — هذه الاستيرادات يجب أن تأتي بعد ضبط متغيرات البيئة أعلاه
+# noqa: E402 — هذه الاستيرادات يجب أن تأتي بعد ضبط متغيرات البيئة أعلاه
 # عمدًا (database.py و security.py يفشلان عند الاستيراد لو لم تُضبط هذه
 # المتغيرات أولاً)، لذا تجاهل تحذير flake8 الخاص بترتيب الاستيراد هنا مقصود.
 import pytest  # noqa: E402
@@ -88,7 +88,7 @@ limiter.enabled = False
 
 
 # ---------------------------------------------------------------------------
-# 4.5) 🛡️ عميل اختبار "واعٍ" بحماية CSRF (نفس منطق conftest.py العام تمامًا)
+# 4.5) عميل اختبار "واعٍ" بحماية CSRF (نفس منطق conftest.py العام تمامًا)
 # ---------------------------------------------------------------------------
 class CSRFAwareTestClient(TestClient):
     def request(self, method, url, headers=None, **kwargs):
@@ -165,7 +165,7 @@ def seed_roles(db_session):
     return created
 
 
-# 🆕 دور "فوترة فقط" (invoices فقط، بلا customers/faults/assembly/chassis) —
+# دور "فوترة فقط" (invoices فقط، بلا customers/faults/assembly/chassis) —
 # يُستخدم لاختبار إصلاح صلاحيات القراءة العابرة للتبويبات (customers/faults/
 # chassis) الذي أُجري لصالح مستخدمي الفوترة فقط.
 @pytest.fixture
@@ -182,7 +182,7 @@ def seed_invoices_only_role(db_session):
     return role
 
 
-# 🆕 دور "عملاء فقط" — للتأكد (كضابط سلبي/negative control) أن من يملك
+# دور "عملاء فقط" — للتأكد (كضابط سلبي/negative control) أن من يملك
 # customers فقط (بلا invoices وبلا faults) يبقى محجوبًا عن /api/faults/
 @pytest.fixture
 def seed_customers_only_role(db_session):
@@ -307,22 +307,10 @@ def customer_factory(db_session):
     return _make
 
 
-# 🛡️🆕 إصلاح جوهري: make_chassis لم يعد يعتمد على فِكستشر authenticated_client
-# المشترك (الذي يستخدم كائن `client` نفسه المستخدم من قبل فِكستشرات أخرى
-# كـ invoices_only_client أو customers_only_client). الاعتماد القديم كان
-# يُسبب تصادم كوكيز صامت: أي اختبار يستخدم معًا (مثلاً) invoices_only_client
-# و make_chassis كان فعليًا يُسجّل دخول admin *فوق* كوكيز invoices_only على
-# نفس كائن client، فتنقلب كل الطلبات اللاحقة عبر invoices_only_client إلى
-# طلبات بصلاحية admin بالخطأ (نفس الفخ الموثّق أصلاً في تعليق
-# test_unauthenticated_cannot_create_fault، لكنه لم يكن معالَجًا هنا).
-#
-# الحل: استخدام TestClient معزول تمامًا (عميل خاص بعملية إنشاء الهيكل فقط،
-# بكوكيز خاصة به) لتسجيل دخول admin وإنشاء سجل التجميع، دون أي تأثير على
-# كوكيز أي فِكستشر client آخر مستخدم في نفس الاختبار.
 @pytest.fixture
 def make_chassis(admin_user):
     """
-    🆕 مصنع هياكل "متاحة للبيع": يُسجِّل مرحلة (تجميع_كامل) دفعة واحدة عبر
+    مصنع هياكل "متاحة للبيع": يُسجِّل مرحلة (تجميع_كامل) دفعة واحدة عبر
     حساب admin على عميل TestClient معزول تمامًا (لا يشارك الكوكيز مع أي
     فِكستشر client آخر يُستخدم في نفس الاختبار)، فينتج هيكل مكتمل التجميع،
     بلا أعطال معلّقة، وغير مُباع بعد — أي جاهز تمامًا لإنشاء فاتورة عليه.

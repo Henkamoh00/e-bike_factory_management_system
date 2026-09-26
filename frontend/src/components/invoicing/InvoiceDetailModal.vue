@@ -95,7 +95,7 @@
           <div v-if="invoice.discount_type" class="flex justify-between text-sm text-red-500">
             <span>الخصم</span><span>- {{ (Number(invoice.subtotal) - Number(invoice.total_amount) - returnedItemsTotal).toFixed(2) }}</span>
           </div>
-          <!-- 🆕 توضيح واضح للبنود المُرجَعة/المحذوفة المخصومة من الإجمالي -->
+          <!-- توضيح واضح للبنود المُرجَعة/المحذوفة المخصومة من الإجمالي -->
           <div v-if="returnedItemsTotal > 0" class="flex justify-between text-sm text-red-500">
             <span>بنود مُرجَعة (مخصومة من الإجمالي)</span><span>- {{ returnedItemsTotal.toFixed(2) }}</span>
           </div>
@@ -108,7 +108,7 @@
           </div>
         </div>
 
-        <!-- 🆕 توضيح سبب أن المدفوع أكبر من الإجمالي الحالي (بسبب إرجاع/حذف بند بعد الدفع) -->
+        <!-- توضيح سبب أن المدفوع أكبر من الإجمالي الحالي (بسبب إرجاع/حذف بند بعد الدفع) -->
         <div v-if="paidExceedsTotal" class="mb-6 p-3 bg-indigo-50 text-indigo-700 text-sm rounded-2xl flex items-start gap-2">
           <span class="shrink-0">💡</span>
           <span>
@@ -282,7 +282,7 @@
       </div>
     </div>
 
-    <!-- 🆕 تأكيد وجود فائض قبل تسجيل الدفعة فعليًا -->
+    <!-- تأكيد وجود فائض قبل تسجيل الدفعة فعليًا -->
     <div v-if="showSurplusConfirm" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[80]">
       <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
         <div class="text-4xl mb-4">⚠️</div>
@@ -335,7 +335,7 @@ const emit = defineEmits(['close', 'refresh'])
 const hasPayments = computed(() => Number(props.invoice.paid_amount) > 0)
 const canEditItems = computed(() => props.invoice.status !== 'cancelled' && props.invoice.status !== 'paid')
 
-// 🆕 مجموع البنود المُرجَعة (لتوضيح سبب الفرق بين المدفوع والإجمالي الحالي)
+// مجموع البنود المُرجَعة (لتوضيح سبب الفرق بين المدفوع والإجمالي الحالي)
 const returnedItemsTotal = computed(() =>
   (props.invoice.items || [])
     .filter(i => i.is_returned)
@@ -386,7 +386,7 @@ const showRemainingNote = computed(() =>
   Number(paymentAmount.value) > 0 || (useCreditNow.value && Number(useCreditAmount.value) > 0)
 )
 
-// 🆕 بوابة تحقّق أولًا، ثم تعرض تأكيد الفائض إن وُجد قبل الإرسال الفعلي
+// بوابة تحقّق أولًا، ثم تعرض تأكيد الفائض إن وُجد قبل الإرسال الفعلي
 const submitPayment = () => {
   const cash = Number(paymentAmount.value) || 0
   const credit = useCreditNow.value ? (Number(useCreditAmount.value) || 0) : 0

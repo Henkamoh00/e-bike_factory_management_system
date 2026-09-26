@@ -53,7 +53,7 @@ def get_logs(
         q = q.filter(models.AuditLog.entity_type == entity_type)
     if user_id:
         q = q.filter(models.AuditLog.user_id == user_id)
-    # 🛡️ التواريخ القادمة من الواجهة (naive) تُفسَّر بتوقيت الجزائر ثم تُحوَّل إلى UTC
+    # التواريخ القادمة من الواجهة (naive) تُفسَّر بتوقيت الجزائر ثم تُحوَّل إلى UTC
     # للمقارنة مع timestamp المخزَّن بـ UTC
     if date_from:
         q = q.filter(models.AuditLog.timestamp >= local_naive_to_utc(date_from))

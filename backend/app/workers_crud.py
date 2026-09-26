@@ -13,7 +13,7 @@ def get_or_create_worker(db: Session, name: str, current_user_id: int | None = N
             db.commit()
         except IntegrityError:
             db.rollback()
-            # 🛡️ شبكة أمان لحالات التزامن النادرة (سباق بين طلبين متزامنين بنفس الاسم)
+            # شبكة أمان لحالات التزامن النادرة (سباق بين طلبين متزامنين بنفس الاسم)
             worker = db.query(models.Worker).filter(models.Worker.name == name).first()
             if not worker:
                 raise ValueError("تعذر إنشاء العامل، يرجى المحاولة مجدداً")
@@ -31,7 +31,7 @@ def get_or_create_worker(db: Session, name: str, current_user_id: int | None = N
 
 def get_workers(db: Session, skip: int = 0, limit: int = 20, search: str | None = None):
     """
-    🆕 نسخة مُصفَّحة (Paginated) من قائمة العمال البسيطة.
+    نسخة مُصفَّحة (Paginated) من قائمة العمال البسيطة.
     تُرجع Tuple: (العناصر، الإجمالي) بدل قائمة كاملة.
     """
     query = db.query(models.Worker).filter(models.Worker.is_deleted.is_(False))
@@ -44,7 +44,7 @@ def get_workers(db: Session, skip: int = 0, limit: int = 20, search: str | None 
 
 def search_workers_simple(db: Session, q: str | None = None, limit: int = 20):
     """
-    🆕 بحث خفيف للقوائم المنسدلة (SearchableSelect):
+    بحث خفيف للقوائم المنسدلة (SearchableSelect):
     يرجع فقط id/name، بدون سجلات، ومحدود بـ limit صارم.
     لا يُستخدم للعرض الجدولي، بل لتغذية الـ dropdowns ديناميكيًا.
     """
@@ -104,7 +104,7 @@ def restore_worker(db: Session, worker_id: int, current_user_id: int):
     if not worker.is_deleted:
         raise ValueError("العامل غير مؤرشف أصلاً")
 
-    # 🛡️ فحص مسبق بالكود: منع الاستعادة لو يوجد عامل نشط حاليًا بنفس الاسم
+    # فحص مسبق بالكود: منع الاستعادة لو يوجد عامل نشط حاليًا بنفس الاسم
     # (مستقل عن قيد unique بقاعدة البيانات، لإعطاء رسالة عربية واضحة بدل خطأ تقني)
     duplicate = db.query(models.Worker).filter(
         models.Worker.name == worker.name,
@@ -122,7 +122,7 @@ def restore_worker(db: Session, worker_id: int, current_user_id: int):
     try:
         db.commit()
     except IntegrityError:
-        # 🛡️ شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
+        # شبكة أمان لحالات التزامن النادرة يفلت منها الفحص المسبق أعلاه
         db.rollback()
         raise ValueError(f"لا يمكن استعادة العامل، يوجد عامل نشط حاليًا بنفس الاسم '{worker.name}'")
     db.refresh(worker)

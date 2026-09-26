@@ -9,7 +9,7 @@ import sys, os
 from dotenv import load_dotenv
 
 
-# 🛡️ يضمن استيراد حزمة الباك إند بغض النظر عن مجلد التشغيل الحالي
+# يضمن استيراد حزمة الباك إند بغض النظر عن مجلد التشغيل الحالي
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # تحميل متغيرات البيئة من .env (نفس ملف database.py بالضبط)
@@ -27,7 +27,7 @@ import inventory.models
 # كائن Alembic Config، يوفر الوصول لقيم ملف alembic.ini
 config = context.config
 
-# 🛡️ حقن DATABASE_URL من .env مباشرة بدل الاعتماد على alembic.ini
+# حقن DATABASE_URL من .env مباشرة بدل الاعتماد على alembic.ini
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
@@ -90,9 +90,9 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            # 🛡️ يجعل autogenerate يلتقط تغييرات نوع العمود (مثال: String → Text)
+            # يجعل autogenerate يلتقط تغييرات نوع العمود (مثال: String → Text)
             compare_type=True,
-            # 🛡️ يلتقط تغييرات server_default أيضًا
+            # يلتقط تغييرات server_default أيضًا
             compare_server_default=True,
         )
 

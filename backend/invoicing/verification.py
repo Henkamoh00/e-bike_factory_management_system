@@ -1,7 +1,7 @@
 """
 invoicing/verification.py
 
-🆕🛡️ آلية توثيق الفواتير لمنع الاحتيال والتزوير أمام طرف ثالث (بنك، جهة
+آلية توثيق الفواتير لمنع الاحتيال والتزوير أمام طرف ثالث (بنك، جهة
 رسمية، عميل آخر...). الفكرة:
 
 - كل فاتورة تُطبع لها رمز QR يحتوي رابطًا لصفحة تحقق عامة (بلا تسجيل دخول)
@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from . import models
 
 
-# 🛡️ مفتاح سرّي مستقل تمامًا عن JWT_SECRET_KEY (فصل الاستخدامات الأمنية عن
+# مفتاح سرّي مستقل تمامًا عن JWT_SECRET_KEY (فصل الاستخدامات الأمنية عن
 # بعضها — تسريب أحدهما لا يجب أن يُسقط الآخر معه). إجباري بلا قيمة افتراضية.
 VERIFICATION_SECRET_KEY = os.getenv("INVOICE_VERIFICATION_SECRET_KEY")
 if not VERIFICATION_SECRET_KEY:
@@ -36,7 +36,7 @@ if not VERIFICATION_SECRET_KEY:
         "روابط التحقق من صحة الفواتير المطبوعة."
     )
 
-# 🆕 الدومين العام الذي تُبنى عليه روابط QR — يجب أن يكون رابط السيرفر
+# الدومين العام الذي تُبنى عليه روابط QR — يجب أن يكون رابط السيرفر
 # الفعلي المتاح للجمهور (وليس localhost)، بدون شرطة مائلة / في النهاية.
 VERIFY_BASE_URL = os.getenv("INVOICE_VERIFY_BASE_URL")
 if not VERIFY_BASE_URL:
@@ -47,7 +47,7 @@ if not VERIFY_BASE_URL:
     )
 VERIFY_BASE_URL = VERIFY_BASE_URL.rstrip("/")
 
-# 🆕🛡️ مسار عشوائي المظهر، غير مرتبط بأي شكل بمسارات التطبيق (/api/...)
+# مسار عشوائي المظهر، غير مرتبط بأي شكل بمسارات التطبيق (/api/...)
 # ولا يحمل أي دلالة واضحة (لا "/invoices/" ولا "/verify/") حتى لا يُستدرَج
 # أي زائر لتصفح التطبيق نفسه بالخطأ. قابل للتخصيص من البيئة.
 VERIFY_PATH_PREFIX = os.getenv("INVOICE_VERIFY_PATH_PREFIX", "/dq7f-doc-chk-2x9k")
@@ -66,7 +66,7 @@ def _b64url_decode(s: str) -> bytes:
 
 def _canonical_payload(invoice: models.Invoice) -> bytes:
     """
-    🛡️ البيانات الجوهرية التي يغطيها التوقيع. التوقيع يُعاد حسابه من القيم
+    البيانات الجوهرية التي يغطيها التوقيع. التوقيع يُعاد حسابه من القيم
     الحالية في قاعدة البيانات وقت كل فحص (وليس وقت الطباعة)، لذا أي تعديل
     لاحق مشروع (تعديل سعر، إلغاء الفاتورة...) ينعكس تلقائيًا في صفحة التحقق.
     """
@@ -124,7 +124,7 @@ def resolve_invoice_from_token(db: Session, token: str) -> models.Invoice | None
         hashlib.sha256,
     ).digest()
 
-    # 🛡️ مقارنة بزمن ثابت لمنع هجمات timing attack على التوقيع
+    # مقارنة بزمن ثابت لمنع هجمات timing attack على التوقيع
     if not hmac.compare_digest(provided_signature, expected_signature):
         return None
 

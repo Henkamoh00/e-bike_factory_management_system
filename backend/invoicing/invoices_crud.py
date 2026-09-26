@@ -793,7 +793,7 @@ def _attach_invoice_extras(db: Session, invoices: list):
             ret = returns_map.get(item.id)
             item.is_returned = ret is not None
             item.return_reason = ret.reason if ret else None
-            # 🆕🛡️ يُلحق نص ملاحظات الإرجاع أيضًا (وليس reason فقط)، لأن
+            # يُلحق نص ملاحظات الإرجاع أيضًا (وليس reason فقط)، لأن
             # النص الحر لـ "سبب آخر" بات يُخزَّن هنا بعد تقييد reason بـ Enum
             item.return_notes = ret.notes if ret else None
     return invoices
@@ -1123,7 +1123,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
         raise HTTPException(status_code=400, detail="لا يمكن تسجيل إرجاع لبند على فاتورة ملغاة")
     _ensure_item_not_returned(db, item, "تم تسجيل إرجاع هذا البند مسبقاً")
 
-    # 🆕🛡️ استخراج القيمة النصية الفعلية من الـ Enum (data.reason هو الآن
+    # استخراج القيمة النصية الفعلية من الـ Enum (data.reason هو الآن
     # ChassisReturnReason بعد التحقق من Pydantic). نفس النمط المستخدم مع
     # AssemblyStage في assembly_crud.py — يضمن تخزين نص عادي في عمود
     # ChassisReturn.reason (String) وليس تمثيل الـ Enum الخام.
@@ -1154,7 +1154,7 @@ def create_return(db: Session, data: schemas.ChassisReturnCreate, current_user_i
     db.refresh(ret)
     db.refresh(invoice)
 
-    # 🆕 الـ details يضم الآن السبب + الملاحظات معًا (بدل reason فقط سابقًا)
+    # الـ details يضم الآن السبب + الملاحظات معًا (بدل reason فقط سابقًا)
     # لأن النص الحر عند "سبب آخر" بات يُخزَّن في notes وليس reason
     audit_details = reason_value if not data.notes else f"{reason_value} — {data.notes}"
 
@@ -1407,7 +1407,7 @@ def get_credit_refund_log(db: Session, skip: int = 0, limit: int = 50):
 
 # ====================== إحصائيات لوحة المدير ======================
 def get_invoice_stats(db: Session):
-    # 🛡️ حدود الفترات بتوقيت الجزائر (Africa/Algiers) لا UTC، مُحوَّلة إلى aware UTC
+    # حدود الفترات بتوقيت الجزائر (Africa/Algiers) لا UTC، مُحوَّلة إلى aware UTC
     # للمقارنة مع القيم المخزَّنة — راجع app/time_utils.py
     now_local = to_local(utcnow())
     today_start = local_start_of_day_utc(now_local.year, now_local.month, now_local.day)

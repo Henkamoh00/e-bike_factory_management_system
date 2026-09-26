@@ -32,7 +32,7 @@ def get_users(
     return {"items": items, "total": total}
 
 
-# 🛡️ حد على إنشاء المستخدمين — الآن لكل مستخدم بدل IP
+# حد على إنشاء المستخدمين — الآن لكل مستخدم بدل IP
 @router.post("/", response_model=schemas.UserResponse)
 @limiter.limit("10/minute", key_func=get_rate_limit_key)
 def create_user(
@@ -83,7 +83,7 @@ def delete_user(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# 🛡️🆕 حد صارم على bulk-deactivate — الآن لكل مستخدم
+# حد صارم على bulk-deactivate — الآن لكل مستخدم
 @router.post("/bulk-deactivate/", response_model=schemas.BulkActionResult)
 @limiter.limit("10/hour", key_func=get_rate_limit_key)
 def bulk_deactivate_users(
@@ -115,7 +115,7 @@ def bulk_activate_users(
     return auth_crud.bulk_activate_users(db, payload.ids, current_user.id)
 
 
-# 🛡️🆕 bulk-delete هو الأخطر بين الثلاثة — الآن لكل مستخدم
+# bulk-delete هو الأخطر بين الثلاثة — الآن لكل مستخدم
 @router.post("/bulk-delete/", response_model=schemas.BulkActionResult)
 @limiter.limit("5/hour", key_func=get_rate_limit_key)
 def bulk_delete_users(

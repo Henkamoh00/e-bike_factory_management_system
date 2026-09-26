@@ -66,7 +66,7 @@ class InvoiceItem(Base):
     notes = Column(String, nullable=True)
 
     invoice = relationship("Invoice", back_populates="items")
-    # 🆕 علاقة عكسية مع سجل الإرجاع (إن وُجد) — تُستخدم لتحديد is_returned
+    # علاقة عكسية مع سجل الإرجاع (إن وُجد) — تُستخدم لتحديد is_returned
     # دون أي استعلام إضافي منفصل لكل بند (تُجلب بالجملة في invoices_crud)
     chassis_return = relationship("ChassisReturn", back_populates="invoice_item", uselist=False)
 
@@ -93,7 +93,7 @@ class PaymentRefundAction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False, index=True)
-    # "refunded" | "reallocated" | "credited" (🆕 تحويل تلقائي/يدوي لرصيد العميل)
+    # "refunded" | "reallocated" | "credited" (تحويل تلقائي/يدوي لرصيد العميل)
     action_type = Column(String, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     target_invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
@@ -120,7 +120,7 @@ class ChassisReturn(Base):
     __tablename__ = "chassis_returns"
 
     id = Column(Integer, primary_key=True, index=True)
-    # 🛡️ فريد: نفس بند الفاتورة (نفس عملية بيع محددة) لا يمكن إرجاعه مرتين
+    # فريد: نفس بند الفاتورة (نفس عملية بيع محددة) لا يمكن إرجاعه مرتين
     invoice_item_id = Column(Integer, ForeignKey("invoice_items.id"), nullable=False, unique=True, index=True)
     reason = Column(String, nullable=False)
     # ربط اختياري بعطل مسجَّل مسبقًا لنفس الهيكل (إن كان سبب الإرجاع عطلاً)
@@ -134,7 +134,7 @@ class ChassisReturn(Base):
     created_by = relationship("User", foreign_keys=[created_by_id])
 
 
-# ====================== 🆕 رصيد العميل (المحفظة الداخلية) ======================
+# ====================== رصيد العميل (المحفظة الداخلية) ======================
 class CustomerCreditAction(Base):
     """
     سجل كل حركة على رصيد العميل (Customer.credit_balance)، سواء تلقائية
