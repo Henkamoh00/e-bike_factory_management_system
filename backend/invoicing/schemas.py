@@ -244,7 +244,7 @@ class CreditReallocateResponse(CustomerCreditBalanceResponse):
     target_invoice_number: str
 
 
-#سجل الاسترجاعات النقدية الفعلية (الخارجة من النظام)
+# جل الاسترجاعات النقدية الفعلية (الخارجة من النظام)
 # مصدره الوحيد: CustomerCreditAction
 # بنوع action_type == "refunded" (أي زر "استرجاع نقدي" من رصيد أي عميل).
 class CreditRefundLogResponse(BaseModel):
