@@ -23,6 +23,34 @@ A full-stack workshop management system for tracking the complete lifecycle of e
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Admin Dashboard" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/workshop.png" alt="Workshop - Assembly Tracking System" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/invoicing-system.png" alt="Invoicing System" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/invoice-form.png" alt="Invoice Creation" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/customer-statement.png" alt="Customer Statement with Credit Wallet" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/roles-permissions.png" alt="Dynamic roles and responsibilities" width="800"/>
+</p>
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Backend
@@ -234,6 +262,34 @@ This project is available under the [MIT License](LICENSE).
 - **وحدة إدارة مخزون/قطع غيار** بنظام دفتر حركات دخول/خروج بسيط وآلية علم يدوي لإعادة الطلب
 - **تخزين موحّد بتوقيت UTC مع منطق عرض بتوقيت الجزائر** — مصدر واحد للحقيقة (`time_utils.py`) لكل التعامل مع الوقت، مع اختبارات مخصصة لحالات حدود اليوم (دفعات قبل/بعد منتصف الليل المحلي مباشرة)
 - **مجموعة اختبارات آلية شاملة** — مجموعتا pytest معزولتان تمامًا (النظام الأساسي + الفوترة)، لكل منهما قاعدة SQLite خاصة، تغطي حدود الصلاحيات، الحالات المالية الحدّية (فوائض الدفع، الإرجاع الجزئي، حدود الخصم)، والتدفقات الحساسة للتزامن
+
+---
+
+## 📸 لقطات من النظام
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="لوحة الإدارة" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/workshop.png" alt="الورشة - نظام تتبع التجميع" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/invoicing-system.png" alt="نظام الفواتير" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/invoice-form.png" alt="إنشاء فاتورة" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/customer-statement.png" alt="كشف حساب المستخدم" width="800"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/roles-permissions.png" alt="الأدوار والصلاحيات الديناميكية" width="800"/>
+</p>
 
 ---
 
