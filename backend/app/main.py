@@ -1,5 +1,7 @@
 import os
+import asyncio
 import secrets
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -11,13 +13,57 @@ from .routers import workers, bike_options, customers, faults, chassis, assembly
 from invoicing.routers.invoices import router as invoices_router
 from invoicing.routers.verify import router as invoice_verify_router
 from inventory.routers.inventory import router as inventory_router
+from .database import SessionLocal
+from . import auth_crud
 from .rate_limit import limiter
 from .security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME
+
+
+# ====================== تنظيف دوري لتوكنات التحديث القديمة ======================
+# تعمل مرة كل 5 أيام، وتحذف كل توكن انتهت صلاحيته قبل أكثر من 30 يومًا
+# (راجع auth_crud.purge_expired_refresh_tokens). أول تشغيل بعد 30 دقائق من
+# إقلاع الخادم كي لا تتزاحم مع بدء التشغيل أو تتداخل مع الاختبارات.
+TOKEN_CLEANUP_FIRST_DELAY_SECONDS = 30 * 60
+TOKEN_CLEANUP_INTERVAL_SECONDS = 5 * 24 * 60 * 60
+
+
+def _run_token_cleanup():
+    db = SessionLocal()
+    try:
+        deleted = auth_crud.purge_expired_refresh_tokens(db)
+        if deleted:
+            print(f"🧹 تم حذف {deleted} توكن تحديث قديم")
+    finally:
+        db.close()
+
+
+async def _token_cleanup_loop():
+    await asyncio.sleep(TOKEN_CLEANUP_FIRST_DELAY_SECONDS)
+    while True:
+        try:
+            await asyncio.to_thread(_run_token_cleanup)
+        except Exception as e:
+            # 🛡️ فشل التنظيف لا يجب أن يوقف التطبيق أو المهمة نفسها أبدًا
+            print(f"⚠️ تعذر تنظيف توكنات التحديث القديمة: {e}")
+        await asyncio.sleep(TOKEN_CLEANUP_INTERVAL_SECONDS)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    cleanup_task = asyncio.create_task(_token_cleanup_loop())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
+
 
 app = FastAPI(
     title="نظام إدارة تجميع الدراجات الكهربائية",
     description="نظام تتبع كامل للدراجات الكهربائية",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter

@@ -8,8 +8,11 @@ from .models import RefreshToken
 from .time_utils import utcnow, is_expired
 
 
-# 📌 التعامل مع الوقت موحَّد عبر app/time_utils.py (utcnow / ensure_utc / is_expired)
+# التعامل مع الوقت موحَّد عبر app/time_utils.py (utcnow / ensure_utc / is_expired)
 # ممنوع datetime.utcnow() ومقارنة aware مع naive مباشرة — راجع قسم "قواعد ثابتة" في NOTES.md
+
+# مدة الاحتفاظ بتوكنات التحديث بعد انتهاء صلاحيتها (بالأيام) قبل حذفها نهائيًا
+REFRESH_TOKEN_RETENTION_DAYS = 30
 
 
 def _get_role_by_name(db: Session, name: str) -> models.Role:
@@ -325,3 +328,21 @@ def revoke_all_user_tokens(db: Session, user_id: int):
         RefreshToken.revoked.is_(False)
     ).update({"revoked": True})
     db.commit()
+
+
+def purge_expired_refresh_tokens(db: Session, retention_days: int = REFRESH_TOKEN_RETENTION_DAYS) -> int:
+    """
+    حذف نهائي (Hard Delete) لتوكنات التحديث التي انتهت صلاحيتها قبل أكثر من
+    retention_days يومًا. التوكنات بيانات تشغيلية للمصادقة وليست أثرًا تاريخيًا
+    للأعمال، لذلك لا يخالف حذفها فلسفة "تتبع الأثر الكامل".
+    لا يمسّ أي توكن ما زال صالحًا أو انتهى حديثًا (ضمن فترة الاحتفاظ).
+    يُرجع عدد الصفوف المحذوفة.
+    """
+    cutoff = utcnow() - timedelta(days=retention_days)
+    deleted = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.expires_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return deleted
